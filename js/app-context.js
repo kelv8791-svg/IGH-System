@@ -23,7 +23,10 @@ const AppProvider = ({ children }) => {
             const { data: expenses } = await window.supabaseClient.from('expenses').select('*').order('id', { ascending: false });
             const { data: projects } = await window.supabaseClient.from('projects').select('*').order('id', { ascending: false });
             const { data: clients } = await window.supabaseClient.from('clients').select('*');
+            const { data: suppliers } = await window.supabaseClient.from('suppliers').select('*');
             const { data: inventory } = await window.supabaseClient.from('inventory').select('*');
+            const { data: stockMovements } = await window.supabaseClient.from('stock_movements').select('*').order('id', { ascending: false });
+            const { data: interactions } = await window.supabaseClient.from('interactions').select('*').order('id', { ascending: false });
             const { data: activities } = await window.supabaseClient.from('activities').select('*').order('id', { ascending: false }).limit(50);
 
             // For now, we keep users in local state or Supabase Auth, but let's fetch from table if it exists
@@ -36,7 +39,10 @@ const AppProvider = ({ children }) => {
                 expenses: expenses || [],
                 projects: projects || [],
                 clients: clients || [],
+                suppliers: suppliers || [],
                 inventory: inventory || [],
+                stockMovements: stockMovements || [],
+                interactions: interactions || [],
                 activities: activities || [],
                 users: dbUsers || prev.users
             }));
@@ -182,6 +188,13 @@ const AppProvider = ({ children }) => {
     useEffect(() => {
         const savedUser = localStorage.getItem('expense_system_user');
         if (savedUser) setUser(JSON.parse(savedUser));
+
+        const savedDarkMode = localStorage.getItem('igh_dark_mode');
+        if (savedDarkMode) {
+            const isDark = JSON.parse(savedDarkMode);
+            setIsDarkMode(isDark);
+            if (isDark) document.documentElement.classList.add('dark');
+        }
     }, []);
 
     return (
@@ -189,7 +202,12 @@ const AppProvider = ({ children }) => {
             user, setUser, login, logout, changePassword,
             data, setData, updateData, deleteItem, getNextInvoiceNumber,
             logActivity,
-            isDarkMode, setIsDarkMode,
+            isDarkMode, setIsDarkMode: (val) => {
+                setIsDarkMode(val);
+                localStorage.setItem('igh_dark_mode', JSON.stringify(val));
+                if (val) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            },
             activeTab, setActiveTab,
             invoiceDraft, setInvoiceDraft, seedInvoice,
             isLoading

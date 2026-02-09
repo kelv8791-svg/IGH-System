@@ -1,27 +1,45 @@
 const { useState, useEffect, useMemo, useContext } = React;
 
 const downloadCSV = (data, filename) => {
-    if (!data || !data.length) return;
-    const headers = Object.keys(data[0]).join(',');
-    const rows = data.map(obj =>
-        Object.values(obj).map(val =>
-            typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
-        ).join(',')
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+        headers.join(','),
+        ...data.map(row => headers.map(header => {
+            const val = row[header];
+            return `"${typeof val === 'object' ? JSON.stringify(val).replace(/"/g, '""') : val}"`;
+        }).join(','))
+    ];
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `${filename}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+};
+
+const ExportDropdown = ({ data, filename }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div className="relative">
+            <button onClick={() => setIsOpen(!isOpen)} className="btn-primary">
+                <Icon name="download" size={16} /> Export Data
+            </button>
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden animate-slide">
+                    <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="file-text" size={14} /> CSV Spreadsheet</button>
+                    <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="table" size={14} /> Excel Matrix</button>
+                    <button onClick={() => { window.print(); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="file-type-pdf" size={14} /> PDF Document</button>
+                </div>
+            )}
+        </div>
     );
-    const csvContent = [headers, ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 };
 
 const Dashboard = () => {
-    const { data } = useContext(AppContext);
+    const { data, updateData, setActiveTab } = useContext(AppContext);
 
     const stats = useMemo(() => {
         const totalSales = data.sales.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
@@ -54,6 +72,13 @@ const Dashboard = () => {
             topExpenses: topExpensesWithPct
         };
     }, [data]);
+
+    const lowStockItems = useMemo(() => {
+        return data.inventory
+            .filter(i => i.stock <= (i.minStock || 5))
+            .sort((a, b) => a.stock - b.stock)
+            .slice(0, 5);
+    }, [data.inventory]);
 
     useEffect(() => {
         const ctx = document.getElementById('dashboardChart')?.getContext('2d');
@@ -175,32 +200,60 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Recent Activity */}
-            <div className="card border-none shadow-2xl bg-[#0f172a] text-white p-10 overflow-hidden relative group">
-                <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-transform duration-1000">
-                    <Icon name="activity" size={200} />
-                </div>
-                <div className="relative z-10 space-y-8">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h3 className="text-2xl font-black italic tracking-tighter uppercase">Recent Activity</h3>
-                            <p className="text-brand-500 font-black uppercase text-[10px] tracking-widest mt-1 opacity-70">Cross-System Transaction Logs</p>
-                        </div>
-                        <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors">Audit Full Logs</button>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                <div className="card lg:col-span-2 p-10 flex flex-col">
+                    <div className="flex justify-between items-center mb-10">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Restock Priority Matrix</h5>
+                        <Icon name="package-search" size={16} className="text-rose-500" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {data.activities?.slice(0, 6).map(act => (
-                            <div key={act.id} className="p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-brand-500/50 transition-all flex flex-col gap-3">
-                                <div className="flex justify-between items-center">
-                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${act.type === 'System' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-brand-500/20 text-brand-400'}`}>
-                                        {act.type}
-                                    </span>
-                                    <span className="text-[9px] font-bold text-white/30 italic">{act.time}</span>
+                    <div className="space-y-6 flex-1">
+                        {lowStockItems.length > 0 ? lowStockItems.map((item, i) => (
+                            <div key={i} className="group cursor-pointer">
+                                <div className="flex justify-between text-[11px] font-black uppercase tracking-wider mb-2">
+                                    <span className="text-slate-900 dark:text-white group-hover:text-brand-600 transition-colors uppercase italic">{item.name}</span>
+                                    <span className="text-rose-600 font-sans">{item.stock} / {item.minStock || 5} {item.unit}</span>
                                 </div>
-                                <p className="text-xs font-bold text-white/80 leading-relaxed italic truncate">"{act.msg}"</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <div className="w-5 h-5 bg-white/10 rounded-lg flex items-center justify-center text-[9px] font-black">{act.user?.charAt(0)}</div>
-                                    <span className="text-[9px] font-black text-white/40 uppercase tracking-tighter">@{act.user}</span>
+                                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full transition-all duration-1000 ease-out ${item.stock <= (item.minStock || 5) * 0.2 ? 'bg-rose-600' : 'bg-amber-500'}`}
+                                        style={{ width: `${(item.stock / (item.minStock || 5)) * 100}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                                <Icon name="check-circle" size={40} className="text-emerald-500/20 mb-4" />
+                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-relaxed">Inventory levels optimal.<br />No priority restocks detected.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Recent Activity Section */}
+                <div className="card lg:col-span-3 p-10 flex flex-col bg-[#0f172a] text-white border-none relative overflow-hidden group">
+                    <div className="absolute right-0 top-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-1000"><Icon name="activity" size={200} /></div>
+                    <div className="flex justify-between items-center mb-10 z-10">
+                        <h5 className="text-[10px] font-black text-brand-500 uppercase tracking-widest leading-none">Operational Logs</h5>
+                        <button
+                            onClick={() => { if (confirm('Wipe system logs?')) updateData('activities_bulk', []); }}
+                            className="text-[9px] font-black text-slate-500 hover:text-white transition-colors uppercase tracking-[0.2em]"
+                        >
+                            [ Clear Logs ]
+                        </button>
+                    </div>
+                    <div className="space-y-4 z-10 overflow-y-auto max-h-[300px] custom-scrollbar pr-4">
+                        {(data.activities || []).map((log, i) => (
+                            <div key={i} className="flex gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors border border-white/0 hover:border-white/5">
+                                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                                    <Icon name={log.type === 'Success' ? 'check-circle' : log.type === 'Update' ? 'refresh-cw' : 'activity'} size={14} className={log.type === 'Success' ? 'text-emerald-500' : 'text-brand-500'} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold leading-snug">{log.msg}</p>
+                                    <div className="flex items-center gap-3 mt-1.5 opacity-40">
+                                        <span className="text-[10px] uppercase font-black tracking-widest font-sans italic">{log.time}</span>
+                                        <span className="w-1 h-1 bg-white/30 rounded-full"></span>
+                                        <span className="text-[9px] uppercase font-black tracking-widest">{log.type}</span>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -276,13 +329,20 @@ const ExpenseModule = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {data.expenses.map(exp => (
-                            <tr key={exp.id} className="hover:bg-slate-50 transition-colors">
+                            <tr key={exp.id} className="hover:bg-slate-50 transition-all group">
                                 <td className="px-8 py-5 font-bold text-slate-400">{exp.date}</td>
                                 <td className="px-8 py-5">
-                                    <span className="px-3 py-1 bg-slate-100 rounded-full text-[10px] font-black uppercase text-slate-600">{exp.category}</span>
+                                    <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">{exp.category}</span>
                                 </td>
-                                <td className="px-8 py-5 font-medium text-slate-600">{exp.notes}</td>
-                                <td className="px-8 py-5 text-right font-black text-slate-900 font-sans">KSh {parseFloat(exp.amount).toLocaleString()}</td>
+                                <td className="px-8 py-5 font-medium text-slate-600 dark:text-slate-400">{exp.notes}</td>
+                                <td className="px-8 py-5 text-right font-black text-slate-900 dark:text-white font-sans">KSh {parseFloat(exp.amount).toLocaleString()}</td>
+                                <td className="px-8 py-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button onClick={() => { if (confirm('Delete expense entry?')) deleteItem('expenses', exp.id); }} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                                            <Icon name="trash-2" size={16} />
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -407,7 +467,7 @@ const SalesModule = () => {
         // Link back to project if linked and fully paid
         if (isFullyPaid && settlingInvoice.projectId) {
             const updatedProjects = data.projects.map(p =>
-                p.id === parseInt(settlingInvoice.projectId) ? { ...p, status: 'Completed' } : p
+                p.id === parseInt(settlingInvoice.projectId) ? { ...p, status: 'Done & Paid', stage: 'Archived' } : p
             );
             updateData('projects_bulk', updatedProjects);
         }
@@ -537,7 +597,16 @@ const SalesModule = () => {
                                 <div className="flex justify-between text-sm font-medium text-slate-500"><span>Subtotal (Net)</span><span className="font-sans">KSh {totals.subtotal.toLocaleString()}</span></div>
                                 <div className="flex justify-between text-sm font-medium text-slate-400 italic"><span>VAT ({newSale.taxRate}%)</span><span className="font-sans">KSh {totals.tax.toLocaleString()}</span></div>
                                 <div className="flex justify-between text-xl font-black text-slate-900 border-t border-slate-100 pt-3"><span>Grand Total</span><span className="text-brand-600 font-sans">KSh {totals.total.toLocaleString()}</span></div>
-                                <button type="submit" className="btn-primary w-full mt-4 py-4 uppercase tracking-widest text-xs">Authorize & Issue</button>
+                                <div className="flex gap-3">
+                                    <button type="submit" className="flex-1 btn-primary py-4 uppercase tracking-widest text-xs">Authorize & Issue</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { const sale = { ...newSale, invoiceNo: 'QUOTE-' + Date.now(), amount: totals.total, status: 'Draft' }; alert(`Quote Generated: ${sale.invoiceNo}\n\nSharing options enabled: [WhatsApp/Email]`); }}
+                                        className="btn-primary bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    >
+                                        <Icon name="file-text" size={16} /> Save as Quote
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </form>
@@ -549,44 +618,45 @@ const SalesModule = () => {
                     <thead className="bg-[#0f172a] text-white">
                         <tr>
                             <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Invoice ID</th>
-                            <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Client Entity</th>
-                            <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Pay Status</th>
-                            <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Total Payable</th>
+                            <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Recipient</th>
+                            <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Date</th>
+                            <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Magnitude</th>
+                            <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
+                            <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 italic">
-                        {data.sales.map(s => (
-                            <tr key={s.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => setSelectedInvoice(s)}>
-                                <td className="px-8 py-5 border-l-4 border-transparent group-hover:border-brand-500 transition-all">
-                                    <div className="font-black text-slate-900">{s.invoiceNo}</div>
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{s.date}</div>
-                                </td>
-                                <td className="px-8 py-5 font-bold text-slate-700">{s.client}</td>
+                    <tbody className="divide-y divide-slate-100">
+                        {data.sales.map(sale => (
+                            <tr key={sale.id} className="hover:bg-slate-50 transition-all group">
+                                <td className="px-8 py-5 font-black text-slate-900">{sale.invoiceNo}</td>
+                                <td className="px-8 py-5 font-bold text-slate-500 italic shrink-0">{sale.client}</td>
+                                <td className="px-8 py-5 font-black text-slate-400 text-xs font-sans italic">{sale.date}</td>
+                                <td className="px-8 py-5 text-right font-black text-slate-900 font-sans tracking-tight">KSh {parseFloat(sale.amount).toLocaleString()}</td>
                                 <td className="px-8 py-5">
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${s.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : s.status === 'Overdue' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                                        {s.status}
+                                    <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${sale.status === 'Paid' ? 'bg-emerald-100 text-emerald-600' :
+                                        sale.status === 'Partial' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
+                                        }`}>
+                                        {sale.status}
                                     </span>
                                 </td>
-                                <td className="px-8 py-5 text-right font-black text-slate-900 font-sans">
-                                    <div className="flex items-center justify-end gap-6">
-                                        <span>KSh {parseFloat(s.amount).toLocaleString()}</span>
-                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                            {['Pending', 'Partial', 'Overdue'].includes(s.status) && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setSettlingInvoice(s); }}
-                                                    className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[10px] uppercase font-black tracking-widest hover:bg-black transition-colors"
-                                                >
-                                                    Clear Pay
-                                                </button>
-                                            )}
-                                        </div>
+                                <td className="px-8 py-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button onClick={() => setSelectedInvoice(sale)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Print/PDF spec">
+                                            <Icon name="printer" size={16} />
+                                        </button>
+                                        <button onClick={() => setSettlingInvoice(sale)} className="p-2 text-slate-400 hover:text-emerald-500 transition-colors" title="Record Payment">
+                                            <Icon name="wallet" size={16} />
+                                        </button>
+                                        <button onClick={() => { if (confirm('Delete ledger entry?')) deleteItem('sales', sale.id); }} className="p-2 text-slate-400 hover:text-rose-500 transition-colors" title="Delete">
+                                            <Icon name="trash-2" size={16} />
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
                         ))}
-                    </tbody>
-                </table>
-            </div>
+                    </tbody >
+                </table >
+            </div >
 
             <Modal isOpen={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} title="Invoice Specification">
                 <InvoicePreview invoice={selectedInvoice} />
@@ -667,7 +737,7 @@ const SalesModule = () => {
                     </div>
                 </form>
             </Modal>
-        </div>
+        </div >
     );
 };
 
@@ -1023,51 +1093,49 @@ const InventoryModule = () => {
             </Modal>
 
             {/* Recent Movements */}
-            <div className="space-y-4">
-                <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 italic border-l-4 border-brand-500 pl-3">Movement History</h4>
-                <div className="card p-0 overflow-hidden">
-                    <table className="w-full text-left font-sans italic text-xs">
-                        <thead className="bg-slate-50 text-slate-400">
-                            <tr>
-                                <th className="px-8 py-3 font-black uppercase tracking-widest">Date</th>
-                                <th className="px-8 py-3 font-black uppercase tracking-widest">SKU</th>
-                                <th className="px-8 py-3 font-black uppercase tracking-widest">Type</th>
-                                <th className="px-8 py-3 font-black uppercase tracking-widest text-center">Amount</th>
-                                <th className="px-8 py-3 font-black uppercase tracking-widest">Reference</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.stockMovements.length === 0 ? (
-                                <tr><td colSpan="5" className="px-8 py-10 text-center text-slate-300 italic">No recent movements recorded.</td></tr>
-                            ) : (
-                                data.stockMovements.slice(0, 10).map(m => (
-                                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-8 py-4 text-slate-400 font-bold">{m.date}</td>
-                                        <td className="px-8 py-4 font-black text-slate-900">{m.sku}</td>
-                                        <td className="px-8 py-4">
-                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${m.type === 'In' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{m.type}</span>
-                                        </td>
-                                        <td className="px-8 py-4 text-center font-black">{m.qty}</td>
-                                        <td className="px-8 py-4 font-bold text-slate-500">{m.reference || 'N/A'}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+            <div className="card lg:col-span-3 h-80 flex flex-col p-10">
+                <div className="flex justify-between items-center mb-6">
+                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none italic">Movement Forensics</h5>
+                    <Icon name="history" size={16} className="text-brand-500" />
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-4">
+                    {(data.stockMovements || []).length > 0 ? data.stockMovements.map(m => (
+                        <div key={m.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-brand-500 transition-all">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${m.type === 'In' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                    {m.type === 'In' ? '+' : '-'}
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black text-slate-900 dark:text-white leading-none uppercase italic">{m.itemName}</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{m.sku} • {m.date}</p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm font-black text-slate-900 dark:text-white font-sans">{m.qty} Units</p>
+                                <p className="text-[9px] font-black text-brand-600 uppercase italic mt-1">{m.reference || 'Manual Adj'}</p>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-300">
+                            <Icon name="drafts" size={32} className="opacity-20 mb-2" />
+                            <p className="text-[10px] font-black uppercase tracking-widest">Awaiting stock signals...</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
+
 const ClientModule = () => {
     const { data, updateData, deleteItem, logActivity } = useContext(AppContext);
     const [selectedClient, setSelectedClient] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [editData, setEditData] = useState({ name: '', company: '', email: '', phone: '' });
+    const [editData, setEditData] = useState({ name: '', company: '', email: '', phone: '', kraPin: '', location: '' });
     const [isAddingInteraction, setIsAddingInteraction] = useState(false);
     const [newInteraction, setNewInteraction] = useState({ type: 'Call', notes: '' });
     const [isAddingClient, setIsAddingClient] = useState(false);
-    const [newClient, setNewClient] = useState({ name: '', company: '', email: '', phone: '' });
+    const [newClient, setNewClient] = useState({ name: '', company: '', email: '', phone: '', kraPin: '', location: '' });
 
     const handleRegisterClient = (e) => {
         e.preventDefault();
@@ -1075,7 +1143,7 @@ const ClientModule = () => {
         updateData('clients', client);
         logActivity(`New client registered: ${client.name}`, 'Success');
         setIsAddingClient(false);
-        setNewClient({ name: '', company: '', email: '', phone: '' });
+        setNewClient({ name: '', company: '', email: '', phone: '', kraPin: '', location: '' });
     };
 
     const handleOpenEdit = () => {
@@ -1267,6 +1335,14 @@ const ClientModule = () => {
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Phone Contact</label>
                             <input className="input-field" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
                         </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">KRA Pin</label>
+                            <input className="input-field" value={editData.kraPin} onChange={e => setEditData({ ...editData, kraPin: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Location</label>
+                            <input className="input-field" value={editData.location} onChange={e => setEditData({ ...editData, location: e.target.value })} />
+                        </div>
                     </div>
                     <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic tracking-tighter shadow-2xl">Commit Profile Changes</button>
                 </form>
@@ -1300,6 +1376,14 @@ const ClientModule = () => {
                             <input className="input-field" required value={newClient.company} onChange={e => setNewClient({ ...newClient, company: e.target.value })} />
                         </div>
                         <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">KRA Pin</label>
+                            <input className="input-field" value={newClient.kraPin} onChange={e => setNewClient({ ...newClient, kraPin: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Location</label>
+                            <input className="input-field" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Email Address</label>
                             <input type="email" className="input-field" required value={newClient.email} onChange={e => setNewClient({ ...newClient, email: e.target.value })} />
                         </div>
@@ -1319,10 +1403,10 @@ const SupplierModule = () => {
     const { data, updateData, deleteItem, logActivity } = useContext(AppContext);
     const [isAdding, setIsAdding] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
-    const [formData, setFormData] = useState({ name: '', contact: '', email: '', category: 'Material' });
+    const [formData, setFormData] = useState({ name: '', contact: '', email: '', category: 'Material', kraPin: '', address: '', contactPerson: '' });
 
     const handleOpenAdd = () => {
-        setFormData({ name: '', contact: '', email: '', category: 'Material' });
+        setFormData({ name: '', contact: '', email: '', category: 'Material', kraPin: '', address: '', contactPerson: '' });
         setEditingSupplier(null);
         setIsAdding(true);
     };
@@ -1422,6 +1506,18 @@ const SupplierModule = () => {
                                 <option>Material</option><option>Software</option><option>Infrastructure</option><option>Logistics</option><option>Marketing</option>
                             </select>
                         </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">KRA Pin (Tax Identity)</label>
+                            <input className="input-field" value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Contact Person</label>
+                            <input className="input-field" value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
+                        </div>
+                        <div className="space-y-2 lg:col-span-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Operational Address</label>
+                            <input className="input-field" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                        </div>
                     </div>
                     <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic">{editingSupplier ? "Commit Updates" : "Register Vendor Entity"}</button>
                 </form>
@@ -1476,7 +1572,7 @@ const ProjectModule = () => {
         if (!project) return;
         const inventoryItem = data.inventory.find(i => i.id === parseInt(newBOMItem.itemId));
         const bomItem = { id: Date.now(), itemId: parseInt(newBOMItem.itemId), sku: inventoryItem?.sku, name: inventoryItem?.name, qty: parseFloat(newBOMItem.qty), status: 'Reserved' };
-        updateData('projects_bulk', data.projects.map(p => p.id === selectedProject ? { ...p, bom: [...(p.bom || []), bomItem] } : p));
+        updateData('projects_bulk', data.projects.map(p => p.id === selectedProject ? { ...p, bom: [...(p.bom || []), bomItem] ] } : p));
         logActivity(`BOM item added to ${project.name}`, 'Sync');
         setIsAddingBOM(false);
     };
@@ -1580,12 +1676,17 @@ const ProjectModule = () => {
 
                         {/* Action Buttons Hub */}
                         <div className="flex flex-col gap-2 mt-auto pt-2">
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => seedInvoice({ client: p.client, projectId: p.id, itemName: `Project Billing: ${p.name}`, amount: 0 })}
+                                    className="flex-1 px-4 py-3 bg-brand-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2"
+                                >
+                                    <Icon name="file-plus" size={14} /> Link to Billing
+                                </button>
+                            </div>
                             <div className="flex gap-2">
                                 <button onClick={() => { setSelectedProject(p.id); setIsAddingBOM(true); }} className="flex-1 py-2 bg-slate-900 text-brand-500 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-black transition-colors shadow-lg">
                                     <Icon name="package" size={10} /> Materials
-                                </button>
-                                <button onClick={() => { setSelectedProject(p.id); setIsAddingAsset(true); }} className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
-                                    <Icon name="image" size={10} /> Assets
                                 </button>
                             </div>
                             {p.stage === 'Delivered' && (
@@ -1879,6 +1980,39 @@ const ReportModule = () => {
                         <tr className="bg-slate-900 text-white"><td className="py-8 px-6 font-black uppercase tracking-[0.3em] text-brand-500">Net Business Income</td><td className="py-8 px-6 text-right font-black text-3xl italic tracking-tighter">KSh {stats.netProfit.toLocaleString()}</td></tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div className="p-12 bg-slate-50 border-t border-slate-200">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 italic">Secondary Metrics Registry</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-brand-500/10 text-brand-600 rounded-xl group-hover:bg-brand-500 group-hover:text-black transition-all">
+                                <Icon name="brush" size={20} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Active Designs</span>
+                        </div>
+                        <span className="text-xl font-black text-slate-900">{data.projects.filter(p => ['Active', 'Review'].includes(p.status)).length}</span>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-indigo-500/10 text-indigo-600 rounded-xl group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                                <Icon name="users" size={20} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Client Entities</span>
+                        </div>
+                        <span className="text-xl font-black text-slate-900">{data.clients.length}</span>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                                <Icon name="truck" size={20} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Active Vendors</span>
+                        </div>
+                        <span className="text-xl font-black text-slate-900">{data.suppliers.length}</span>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -2300,9 +2434,9 @@ const SettingsModule = () => {
                 <div className="space-y-6">
                     <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Rotate Credentials</h5>
                     <form onSubmit={handlePwChange} className="space-y-6">
-                        <input type="password" placeholder="Current Key" className="input-field" required value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
-                        <input type="password" placeholder="New Access Token" className="input-field" required value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
-                        <input type="password" placeholder="Confirm Rotation" className="input-field" required value={pwData.confirm} onChange={e => setPwData({ ...pwData, confirm: e.target.value })} />
+                        <input type="password" placeholder="Current Password" className="input-field" required value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
+                        <input type="password" placeholder="New Password" className="input-field" required value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
+                        <input type="password" placeholder="Confirm New Password" className="input-field" required value={pwData.confirm} onChange={e => setPwData({ ...pwData, confirm: e.target.value })} />
                         <button type="submit" className="w-full btn-primary py-4 text-[10px] font-black uppercase tracking-widest">Update Security Credentials</button>
                     </form>
                 </div>
@@ -2325,14 +2459,15 @@ const SettingsModule = () => {
 
     const renderUsers = () => (
         <div className="space-y-8 animate-slide">
-            <div className="flex justify-between items-center px-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
                 <div>
-                    <h5 className="text-xl font-black text-slate-900 tracking-tighter uppercase italic">User Permission Registry</h5>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 italic">{data.users.length} Active Operatives</p>
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Control Room</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Executive Overview & Command Panel</p>
                 </div>
-                <button onClick={() => { setEditingUser(null); setNewUser({ name: '', username: '', password: '', role: 'operative' }); setIsAddingUser(true); }} className="btn-primary py-3 px-8 text-[10px] uppercase font-black tracking-widest">
-                    <Icon name="plus" size={16} /> Provision User
-                </button>
+                <div className="flex gap-3">
+                    <button onClick={() => setIsAddingUser(true)} className="btn-primary bg-brand-500 text-black border-none"><Icon name="plus" size={16} /> New User</button>
+                    {/* <ExportDropdown data={data.sales} filename="igh-executive-summary" /> */}
+                </div>
             </div>
             <div className="grid grid-cols-1 gap-4">
                 {data.users.map(u => (
@@ -2378,7 +2513,7 @@ const SettingsModule = () => {
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Permission Role</label>
                             <select className="input-field" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
-                                <option>admin</option><option>manager</option><option>designer</option><option>operative</option>
+                                <option>admin</option><option>designer</option><option>reception</option><option>marketer</option>
                             </select>
                         </div>
                     </div>

@@ -58,18 +58,18 @@
     <style type="text/tailwindcss">
         @layer base {
             body { 
-                @apply bg-slate-50 text-slate-900 font-sans antialiased; 
+                @apply bg-slate-50 text-slate-900 font-sans antialiased transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100; 
             }
         }
         @layer components {
             .btn-primary { 
-                @apply bg-[#18181b] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center gap-2; 
+                @apply bg-[#18181b] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center gap-2 dark:bg-brand-500 dark:text-black dark:hover:bg-brand-400; 
             }
             .input-field {
-                @apply w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 transition-all bg-white text-sm font-medium;
+                @apply w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 transition-all bg-white text-sm font-medium dark:bg-slate-900 dark:border-slate-800 dark:text-white dark:focus:ring-brand-500/20;
             }
             .card {
-                @apply bg-white rounded-2xl shadow-sm border border-slate-100 p-8 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300;
+                @apply bg-white rounded-2xl shadow-sm border border-slate-100 p-8 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 dark:bg-slate-900 dark:border-slate-800 dark:hover:shadow-black/50;
             }
             .nav-link {
                 @apply flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 font-semibold;
@@ -87,7 +87,15 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 20px; }
         
         .glass-panel {
-            @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+            @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl dark:bg-slate-900/80;
+        }
+
+        .sticky-header {
+            @apply sticky top-0 z-30 transition-all duration-300;
+        }
+        
+        .sidebar {
+            @apply sticky top-0 h-screen overflow-hidden transition-all duration-500 ease-in-out;
         }
 
         @keyframes slideIn {
