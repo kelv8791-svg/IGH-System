@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IGH Expense Tracker | Business Management System</title>
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- React, ReactDOM, Babel Standalone -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google APIs -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <!-- Supabase SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#facc15', // Main Yellow
+                            600: '#eab308',
+                            700: '#a16207',
+                            800: '#854d0e',
+                            900: '#713f12',
+                            950: '#451a03',
+                        },
+                        ui: {
+                            sidebar: '#18181b', // Deep Black
+                            header: '#ffffff',
+                            bg: '#fafafa',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer base {
+            body { 
+                @apply bg-slate-50 text-slate-900 font-sans antialiased; 
+            }
+        }
+        @layer components {
+            .btn-primary { 
+                @apply bg-[#18181b] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center gap-2; 
+            }
+            .input-field {
+                @apply w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 transition-all bg-white text-sm font-medium;
+            }
+            .card {
+                @apply bg-white rounded-2xl shadow-sm border border-slate-100 p-8 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300;
+            }
+            .nav-link {
+                @apply flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 font-semibold;
+            }
+            .nav-link-active {
+                @apply bg-brand-500 text-black shadow-lg shadow-brand-500/20 transform scale-[1.02];
+            }
+            .nav-link-inactive {
+                @apply text-slate-400 hover:text-white hover:bg-white/5;
+            }
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 20px; }
+        
+        .glass-panel {
+            @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide { animation: slideIn 0.4s ease-out forwards; }
+
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; padding: 0 !important; margin: 0 !important; }
+            #root > div { display: block !important; }
+            main { margin-left: 0 !important; padding: 0 !important; }
+            header, aside { display: none !important; }
+            .card { border: none !important; box-shadow: none !important; padding: 0 !important; }
+            .modal-overlay { background: transparent !important; }
+            .modal-content { max-height: none !important; overflow: visible !important; width: 100% !important; border: none !important; box-shadow: none !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="text/babel" src="js/supabase-client.js"></script>
+    <script type="text/babel" src="js/app-context.js"></script>
+    <script type="text/babel" src="js/ui-components.js"></script>
+    <script type="text/babel" src="js/business-modules.js"></script>
+    <script type="text/babel" src="js/main-app.js"></script>
+</body>
+
+</html>
