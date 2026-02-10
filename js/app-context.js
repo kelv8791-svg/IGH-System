@@ -53,12 +53,15 @@
             }
         };
 
-        // Helper to map JS CamelCase to Supabase snake_case
-        const toSnakeCase = (obj) => {
+        // Helper to map JS CamelCase to Supabase snake_case with optional column filtering
+        const toSnakeCase = (obj, filterKeys = null) => {
             const snakeObj = {};
             for (let key in obj) {
                 const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-                snakeObj[snakeKey] = obj[key];
+                // Only include key if no filter list exists OR if it exists in the database sample
+                if (!filterKeys || filterKeys.includes(snakeKey) || snakeKey === 'id') {
+                    snakeObj[snakeKey] = obj[key];
+                }
             }
             return snakeObj;
         };
@@ -72,19 +75,26 @@
             setIsLoading(true);
             try {
                 // Map table names to snake_case (e.g., stockMovements -> stock_movements)
-                const tableName = key.replace('_bulk', '').replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+                const dataKey = key.replace('_bulk', '');
+                const tableName = dataKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+
+                // Schema Awareness: Get sample of current data to identify valid columns
+                const sample = data[dataKey]?.[0];
+                const validColumns = sample ? Object.keys(sample) : null;
 
                 if (key === 'sales') {
                     const nextId = (data.config.next_invoice_id || 1001) + 1;
                     await window.supabaseClient.from('config').update({ next_invoice_id: nextId }).eq('id', 1);
-                    await window.supabaseClient.from('sales').insert([toSnakeCase(newItem)]);
+                    await window.supabaseClient.from('sales').insert([toSnakeCase(newItem, validColumns)]);
                 }
                 else if (key.endsWith('_bulk')) {
-                    const formattedItems = Array.isArray(newItem) ? newItem.map(toSnakeCase) : [toSnakeCase(newItem)];
+                    const formattedItems = Array.isArray(newItem) ?
+                        newItem.map(item => toSnakeCase(item, validColumns)) :
+                        [toSnakeCase(newItem, validColumns)];
                     await window.supabaseClient.from(tableName).upsert(formattedItems);
                 }
                 else {
-                    await window.supabaseClient.from(tableName).insert([toSnakeCase(newItem)]);
+                    await window.supabaseClient.from(tableName).insert([toSnakeCase(newItem, validColumns)]);
                 }
 
                 await fetchAllData();
