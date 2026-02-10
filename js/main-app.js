@@ -77,7 +77,10 @@
             <div className="flex min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
                 <aside className={`bg-[#0f172a] text-white transition-all duration-500 ease-in-out flex flex-col z-20 shadow-2xl sidebar ${isSidebarOpen ? 'w-72' : 'w-24'}`}>
                     <div className="p-8 border-b border-white/5 flex items-center justify-between">
-                        <div className={`flex items-center gap-4 transition-all duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden shrink-0'}`}>
+                        <div
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className={`flex items-center gap-4 transition-all duration-300 cursor-pointer hover:opacity-80 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden shrink-0'}`}
+                        >
                             <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-brand-500/20">
                                 <img src="logo.jpg" alt="Logo" className="w-7 h-7 object-contain" />
                             </div>

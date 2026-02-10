@@ -48,8 +48,14 @@
         const { data, updateData, setActiveTab } = useContext(AppContext);
 
         const stats = useMemo(() => {
-            const totalSales = data.sales.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
-            const totalExpenses = data.expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+            const totalSales = data.sales.reduce((sum, s) => {
+                const val = parseFloat(s.amount?.toString().replace(/[^\d.]/g, '') || 0);
+                return sum + (isNaN(val) ? 0 : val);
+            }, 0);
+            const totalExpenses = data.expenses.reduce((sum, e) => {
+                const val = parseFloat(e.amount?.toString().replace(/[^\d.]/g, '') || 0);
+                return sum + (isNaN(val) ? 0 : val);
+            }, 0);
             const pendingSales = data.sales.filter(s => s.status === 'Pending').length;
             const activeProjects = data.projects.length;
 
@@ -145,9 +151,7 @@
                         >
                             <Icon name="download" size={16} /> Export Data
                         </button>
-                        <button className="btn-primary">
-                            <Icon name="plus" size={18} /> New Transaction
-                        </button>
+                        {/* Transaction entry removed per user request */}
                     </div>
                 </div>
 
@@ -654,6 +658,19 @@
                                     </td>
                                     <td className="px-8 py-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
                                         <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setNewSale({
+                                                        ...sale,
+                                                        items: sale.items || [{ desc: '', qty: 1, price: 0 }]
+                                                    });
+                                                    setIsAdding(true);
+                                                }}
+                                                className="p-2 text-slate-400 hover:text-brand-600 transition-colors"
+                                                title="Edit Blueprint"
+                                            >
+                                                <Icon name="edit-3" size={16} />
+                                            </button>
                                             <button onClick={() => setSelectedInvoice(sale)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Print/PDF spec">
                                                 <Icon name="printer" size={16} />
                                             </button>
@@ -1226,22 +1243,24 @@
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {data.clients.map(c => (
-                        <div
-                            key={c.id}
-                            onClick={() => setSelectedClient(c)}
-                            className="card flex items-center gap-5 hover:border-brand-500 transition-all group cursor-pointer"
-                        >
-                            <div className="w-14 h-14 bg-slate-900 text-brand-500 rounded-2xl flex items-center justify-center text-xl font-black shadow-lg group-hover:bg-brand-500 group-hover:text-black transition-all">
-                                {c.name.charAt(0)}
+                    {
+                        data.clients.map(c => (
+                            <div
+                                key={c.id}
+                                onClick={() => setSelectedClient(c)}
+                                className="card flex items-center gap-5 hover:border-brand-500 transition-all group cursor-pointer"
+                            >
+                                <div className="w-14 h-14 bg-slate-900 text-brand-500 rounded-2xl flex items-center justify-center text-xl font-black shadow-lg group-hover:bg-brand-500 group-hover:text-black transition-all">
+                                    {c.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h2 className="font-black text-slate-900 italic tracking-tight uppercase leading-none">{c.name}</h2>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{c.company}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="font-black text-slate-900 italic tracking-tight uppercase leading-none">{c.name}</h2>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{c.company}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                        ))
+                    }
+                </div >
 
                 <Modal
                     isOpen={!!selectedClient}
@@ -1400,7 +1419,7 @@
                         <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic shadow-2xl">Commit New Client</button>
                     </form>
                 </Modal>
-            </div>
+            </div >
         );
     };
 
@@ -1532,7 +1551,7 @@
     };
 
     const ProjectModule = () => {
-        const { data, updateData, deleteItem, logActivity } = useContext(AppContext);
+        const { data, updateData, deleteItem, logActivity, seedInvoice } = useContext(AppContext);
         const [selectedProject, setSelectedProject] = useState(null);
         const [isAdding, setIsAdding] = useState(false);
         const [isAddingBOM, setIsAddingBOM] = useState(false);
