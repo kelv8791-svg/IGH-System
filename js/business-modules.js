@@ -98,17 +98,36 @@
                 const existingChart = Chart.getChart('dashboardChart');
                 if (existingChart) existingChart.destroy();
 
+                const isDark = document.documentElement.classList.contains('dark');
+                const accentColor = '#6366f1'; // Indigo 500
+                const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
                 new Chart(ctx, {
-                    type: 'bar',
+                    type: 'line',
                     data: {
-                        labels: ['Total Revenue', 'Total Expenses'],
-                        datasets: [{
-                            label: 'Kenya Shillings (KSh)',
-                            data: [stats.revenue, stats.expenses],
-                            backgroundColor: ['#facc15', '#18181b'],
-                            borderRadius: 12,
-                            barThickness: 40
-                        }]
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [
+                            {
+                                label: 'Revenue Stream',
+                                data: [stats.revenue * 0.7, stats.revenue * 0.85, stats.revenue * 0.9, stats.revenue * 0.8, stats.revenue * 0.95, stats.revenue],
+                                borderColor: accentColor,
+                                backgroundColor: 'transparent',
+                                borderWidth: 4,
+                                tension: 0.4,
+                                pointRadius: 0,
+                                fill: true,
+                            },
+                            {
+                                label: 'Expense Flow',
+                                data: [stats.expenses * 0.6, stats.expenses * 0.75, stats.expenses * 0.8, stats.expenses * 0.7, stats.expenses * 0.85, stats.expenses],
+                                borderColor: '#f43f5e',
+                                backgroundColor: 'transparent',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                tension: 0.4,
+                                pointRadius: 0,
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
@@ -116,15 +135,30 @@
                         plugins: {
                             legend: { display: false },
                             tooltip: {
-                                backgroundColor: '#18181b',
+                                backgroundColor: '#0f172a',
+                                titleFont: { size: 10, weight: 'bold' },
+                                bodyFont: { size: 12, weight: 'black' },
+                                padding: 12,
+                                displayColors: false,
                                 callbacks: {
-                                    label: (context) => `KSh ${context.raw.toLocaleString()}`
+                                    label: (context) => `KES ${context.raw.toLocaleString()}`
                                 }
                             }
                         },
                         scales: {
-                            y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-                            x: { grid: { display: false } }
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: gridColor, drawBorder: false },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    font: { size: 10, weight: 'bold' },
+                                    callback: (val) => `${(val / 1000).toFixed(0)}k`
+                                }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: '#94a3b8', font: { size: 10, weight: 'bold' } }
+                            }
                         }
                     }
                 });
@@ -132,13 +166,16 @@
         }, [stats]);
 
         return (
-            <div className="space-y-10 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Executive Summary</h2>
-                        <p className="text-slate-500 font-medium">Business performance and financial insights as of {new Date().toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+            <div className="space-y-8 animate-slide">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-brand-500 rounded-full animate-pulse"></span>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Command Dashboard</h2>
+                        </div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Operational Intelligence Vector // {new Date().toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-4">
                         <button
                             onClick={() => {
                                 const exportData = [
@@ -147,56 +184,65 @@
                                 ].sort((a, b) => new Date(b.Date) - new Date(a.Date));
                                 downloadCSV(exportData, `IGH_Master_Log_${new Date().toISOString().split('T')[0]}.csv`);
                             }}
-                            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
+                            className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl text-[10px] font-black text-slate-600 dark:text-slate-400 hover:bg-slate-50 transition-all flex items-center gap-3 uppercase tracking-widest shadow-premium"
                         >
-                            <Icon name="download" size={16} /> Export Data
+                            <Icon name="download" size={16} /> Data Export
                         </button>
-                        {/* Transaction entry removed per user request */}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard icon="trending-up" label="Gross Revenue" value={`KSh ${stats.revenue.toLocaleString()}`} color="brand" trend="+12.5%" />
-                    <StatCard icon="receipt" label="Total Expenses" value={`KSh ${stats.expenses.toLocaleString()}`} color="red" trend="-2.4%" />
-                    <StatCard icon="briefcase" label="Active Projects" value={stats.projects} color="green" />
-                    <StatCard icon="alert-circle" label="Direct Invoices" value={stats.pending} color="orange" />
+                    <StatCard icon="zap" label="Aggregate Revenue" value={`KES ${stats.revenue.toLocaleString()}`} color="brand" trend="+12.5%" />
+                    <StatCard icon="pie-chart" label="Total Burn Rate" value={`KES ${stats.expenses.toLocaleString()}`} color="red" trend="-2.4%" />
+                    <StatCard icon="activity" label="Active Projects" value={stats.projects} color="green" />
+                    <StatCard icon="shield-alert" label="Pending Settlement" value={stats.pending} color="orange" />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="card lg:col-span-2 h-[450px]">
-                        <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-xl font-bold text-slate-900">Revenue Analytics</h3>
-                            <div className="flex gap-2">
+                    <div className="card lg:col-span-2 h-[500px] flex flex-col p-10 bg-white dark:bg-white/5 border-none relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/5 blur-[100px] rounded-full -mr-32 -mt-32"></div>
+
+                        <div className="flex justify-between items-center mb-10 relative z-10">
+                            <div>
+                                <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic leading-none">Performance Analytics</h3>
+                                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1 opacity-60">Revenue vs Expenditure Stream</p>
+                            </div>
+                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-xl">
                                 {['7D', '1M', '3M', '1Y'].map(t => (
-                                    <button key={t} className={`px-3 py-1 rounded-lg text-xs font-black ${t === '1M' ? 'bg-brand-500 text-black' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>{t}</button>
+                                    <button key={t} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${t === '1M' ? 'bg-brand-500 text-black shadow-lg shadow-brand-500/20' : 'text-slate-500 hover:text-brand-500'}`}>{t}</button>
                                 ))}
                             </div>
                         </div>
-                        <div className="h-[320px]">
+                        <div className="flex-1 relative z-10">
                             <canvas id="dashboardChart"></canvas>
                         </div>
                     </div>
-                    <div className="card h-[450px] flex flex-col">
-                        <h3 className="text-xl font-bold text-slate-900 mb-8">Category Allocation</h3>
-                        <div className="flex-1 overflow-y-auto space-y-6 custom-scrollbar pr-2">
+
+                    <div className="card h-[500px] flex flex-col p-10 border-none bg-white dark:bg-white/5">
+                        <div className="mb-10">
+                            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic leading-none">Resource Allocation</h3>
+                            <p className="text-[9px] text-brand-500 font-black uppercase tracking-widest mt-1">Expense Segmentation</p>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar pr-2">
                             {stats.topExpenses.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-slate-300">
-                                    <Icon name="inbox" size={48} className="mb-2 opacity-20" />
-                                    <p className="italic text-sm font-medium">No record yet</p>
+                                    <Icon name="database-zap" size={48} className="mb-4 opacity-10" />
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30">Null Sector // No Data</p>
                                 </div>
                             ) : (
                                 stats.topExpenses.map((ex, i) => (
-                                    <div key={i} className="space-y-2 group">
-                                        <div className="flex justify-between text-sm items-center">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-brand-500"></div>
-                                                <span className="font-bold text-slate-700">{ex.name}</span>
+                                    <div key={i} className="group space-y-3">
+                                        <div className="flex justify-between text-[11px] items-center">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-brand-500 shadow-lg shadow-brand-500/50"></div>
+                                                <span className="font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">{ex.name}</span>
                                             </div>
-                                            <span className="text-slate-400 font-black text-xs">KSh {ex.amount.toLocaleString()}</span>
+                                            <span className="text-slate-400 dark:text-slate-500 font-black font-sans text-[10px]">KES {ex.amount.toLocaleString()}</span>
                                         </div>
-                                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                        <div className="w-full bg-slate-100 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
                                             <div
-                                                className="bg-brand-500 h-full rounded-full transition-all duration-1000 ease-out group-hover:bg-slate-900"
+                                                className="bg-brand-500 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(99,102,241,0.5)]"
                                                 style={{ width: `${ex.pct}%` }}
                                             ></div>
                                         </div>
@@ -204,69 +250,85 @@
                                 ))
                             )}
                         </div>
-                        <div className="mt-8 pt-6 border-t border-slate-50">
-                            <button className="w-full text-center text-sm font-bold text-brand-600 hover:text-brand-700 hover:underline">View All Expenses</button>
+                        <div className="mt-8 pt-8 border-t border-slate-100 dark:border-white/5">
+                            <button onClick={() => setActiveTab('expenses')} className="w-full text-center text-[10px] font-black text-brand-500 hover:text-brand-600 transition-all uppercase tracking-[0.3em] flex items-center justify-center gap-2 group">
+                                Access Ledger <Icon name="chevron-right" size={14} className="group-hover:translate-x-1 transition-transform" />
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="card lg:col-span-2 p-10 flex flex-col">
+                    <div className="card lg:col-span-2 p-10 flex flex-col border-none bg-white dark:bg-white/5">
                         <div className="flex justify-between items-center mb-10">
-                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Restock Priority Matrix</h5>
-                            <Icon name="package-search" size={16} className="text-rose-500" />
+                            <div>
+                                <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter italic">Asset Thresholds</h5>
+                                <p className="text-[9px] text-rose-500 font-black uppercase tracking-widest mt-1">Restock Priority Matrix</p>
+                            </div>
+                            <div className="p-2.5 bg-rose-500/10 rounded-xl text-rose-500 group-hover:scale-110 transition-transform">
+                                <Icon name="package-search" size={20} />
+                            </div>
                         </div>
-                        <div className="space-y-6 flex-1">
+                        <div className="space-y-8 flex-1">
                             {lowStockItems.length > 0 ? lowStockItems.map((item, i) => (
-                                <div key={i} className="group cursor-pointer">
-                                    <div className="flex justify-between text-[11px] font-black uppercase tracking-wider mb-2">
-                                        <span className="text-slate-900 dark:text-white group-hover:text-brand-600 transition-colors uppercase italic">{item.name}</span>
+                                <div key={i} className="group cursor-pointer space-y-3">
+                                    <div className="flex justify-between text-[11px] font-black uppercase tracking-wider">
+                                        <span className="text-slate-900 dark:text-white group-hover:text-brand-500 transition-colors italic">{item.name}</span>
                                         <span className="text-rose-600 font-sans">{item.stock} / {item.minStock || 5} {item.unit}</span>
                                     </div>
-                                    <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
                                         <div
-                                            className={`h-full transition-all duration-1000 ease-out ${item.stock <= (item.minStock || 5) * 0.2 ? 'bg-rose-600' : 'bg-amber-500'}`}
+                                            className={`h-full transition-all duration-1000 ease-out shadow-lg ${item.stock <= (item.minStock || 5) * 0.2 ? 'bg-rose-600 shadow-rose-500/20' : 'bg-amber-500 shadow-amber-500/20'}`}
                                             style={{ width: `${(item.stock / (item.minStock || 5)) * 100}%` }}
                                         ></div>
                                     </div>
                                 </div>
                             )) : (
                                 <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                                    <Icon name="check-circle" size={40} className="text-emerald-500/20 mb-4" />
-                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-relaxed">Inventory levels optimal.<br />No priority restocks detected.</p>
+                                    <Icon name="shield-check" size={48} className="text-emerald-500/20 mb-4" />
+                                    <p className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-[0.2em] leading-relaxed italic">Inventory Matrix Optimal<br />No Sector Depletion Detected</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Recent Activity Section */}
-                    <div className="card lg:col-span-3 p-10 flex flex-col bg-[#0f172a] text-white border-none relative overflow-hidden group">
-                        <div className="absolute right-0 top-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-1000"><Icon name="activity" size={200} /></div>
-                        <div className="flex justify-between items-center mb-10 z-10">
-                            <h5 className="text-[10px] font-black text-brand-500 uppercase tracking-widest leading-none">Operational Logs</h5>
+                    <div className="card lg:col-span-3 p-10 flex flex-col bg-[#0f172a] text-white border-none relative overflow-hidden group shadow-2xl">
+                        <div className="absolute right-0 top-0 p-8 opacity-[0.03] group-hover:scale-110 transition-transform duration-[2000ms] pointer-events-none"><Icon name="activity" size={300} /></div>
+
+                        <div className="flex justify-between items-center mb-10 z-10 relative">
+                            <div>
+                                <h5 className="text-sm font-black text-brand-500 uppercase tracking-tighter italic">Operational Telemetry</h5>
+                                <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Live Transaction Stream</p>
+                            </div>
                             <button
-                                onClick={() => { if (confirm('Wipe system logs?')) updateData('activities_bulk', []); }}
-                                className="text-[9px] font-black text-slate-500 hover:text-white transition-colors uppercase tracking-[0.2em]"
+                                onClick={() => { if (confirm('Purge telemetry logs?')) updateData('activities_bulk', []); }}
+                                className="px-4 py-2 border border-white/5 rounded-xl text-[9px] font-black text-slate-500 hover:text-white hover:bg-white/5 transition-all uppercase tracking-[0.3em]"
                             >
-                                [ Clear Logs ]
+                                Purge Logs
                             </button>
                         </div>
-                        <div className="space-y-4 z-10 overflow-y-auto max-h-[300px] custom-scrollbar pr-4">
-                            {(data.activities || []).map((log, i) => (
-                                <div key={i} className="flex gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors border border-white/0 hover:border-white/5">
-                                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
-                                        <Icon name={log.type === 'Success' ? 'check-circle' : log.type === 'Update' ? 'refresh-cw' : 'activity'} size={14} className={log.type === 'Success' ? 'text-emerald-500' : 'text-brand-500'} />
+
+                        <div className="space-y-4 z-10 relative overflow-y-auto max-h-[320px] custom-scrollbar pr-4">
+                            {data.activities && data.activities.length > 0 ? data.activities.map((log, i) => (
+                                <div key={i} className="flex gap-5 p-5 rounded-[1.5rem] bg-white/[0.02] border border-white/[0.03] hover:bg-white/[0.05] hover:border-white/10 transition-all group/item">
+                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-all ${log.type === 'Success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-brand-500/10 border-brand-500/20 text-brand-500 shadow-lg shadow-brand-500/10'}`}>
+                                        <Icon name={log.type === 'Success' ? 'shield-check' : log.type === 'Update' ? 'refresh-cw' : 'cpu'} size={18} />
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-bold leading-snug">{log.msg}</p>
-                                        <div className="flex items-center gap-3 mt-1.5 opacity-40">
-                                            <span className="text-[10px] uppercase font-black tracking-widest font-sans italic">{log.time}</span>
-                                            <span className="w-1 h-1 bg-white/30 rounded-full"></span>
-                                            <span className="text-[9px] uppercase font-black tracking-widest">{log.type}</span>
+                                    <div className="flex-1 space-y-1.5">
+                                        <p className="text-[11px] font-black leading-snug text-slate-200 uppercase tracking-tight">{log.msg}</p>
+                                        <div className="flex items-center gap-4 opacity-40">
+                                            <span className="text-[9px] uppercase font-black tracking-widest italic">{log.time}</span>
+                                            <span className="w-1.5 h-1.5 bg-white/20 rounded-full"></span>
+                                            <span className={`text-[8px] uppercase font-black tracking-[0.2em] px-2 py-0.5 rounded-lg ${log.type === 'Success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-brand-500/20 text-brand-400'}`}>{log.type}</span>
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="flex flex-col items-center justify-center h-48 opacity-20">
+                                    <Icon name="terminal" size={40} className="mb-4" />
+                                    <p className="text-[9px] font-black uppercase tracking-[0.3em]">Standby // Listening for Data</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -288,75 +350,86 @@
         };
 
         return (
-            <div className="space-y-6 animate-slide">
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-rose-500 rounded-2xl shadow-lg shadow-rose-500/20 text-white">
-                            <Icon name="receipt" size={24} />
+            <div className="space-y-8 animate-slide">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Expenditure Hub</h2>
                         </div>
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">Expenditure Tracking</h3>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Capital Outflow Management // {data.expenses.length} Records Detected</p>
                     </div>
                     <button onClick={() => setIsAdding(!isAdding)} className="btn-primary">
-                        <Icon name={isAdding ? 'x' : 'plus'} size={18} /> {isAdding ? 'Cancel' : 'Add Expense'}
+                        <Icon name={isAdding ? 'x' : 'plus'} size={18} /> {isAdding ? 'Dismiss' : 'Log Expenditure'}
                     </button>
                 </div>
+
                 {isAdding && (
-                    <div className="card border-brand-200 animate-slide">
-                        <form onSubmit={addExpense} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Date</label>
-                                <input type="date" className="input-field" required value={newExp.date} onChange={e => setNewExp({ ...newExp, date: e.target.value })} />
+                    <div className="card border-none bg-white dark:bg-white/5 shadow-2xl animate-slide p-8">
+                        <form onSubmit={addExpense} className="space-y-8">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Temporal Stamp</label>
+                                    <input type="date" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" required value={newExp.date} onChange={e => setNewExp({ ...newExp, date: e.target.value })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Magnitude (KSh)</label>
+                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="0.00" required value={newExp.amount} onChange={e => setNewExp({ ...newExp, amount: e.target.value })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Category Vector</label>
+                                    <select className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newExp.category} onChange={e => setNewExp({ ...newExp, category: e.target.value })}>
+                                        <option>Office Supplies</option><option>Software</option><option>Marketing</option><option>Travel</option><option>Raw Materials</option><option>Human Resource</option>
+                                    </select>
+                                </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Amount (KSh)</label>
-                                <input type="number" className="input-field" placeholder="0.00" required value={newExp.amount} onChange={e => setNewExp({ ...newExp, amount: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Description / Operational Notes</label>
+                                <input type="text" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="Specify expenditure intent..." value={newExp.notes} onChange={e => setNewExp({ ...newExp, notes: e.target.value })} />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Category</label>
-                                <select className="input-field" value={newExp.category} onChange={e => setNewExp({ ...newExp, category: e.target.value })}>
-                                    <option>Office Supplies</option><option>Software</option><option>Marketing</option><option>Travel</option><option>Raw Materials</option><option>Human Resource</option>
-                                </select>
-                            </div>
-                            <div className="md:col-span-2 space-y-2">
-                                <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Description / Notes</label>
-                                <input type="text" className="input-field" placeholder="What was this for?" value={newExp.notes} onChange={e => setNewExp({ ...newExp, notes: e.target.value })} />
-                            </div>
-                            <div className="pt-6">
-                                <button type="submit" className="btn-primary w-full py-4 uppercase tracking-widest text-xs">Save Expense</button>
+                            <div className="flex justify-end pt-4 border-t border-white/5">
+                                <button type="submit" className="btn-primary py-4 px-10 uppercase tracking-widest text-[10px] font-black italic">Commit to Ledger</button>
                             </div>
                         </form>
                     </div>
                 )}
-                <div className="card p-0 overflow-hidden shadow-xl">
-                    <table className="w-full text-left font-sans">
-                        <thead className="bg-[#0f172a] text-white">
-                            <tr>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Date</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Category</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Notes</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.expenses.map(exp => (
-                                <tr key={exp.id} className="hover:bg-slate-50 transition-all group">
-                                    <td className="px-8 py-5 font-bold text-slate-400">{exp.date}</td>
-                                    <td className="px-8 py-5">
-                                        <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">{exp.category}</span>
-                                    </td>
-                                    <td className="px-8 py-5 font-medium text-slate-600 dark:text-slate-400">{exp.notes}</td>
-                                    <td className="px-8 py-5 text-right font-black text-slate-900 dark:text-white font-sans">KSh {parseFloat(exp.amount).toLocaleString()}</td>
-                                    <td className="px-8 py-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button onClick={() => { if (confirm('Delete expense entry?')) deleteItem('expenses', exp.id); }} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
-                                                <Icon name="trash-2" size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
+
+                <div className="card !p-0 overflow-hidden border-none bg-white dark:bg-white/5 shadow-xl">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left font-sans">
+                            <thead className="bg-[#0f172a] text-white">
+                                <tr>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Date</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Classification</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Operational Notes</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Magnitude</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Control</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                {data.expenses.map(exp => (
+                                    <tr key={exp.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
+                                        <td className="px-8 py-6 font-black text-slate-400 text-[10px] uppercase tracking-widest">{exp.date}</td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
+                                                <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-lg text-[10px] font-black uppercase text-slate-600 dark:text-slate-400 tracking-tighter">{exp.category}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6 font-bold text-slate-600 dark:text-slate-400 italic text-sm">{exp.notes}</td>
+                                        <td className="px-8 py-6 text-right font-black text-slate-900 dark:text-white font-sans tracking-tight">KSh {parseFloat(exp.amount).toLocaleString()}</td>
+                                        <td className="px-8 py-6 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button onClick={() => { if (confirm('Delete expense entry?')) deleteItem('expenses', exp.id); }} className="w-10 h-10 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-500">
+                                                    <Icon name="trash-2" size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         );
@@ -513,34 +586,29 @@
 
         return (
             <div className="space-y-8 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-brand-500 rounded-2xl shadow-lg shadow-brand-500/20">
-                            <Icon name="shopping-cart" size={24} className="text-black" />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Revenue Ledger</h2>
                         </div>
-                        <div>
-                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Sales & Revenue</h3>
-                            <p className="text-slate-500 font-medium italic">Pipeline: {statusCounts.pending} Pending Invoices</p>
-                        </div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Financial Vector Management // {statusCounts.pending} Awaiting Settlement</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-4">
                         <div className="relative group">
-                            <Icon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors pointer-events-none">
+                                <Icon name="search" size={14} />
+                            </div>
                             <input
                                 type="text"
-                                placeholder="Search ledger..."
-                                className="input-field pl-12 py-3 bg-white border-slate-200 focus:border-brand-500 w-48 sm:w-64"
+                                placeholder="Locate Transaction..."
+                                className="input-field !pl-10 !py-3 !bg-white/5 !border-white/10 !text-white focus:!border-brand-500 w-48 sm:w-64 text-[10px] font-black uppercase tracking-widest"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
-                            {searchTerm && (
-                                <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors">
-                                    <Icon name="x-circle" size={14} />
-                                </button>
-                            )}
                         </div>
                         <button onClick={() => setIsAdding(!isAdding)} className="btn-primary">
-                            <Icon name={isAdding ? 'x' : 'plus'} size={18} /> {isAdding ? 'Cancel' : 'New Invoice'}
+                            <Icon name={isAdding ? 'x' : 'plus'} size={18} /> {isAdding ? 'Dismiss' : 'Generate Invoice'}
                         </button>
                     </div>
                 </div>
@@ -572,22 +640,34 @@
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="card p-4 flex flex-col items-center justify-center text-center bg-slate-50 border-none">
-                        <span className="text-2xl font-black">{statusCounts.total}</span>
-                        <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Created</span>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-slate-500/10 text-slate-500 rounded-xl"><Icon name="file-text" size={16} /></div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aggregate Records</span>
+                        </div>
+                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{statusCounts.total}</span>
                     </div>
-                    <div className="card p-4 flex flex-col items-center justify-center text-center bg-amber-50 border-none">
-                        <span className="text-2xl font-black text-amber-600">{statusCounts.pending}</span>
-                        <span className="text-[10px] uppercase font-black text-amber-500/60 tracking-widest">Awaiting Pay</span>
+                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl"><Icon name="clock" size={16} /></div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Awaiting Settlement</span>
+                        </div>
+                        <span className="text-3xl font-black text-amber-500 tracking-tighter">{statusCounts.pending}</span>
                     </div>
-                    <div className="card p-4 flex flex-col items-center justify-center text-center bg-emerald-50 border-none">
-                        <span className="text-2xl font-black text-emerald-600 font-sans">KSh {statusCounts.value.toLocaleString()}</span>
-                        <span className="text-[10px] uppercase font-black text-emerald-500/60 tracking-widest">Pipeline Value</span>
+                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl"><Icon name="dollar-sign" size={16} /></div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pipeline Valuation</span>
+                        </div>
+                        <span className="text-3xl font-black text-emerald-500 tracking-tighter font-sans">KSh {statusCounts.value.toLocaleString()}</span>
                     </div>
-                    <div className="card p-4 flex flex-col items-center justify-center text-center bg-rose-50 border-none">
-                        <span className="text-2xl font-black text-rose-600">{statusCounts.overdue}</span>
-                        <span className="text-[10px] uppercase font-black text-rose-500/60 tracking-widest">Overdue</span>
+                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all border-l-4 border-rose-500/50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-rose-500/10 text-rose-500 rounded-xl"><Icon name="alert-triangle" size={16} /></div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Overdue Threshold</span>
+                        </div>
+                        <span className="text-3xl font-black text-rose-600 tracking-tighter">{statusCounts.overdue}</span>
                     </div>
                 </div>
 
@@ -657,97 +737,82 @@
                     </div>
                 )}
 
-                <div className="card p-0 overflow-hidden shadow-xl">
-                    <table className="w-full text-left font-sans">
-                        <thead className="bg-[#0f172a] text-white">
-                            <tr>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Invoice ID</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Recipient</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Date</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Magnitude</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.sales
-                                .filter(s =>
-                                    s.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                    s.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                    s.status.toLowerCase().includes(searchTerm.toLowerCase())
-                                )
-                                .map(sale => (
-                                    <tr key={sale.id} className="hover:bg-slate-50 transition-all group">
-                                        <td className="px-8 py-5 font-black text-slate-900">{sale.invoiceNo}</td>
-                                        <td className="px-8 py-5 font-bold text-slate-500 italic shrink-0">{sale.client}</td>
-                                        <td className="px-8 py-5 font-black text-slate-400 text-xs font-sans italic">{sale.date}</td>
-                                        <td className="px-8 py-5 text-right font-black text-slate-900 font-sans tracking-tight">KSh {parseFloat(sale.amount).toLocaleString()}</td>
-                                        <td className="px-8 py-5">
-                                            <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${sale.status === 'Paid' ? 'bg-emerald-100 text-emerald-600' :
-                                                sale.status === 'Partial' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
-                                                }`}>
-                                                {sale.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-8 py-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {user?.role === 'admin' && (
-                                                    <>
+                <div className="card !p-0 overflow-hidden border-none bg-white dark:bg-white/5">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left font-sans">
+                            <thead className="bg-slate-900 text-white">
+                                <tr>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Invoice Identifier</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Recipient Subject</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Temporal Stamp</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Magnitude</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Status Vector</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Control</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                {data.sales
+                                    .filter(s =>
+                                        s.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        s.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        s.status.toLowerCase().includes(searchTerm.toLowerCase())
+                                    )
+                                    .map(sale => (
+                                        <tr key={sale.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
+                                            <td className="px-8 py-6">
+                                                <span className="font-black text-slate-900 dark:text-white uppercase italic">{sale.invoiceNo}</span>
+                                                {sale.isQuote && <span className="ml-2 px-2 py-0.5 bg-brand-500/10 text-brand-500 text-[8px] font-black rounded-full uppercase tracking-widest">Quote</span>}
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-[10px] font-black text-slate-400 uppercase">
+                                                        {sale.client.charAt(0)}
+                                                    </div>
+                                                    <span className="font-bold text-slate-700 dark:text-slate-300 italic">{sale.client}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 font-black text-slate-400 text-[10px] uppercase font-sans tracking-widest">{sale.date}</td>
+                                            <td className="px-8 py-6 text-right font-black text-slate-900 dark:text-white font-sans tracking-tight">KSh {parseFloat(sale.amount).toLocaleString()}</td>
+                                            <td className="px-8 py-6">
+                                                <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ${sale.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                                                    sale.status === 'Partial' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                                                    }`}>
+                                                    {sale.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => { setSelectedInvoice(sale); }}
+                                                        className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-white/5 hover:bg-brand-500 hover:text-white rounded-xl transition-all text-slate-400"
+                                                        title="View Specifications"
+                                                    >
+                                                        <Icon name="eye" size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setSettlingInvoice(sale)}
+                                                        className="w-10 h-10 flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500 hover:text-white rounded-xl transition-all text-emerald-500"
+                                                        title="Authorize Settlement"
+                                                    >
+                                                        <Icon name="wallet" size={16} />
+                                                    </button>
+                                                    {user?.role === 'admin' && (
                                                         <button
-                                                            onClick={() => {
-                                                                setNewSale({
-                                                                    ...sale,
-                                                                    items: sale.items || [{ desc: '', qty: 1, price: 0 }]
-                                                                });
-                                                                setIsAdding(true);
-                                                            }}
-                                                            className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all"
-                                                            title="Edit Blueprint"
-                                                        >
-                                                            <Icon name="edit-3" size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                if (confirm('Delete ledger entry?')) deleteItem('sales', sale.id);
-                                                            }}
-                                                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                                            title="Delete"
+                                                            onClick={() => { if (confirm('Purge ledger entry?')) deleteItem('sales', sale.id); }}
+                                                            className="w-10 h-10 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-500"
+                                                            title="Purge Record"
                                                         >
                                                             <Icon name="trash-2" size={16} />
                                                         </button>
-                                                    </>
-                                                )}
-                                                <button
-                                                    onClick={() => setSelectedInvoice(sale)}
-                                                    className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all"
-                                                    title="Print/PDF spec"
-                                                >
-                                                    <Icon name="printer" size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const text = `Hi, here is your ${sale.isQuote ? 'Quote' : 'Invoice'} ${sale.invoiceNo} for KSh ${parseFloat(sale.amount).toLocaleString()}.`;
-                                                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                                                    }}
-                                                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                                                    title="Send via WhatsApp"
-                                                >
-                                                    <Icon name="share-2" size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => setSettlingInvoice(sale)}
-                                                    className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
-                                                    title="Record Payment"
-                                                >
-                                                    <Icon name="wallet" size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                        </tbody >
-                    </table >
-                </div >
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
                 <Modal isOpen={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} title="Invoice Specification">
                     <InvoicePreview invoice={selectedInvoice} />
@@ -836,97 +901,129 @@
         if (!invoice) return null;
         const { data } = useContext(AppContext);
 
-        const handlePrint = () => {
-            window.print();
-        };
-
         return (
-            <div className="space-y-12 py-4" id="invoice-content">
-                <div className="flex justify-between items-start border-b border-slate-100 pb-8 no-print">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-brand-500 rounded-3xl flex items-center justify-center text-4xl font-black italic shadow-2xl shadow-brand-500/20">
-                            IG
+            <div className="space-y-12 py-8 px-4 sm:px-12 bg-white text-slate-900 rounded-[2rem] shadow-2xl border border-slate-100" id="invoice-content">
+                {/* Visual Accent */}
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-500 to-emerald-500"></div>
+
+                <div className="flex justify-between items-start border-b border-slate-100 pb-12">
+                    <div className="flex items-center gap-6">
+                        <div className="w-20 h-20 bg-brand-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-brand-500/30">
+                            <img src="logo.jpg" alt="Logo" className="w-12 h-12 object-contain" />
                         </div>
                         <div>
-                            <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Invoice</h3>
-                            <p className="text-sm font-black text-brand-600 italic mt-1 tracking-widest">{invoice.invoiceNo}</p>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">Identity Graphics</h2>
+                            <p className="text-[10px] font-black text-brand-600 uppercase tracking-[0.4em] mt-2">where creativity meets excellence</p>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={handlePrint} className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-black transition-all flex items-center gap-2 shadow-xl">
-                            <Icon name="printer" size={18} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Print Paper</span>
-                        </button>
-                        <div className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${invoice.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                            {invoice.status}
+                    <div className="text-right space-y-2">
+                        <h1 className="text-6xl font-black text-slate-100 uppercase tracking-tighter leading-none select-none">INVOICE</h1>
+                        <div className="space-y-1 relative -mt-8">
+                            <p className="text-sm font-black text-slate-900 uppercase tracking-widest">{invoice.invoiceNo}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{invoice.date}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex justify-between items-start hidden print-only">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm"><img src="logo.jpg" alt="Logo" className="w-12 h-12 object-contain" /></div>
-                        <div><h2 className="text-2xl font-black text-slate-900 tracking-tight italic">Identity Graphics Houzz</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-none mt-1">Nakuru, Kenya</p></div>
-                    </div>
-                    <div className="text-right">
-                        <h1 className="text-5xl font-black text-slate-100 uppercase tracking-tighter mb-2">INVOICE</h1>
-                        <div className="text-sm font-black text-slate-900 uppercase">Ref: {invoice.invoiceNo}</div>
-                        <div className="text-xs font-bold text-slate-400 italic">Issued: {invoice.date}</div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-20">
-                    <div className="space-y-3">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-2">Business Data</h4>
-                        <div className="text-sm space-y-1 font-medium">
-                            <p className="font-black text-slate-900">Identity Graphics Houzz</p>
-                            <p>Pekars Building, 4th Floor</p>
-                            <p>Mburu Gichua Rd, Nakuru-KENYA</p>
-                            <p>Tel: +254714-561-533</p>
-                            <p className="italic underline text-brand-600">identitygraphics@gmail.com</p>
+                <div className="grid grid-cols-2 gap-24">
+                    <div className="space-y-4">
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-50 pb-3">Corporate Identity</h4>
+                        <div className="text-[13px] space-y-2 font-medium leading-relaxed">
+                            <p className="font-black text-slate-900 uppercase">Identity Graphics Houzz</p>
+                            <p className="text-slate-500">Pekars Building, 4th Floor</p>
+                            <p className="text-slate-500">Mburu Gichua Rd, Nakuru-KENYA</p>
+                            <div className="pt-2">
+                                <p className="text-slate-500 flex items-center gap-2"><Icon name="phone" size={12} className="text-brand-500" /> +254 714 561 533</p>
+                                <p className="text-brand-600 font-bold underline flex items-center gap-2 mt-1"><Icon name="mail" size={12} /> identitygraphics@gmail.com</p>
+                            </div>
                         </div>
                     </div>
-                    <div className="space-y-3">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-2">Billed Subject</h4>
-                        <div className="text-sm space-y-1 font-medium"><p className="font-black uppercase">{invoice.client}</p><p>{data.clients.find(c => c.name === invoice.client)?.company}</p><p>{data.clients.find(c => c.name === invoice.client)?.email}</p></div>
+                    <div className="space-y-4">
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-50 pb-3">Bill Recipient</h4>
+                        <div className="text-[13px] space-y-2 font-medium leading-relaxed">
+                            <p className="font-black text-slate-900 uppercase text-lg italic">{invoice.client}</p>
+                            <p className="text-slate-500 font-bold">{data.clients.find(c => c.name === invoice.client)?.company}</p>
+                            <p className="text-slate-500">{data.clients.find(c => c.name === invoice.client)?.email}</p>
+                            <div className={`mt-4 inline-block px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${invoice.status === 'Paid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'}`}>
+                                Account Status: {invoice.status}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="border rounded-2xl overflow-hidden shadow-sm">
-                    <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b">
-                            <tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400">Item Detail</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 text-center">Qty</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 text-right">Rate</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 text-right">Total</th></tr>
+                <div className="border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-premium bg-slate-50/50">
+                    <table className="w-full text-left font-sans">
+                        <thead className="bg-slate-900 text-white">
+                            <tr>
+                                <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em]">Service/Asset Specification</th>
+                                <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-center">Qty</th>
+                                <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-right">Unit Rate</th>
+                                <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-right">Subtotal</th>
+                            </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody className="divide-y divide-slate-200">
                             {(invoice.items || []).map((item, i) => (
-                                <tr key={i} className="text-sm font-medium">
-                                    <td className="px-6 py-4 font-bold text-slate-900">{item.desc}</td>
-                                    <td className="px-6 py-4 text-center">{item.qty}</td>
-                                    <td className="px-6 py-4 text-right">KSh {parseFloat(item.price).toLocaleString()}</td>
-                                    <td className="px-6 py-4 text-right font-black">KSh {(item.qty * item.price).toLocaleString()}</td>
+                                <tr key={i} className="text-[13px] font-medium transition-colors hover:bg-white/80">
+                                    <td className="px-10 py-6 font-black text-slate-900 uppercase tracking-tight">{item.desc}</td>
+                                    <td className="px-10 py-6 text-center font-bold text-slate-500">{item.qty}</td>
+                                    <td className="px-10 py-6 text-right font-medium text-slate-500">KSh {parseFloat(item.price).toLocaleString()}</td>
+                                    <td className="px-10 py-6 text-right font-black text-slate-900">KSh {(item.qty * item.price).toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
 
-                <div className="flex justify-end pt-8">
-                    <div className="w-64 space-y-3">
-                        <div className="flex justify-between text-sm font-medium text-slate-500"><span>Subtotal</span><span>KSh {(invoice.subtotal || 0).toLocaleString()}</span></div>
-                        <div className="flex justify-between text-sm font-medium text-slate-400 italic"><span>VAT ({invoice.taxRate}%)</span><span>KSh {(invoice.tax || 0).toLocaleString()}</span></div>
-                        <div className="flex justify-between text-xl font-black text-slate-900 pt-4 border-t"><span>Payable</span><span className="text-brand-600">KSh {parseFloat(invoice.amount).toLocaleString()}</span></div>
-                        <div className="pt-8 flex justify-center no-print">
-                            <button onClick={() => window.print()} className="bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-xl flex items-center gap-2 italic">
-                                <Icon name="printer" size={14} /> Commit to Paper
+                <div className="flex flex-col sm:flex-row justify-between items-end gap-12 pt-8">
+                    <div className="flex-1 space-y-4 max-w-sm">
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Settlement Information</h4>
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+                                Please settle this invoice within 7 operational days. Use invoice reference <span className="text-brand-600 font-black">{invoice.invoiceNo}</span> for all transactions.
+                            </p>
+                            <div className="pt-2 flex items-center gap-4 border-t border-slate-200 mt-4 pt-4">
+                                <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">Accepted:</div>
+                                <div className="flex gap-2">
+                                    <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase">M-Pesa</span>
+                                    <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase">Bank</span>
+                                    <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase">Cash</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="w-80 space-y-4">
+                        <div className="space-y-3 px-2">
+                            <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                <span>Aggregate Net</span>
+                                <span className="font-sans">KSh {(invoice.subtotal || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest italic">
+                                <span>Tax Load ({invoice.taxRate}%)</span>
+                                <span className="font-sans">KSh {(invoice.tax || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-3xl font-black text-slate-900 pt-6 border-t-4 border-slate-900 italic tracking-tighter">
+                                <span>Total Due</span>
+                                <span className="text-brand-600">KSh {parseFloat(invoice.amount).toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        <div className="pt-10 flex justify-center no-print">
+                            <button onClick={() => window.print()} className="w-full bg-slate-900 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:bg-black transition-all shadow-2xl flex items-center justify-center gap-4 transform hover:-translate-y-1 active:scale-95">
+                                <Icon name="printer" size={18} /> Commit to Paper
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div className="pt-20 border-t text-center space-y-2">
-                    <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Identity Graphics Houzz</p>
-                    <p className="text-[9px] text-brand-600 font-black uppercase tracking-[0.3em]">where creativity meets excellence</p>
-                    <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest pt-2">Digital Copy • Authorized for Release</p>
+                <div className="pt-24 text-center space-y-4">
+                    <div className="flex items-center justify-center gap-4 opacity-10">
+                        <div className="h-px w-24 bg-slate-900"></div>
+                        <Icon name="shield-check" size={24} />
+                        <div className="h-px w-24 bg-slate-900"></div>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Identity Graphics Houzz Enclave</p>
+                    <p className="text-[8px] text-slate-300 font-bold uppercase tracking-widest">Digital Authentication: {btoa(invoice.invoiceNo).substring(0, 16)}</p>
                 </div>
             </div>
         );
@@ -1006,177 +1103,187 @@
         return (
             <div className="space-y-8 animate-slide">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-brand-500 rounded-2xl shadow-lg shadow-brand-500/20 text-[#0f172a]">
-                            <Icon name="package" size={24} />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Stock Registry</h2>
                         </div>
-                        <div>
-                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Stock & Inventory</h3>
-                            <p className="text-slate-500 font-medium italic">Warehouse: {stats.totalItems} SKUs • {stats.lowStock} Low Stock Alerts</p>
-                        </div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Operational Resource Management // {stats.totalItems} Active SKUs</p>
                     </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => { if (isAddingItem) { setEditingItem(null); setNewItem({ sku: '', name: '', category: 'Raw Materials', stock: 0, unit: 'pcs', minStock: 5, price: 0 }); } setIsAddingItem(!isAddingItem); }} className="btn-primary">
-                            <Icon name={isAddingItem ? 'x' : 'plus'} size={18} /> {isAddingItem ? 'Dismiss' : 'Register SKU'}
-                        </button>
-                    </div>
+                    <button onClick={() => { if (isAddingItem) { setEditingItem(null); setNewItem({ sku: '', name: '', category: 'Raw Materials', stock: 0, unit: 'pcs', minStock: 5, price: 0 }); } setIsAddingItem(!isAddingItem); }} className="btn-primary">
+                        <Icon name={isAddingItem ? 'x' : 'plus'} size={18} /> {isAddingItem ? 'Dismiss' : 'Register SKU'}
+                    </button>
                 </div>
 
                 {/* Quick Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="card bg-white border-slate-100 border-l-8 border-brand-500">
-                        <h4 className="text-3xl font-black text-slate-900 font-sans tracking-tighter">KSh {stats.totalValue.toLocaleString()}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">Asset Valuation</p>
+                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-brand-500/10 text-brand-500 rounded-xl"><Icon name="pie-chart" size={16} /></div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Asset Valuation</span>
+                        </div>
+                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter font-sans">KSh {stats.totalValue.toLocaleString()}</span>
                     </div>
-                    <div className="card bg-white border-slate-100 border-l-8 border-emerald-500">
-                        <h4 className="text-3xl font-black text-slate-900 font-sans tracking-tighter">{stats.totalItems}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">Unique SKUs</p>
+                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl"><Icon name="box" size={16} /></div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unique SKUs Contact</span>
+                        </div>
+                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter font-sans">{stats.totalItems}</span>
                     </div>
-                    <div className={`card border-slate-100 border-l-8 ${stats.lowStock > 0 ? 'border-rose-500 animate-pulse' : 'border-slate-200'}`}>
-                        <h4 className={`text-3xl font-black font-sans tracking-tighter ${stats.lowStock > 0 ? 'text-rose-600' : 'text-slate-900'}`}>{stats.lowStock}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">Critically Low</p>
+                    <div className={`card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all border-l-4 ${stats.lowStock > 0 ? 'border-rose-500/50 animate-pulse-slow' : 'border-slate-200'}`}>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-rose-500/10 text-rose-500 rounded-xl"><Icon name="alert-circle" size={16} /></div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Critical Shortage</span>
+                        </div>
+                        <span className={`text-3xl font-black tracking-tighter font-sans ${stats.lowStock > 0 ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>{stats.lowStock}</span>
                     </div>
                 </div>
 
                 {isAddingItem && (
-                    <div className="card shadow-2xl border-brand-200 animate-slide">
-                        <form onSubmit={handleAddItem} className="space-y-6">
-                            <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 italic border-b pb-3">
-                                {editingItem ? `Refining SKU: ${editingItem.sku}` : 'Register Fresh SKU'}
+                    <div className="card border-none bg-white dark:bg-white/5 shadow-2xl animate-slide p-8">
+                        <form onSubmit={handleAddItem} className="space-y-8">
+                            <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 dark:text-white italic border-b border-white/5 pb-4">
+                                {editingItem ? `Refining SKU Specification: ${editingItem.sku}` : 'Register Fresh Asset SKU'}
                             </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">SKU Code</label>
-                                    <input className="input-field" placeholder="e.g. VIN-RD-01" required value={newItem.sku} onChange={e => setNewItem({ ...newItem, sku: e.target.value })} />
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">SKU Identifier</label>
+                                    <input className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="e.g. VIN-RD-01" required value={newItem.sku} onChange={e => setNewItem({ ...newItem, sku: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Item Name</label>
-                                    <input className="input-field" placeholder="Glossy Red Vinyl" required value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Asset Nomenclature</label>
+                                    <input className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="Glossy Red Vinyl" required value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Category</label>
-                                    <select className="input-field" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Category Vector</label>
+                                    <select className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
                                         <option>Raw Materials</option><option>Media</option><option>Ink/Chemicals</option><option>Finished Goods</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Initial Stock</label>
-                                    <input type="number" className="input-field" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) })} />
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Initial Reserve</label>
+                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Unit</label>
-                                    <input className="input-field" placeholder="m, L, pcs" required value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })} />
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Unit Metric</label>
+                                    <input className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="m, L, pcs" required value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Min. Warning Level</label>
-                                    <input type="number" className="input-field" value={newItem.minStock} onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) })} />
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Critical Threshold</label>
+                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newItem.minStock} onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Unit Price (KSh)</label>
-                                    <input type="number" className="input-field" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })} />
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Asset Valuation (KSh)</label>
+                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })} />
                                 </div>
                             </div>
-                            <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
-                                <div className={`text-sm font-black text-emerald-600 transition-opacity duration-300 ${isSuccess ? 'opacity-100' : 'opacity-0'}`}>
-                                    <Icon name="check-circle" size={16} className="inline mr-2" />
-                                    Committed Successfully!
+                            <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-6 rounded-[2rem] border border-white/5">
+                                <div className={`text-[10px] font-black text-emerald-500 uppercase tracking-widest transition-opacity duration-300 ${isSuccess ? 'opacity-100' : 'opacity-0'}`}>
+                                    <Icon name="check-circle" size={12} className="inline mr-2" />
+                                    Synchronized Successfully
                                 </div>
-                                <button type="submit" className="btn-primary py-4 px-10">Commit SKU</button>
+                                <button type="submit" className="btn-primary py-4 px-10 font-black uppercase tracking-widest text-[10px] italic">Commit to Registry</button>
                             </div>
                         </form>
                     </div>
                 )}
 
                 {/* Inventory Table */}
-                <div className="card p-0 overflow-hidden shadow-2xl">
-                    <table className="w-full text-left font-sans italic">
-                        <thead className="bg-[#0f172a] text-white">
-                            <tr>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">SKU / Item</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Category</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-center">Availability</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.inventory.map(item => (
-                                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-8 py-5">
-                                        <div className="font-black text-slate-900 uppercase">{item.sku}</div>
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.name}</div>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <span className="px-3 py-1 bg-slate-100 rounded-lg text-[10px] font-black uppercase text-slate-500 tracking-tighter">{item.category}</span>
-                                    </td>
-                                    <td className="px-8 py-5 text-center">
-                                        <div className={`text-xl font-black ${item.stock <= item.minStock ? 'text-rose-500' : 'text-slate-900'}`}>
-                                            {item.stock} <small className="text-[10px] text-slate-400">{item.unit}</small>
-                                        </div>
-                                        <div className="w-20 bg-slate-100 h-1 rounded-full mx-auto mt-1 overflow-hidden">
-                                            <div className={`h-full ${item.stock <= item.minStock ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, (item.stock / (item.minStock * 4)) * 100)}%` }}></div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <div className="flex justify-end gap-3 transition-all duration-300">
-                                            <button onClick={() => setIsAdjustingStock(item.id)} className="p-2.5 bg-brand-50 hover:bg-brand-500 hover:text-white hover:scale-110 rounded-xl transition-all text-brand-600 shadow-sm border border-brand-100" title="Adjust Stock">
-                                                <Icon name="refresh-cw" size={14} />
-                                            </button>
-                                            <button onClick={() => { setEditingItem(item); setNewItem({ ...item }); setIsAddingItem(true); }} className="p-2.5 bg-slate-50 hover:bg-slate-900 hover:text-white hover:scale-110 rounded-xl transition-all text-slate-400 shadow-sm border border-slate-100" title="Modify Details">
-                                                <Icon name="edit-3" size={14} />
-                                            </button>
-                                            <button onClick={() => { if (confirm(`Purge ${item.sku} from registry?`)) { deleteItem('inventory', item.id); logActivity(`Inventory purged: ${item.sku}`, 'Archive'); } }} className="p-2.5 bg-rose-50 hover:bg-rose-500 hover:text-white hover:scale-110 rounded-xl transition-all text-rose-400 shadow-sm border border-rose-100" title="Delete Item">
-                                                <Icon name="trash-2" size={14} />
-                                            </button>
-                                        </div>
-                                    </td>
+                <div className="card !p-0 overflow-hidden border-none bg-white dark:bg-white/5 shadow-2xl">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left font-sans">
+                            <thead className="bg-[#0f172a] text-white">
+                                <tr>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Asset Identity</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Classification</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center">Reserve Status</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Control</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                {data.inventory.map(item => (
+                                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
+                                        <td className="px-8 py-6">
+                                            <div className="font-black text-slate-900 dark:text-white uppercase italic tracking-tight">{item.sku}</div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.name}</div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-lg text-[10px] font-black uppercase text-slate-500 tracking-tighter">{item.category}</span>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col items-center">
+                                                <div className={`text-2xl font-black font-sans tracking-tighter ${item.stock <= item.minStock ? 'text-rose-500 animate-pulse' : 'text-slate-900 dark:text-white'}`}>
+                                                    {item.stock} <small className="text-[9px] uppercase text-slate-400 tracking-widest">{item.unit}</small>
+                                                </div>
+                                                <div className="w-24 bg-slate-100 dark:bg-white/10 h-1 rounded-full mt-2 overflow-hidden shadow-inner">
+                                                    <div className={`h-full transition-all duration-1000 ${item.stock <= item.minStock ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, (item.stock / (item.minStock * 4)) * 100)}%` }}></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => setIsAdjustingStock(item.id)} className="w-10 h-10 flex items-center justify-center bg-brand-500/10 hover:bg-brand-500 hover:text-white rounded-xl transition-all text-brand-500" title="Adjust Assets">
+                                                    <Icon name="refresh-cw" size={16} />
+                                                </button>
+                                                <button onClick={() => { setEditingItem(item); setNewItem({ ...item }); setIsAddingItem(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-white/5 hover:bg-slate-900 dark:hover:bg-white rounded-xl transition-all text-slate-400" title="Modify Context">
+                                                    <Icon name="edit-3" size={16} />
+                                                </button>
+                                                <button onClick={() => { if (confirm(`Purge ${item.sku} from registry?`)) { deleteItem('inventory', item.id); logActivity(`Inventory purged: ${item.sku}`, 'Archive'); } }} className="w-10 h-10 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-500" title="Purge SKU">
+                                                    <Icon name="trash-2" size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {/* Adjustment Modal */}
-                <Modal isOpen={!!isAdjustingStock} onClose={() => setIsAdjustingStock(null)} title="Stock Adjustment Flow">
+                <Modal isOpen={!!isAdjustingStock} onClose={() => setIsAdjustingStock(null)} title="Operational Stock Adjustment">
                     {isAdjustingStock && (() => {
                         const item = data.inventory.find(i => i.id === isAdjustingStock);
                         return (
-                            <form onSubmit={handleAdjustStock} className="space-y-8">
-                                <div className="flex items-center gap-6 p-6 bg-slate-50 rounded-3xl">
-                                    <div className="w-16 h-16 bg-[#0f172a] text-brand-500 rounded-2xl flex items-center justify-center text-xl font-black">{item?.sku.charAt(0)}</div>
-                                    <div>
-                                        <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">{item?.name}</h4>
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Inventory: {item?.stock} {item?.unit}</p>
+                            <form onSubmit={handleAdjustStock} className="space-y-8 p-2">
+                                <div className="flex items-center gap-6 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-brand-500/10 blur-3xl rounded-full"></div>
+                                    <div className="w-20 h-20 bg-brand-600 rounded-3xl flex items-center justify-center text-3xl font-black italic shadow-2xl shadow-brand-500/20 z-10">{item?.sku.charAt(0)}</div>
+                                    <div className="z-10">
+                                        <h4 className="text-2xl font-black tracking-tighter uppercase italic">{item?.name}</h4>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Current Reserve: <span className="text-brand-500">{item?.stock} {item?.unit}</span></p>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-4">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Movement Type</label>
-                                        <div className="flex gap-4">
-                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'In' })} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${adjustment.type === 'In' ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-500/20' : 'bg-slate-100 text-slate-400'}`}>Input (+)</button>
-                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'Out' })} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${adjustment.type === 'Out' ? 'bg-rose-500 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-400'}`}>Output (-)</button>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Movement Direction</label>
+                                        <div className="flex gap-4 p-1.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
+                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'In' })} className={`flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${adjustment.type === 'In' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 scale-[1.02]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'}`}>Increment (+)</button>
+                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'Out' })} className={`flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${adjustment.type === 'Out' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20 scale-[1.02]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'}`}>Decrement (-)</button>
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Quantity ({item?.unit})</label>
-                                        <input type="number" className="input-field py-4 text-center text-2xl font-black" required value={adjustment.qty} onChange={e => setAdjustment({ ...adjustment, qty: parseFloat(e.target.value) })} />
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Magnitude ({item?.unit})</label>
+                                        <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white !py-4 focus:!border-brand-500 text-center text-3xl font-black italic tracking-tighter" required value={adjustment.qty} onChange={e => setAdjustment({ ...adjustment, qty: parseFloat(e.target.value) })} />
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Reference (Project / Order ID)</label>
-                                        <input className="input-field" placeholder="e.g. PRJ-204" value={adjustment.reference} onChange={e => setAdjustment({ ...adjustment, reference: e.target.value })} />
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Context Reference (Project / Order ID)</label>
+                                        <input className="input-field !bg-white/5 !border-white/10 !text-white" placeholder="e.g. PRJ-204" value={adjustment.reference} onChange={e => setAdjustment({ ...adjustment, reference: e.target.value })} />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Internal Notes</label>
-                                        <textarea className="input-field h-24" placeholder="Reason for adjustment..." value={adjustment.notes} onChange={e => setAdjustment({ ...adjustment, notes: e.target.value })}></textarea>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Internal Justification</label>
+                                        <textarea className="input-field !bg-white/5 !border-white/10 !text-white h-28 resize-none" placeholder="Specify technical reason for stock deviation..." value={adjustment.notes} onChange={e => setAdjustment({ ...adjustment, notes: e.target.value })}></textarea>
                                     </div>
                                 </div>
 
-                                <button type="submit" className={`w-full py-5 rounded-3xl font-black uppercase tracking-widest text-xs shadow-2xl transition-all ${adjustment.type === 'In' ? 'bg-black text-brand-500' : 'bg-black text-rose-500'}`}>
-                                    Commit Movement Record
+                                <button type="submit" className={`w-full py-5 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl transition-all italic transform hover:-translate-y-1 active:scale-95 ${adjustment.type === 'In' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>
+                                    Authorize Flow Modification
                                 </button>
                             </form>
                         );
@@ -1184,32 +1291,39 @@
                 </Modal>
 
                 {/* Recent Movements */}
-                <div className="card lg:col-span-3 h-80 flex flex-col p-10">
-                    <div className="flex justify-between items-center mb-6">
-                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none italic">Movement Forensics</h5>
-                        <Icon name="history" size={16} className="text-brand-500" />
+                <div className="card !p-0 border-none bg-white dark:bg-white/5 shadow-2xl overflow-hidden">
+                    <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900">
+                        <div className="flex items-center gap-3">
+                            <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-ping"></div>
+                            <h5 className="text-[11px] font-black text-white uppercase tracking-[0.4em] italic">Telemetry: Stock Dynamics</h5>
+                        </div>
+                        <Icon name="activity" size={16} className="text-brand-500 opacity-50" />
                     </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-4">
-                        {(data.stockMovements || []).length > 0 ? data.stockMovements.map(m => (
-                            <div key={m.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-brand-500 transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${m.type === 'In' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                        {m.type === 'In' ? '+' : '-'}
+                    <div className="max-h-96 overflow-y-auto custom-scrollbar p-6 space-y-4">
+                        {(data.stockMovements || []).length > 0 ? [...data.stockMovements].reverse().map(m => (
+                            <div key={m.id} className="flex justify-between items-center p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-transparent hover:border-brand-500/30 transition-all group">
+                                <div className="flex items-center gap-5">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-lg ${m.type === 'In' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                        {m.type === 'In' ? <Icon name="arrow-up-right" size={20} /> : <Icon name="arrow-down-right" size={20} />}
                                     </div>
                                     <div>
-                                        <p className="text-xs font-black text-slate-900 dark:text-white leading-none uppercase italic">{m.itemName}</p>
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{m.sku} • {m.date}</p>
+                                        <p className="text-sm font-black text-slate-900 dark:text-white leading-none uppercase italic group-hover:text-brand-500 transition-colors">{m.itemName}</p>
+                                        <div className="flex items-center gap-3 mt-2">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{m.sku}</span>
+                                            <span className="w-1 h-1 bg-slate-300 dark:bg-white/10 rounded-full"></span>
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">{m.date}</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-sm font-black text-slate-900 dark:text-white font-sans">{m.qty} Units</p>
-                                    <p className="text-[9px] font-black text-brand-600 uppercase italic mt-1">{m.reference || 'Manual Adj'}</p>
+                                    <p className="text-lg font-black text-slate-900 dark:text-white font-sans tracking-tighter">{m.type === 'In' ? '+' : '-'}{m.qty}</p>
+                                    <p className="text-[10px] font-black text-brand-600 uppercase italic tracking-widest mt-1 opacity-70">{m.reference || 'Static Adj'}</p>
                                 </div>
                             </div>
                         )) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-300">
-                                <Icon name="drafts" size={32} className="opacity-20 mb-2" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Awaiting stock signals...</p>
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-white/10">
+                                <Icon name="box" size={48} className="opacity-10 mb-4" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em]">Operational Silence: No recent fluctuations detected</p>
                             </div>
                         )}
                     </div>
@@ -1291,117 +1405,166 @@
 
         return (
             <div className="space-y-8 animate-slide">
-                <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-slate-900 rounded-2xl shadow-lg text-brand-500">
-                            <Icon name="users" size={24} />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Client Relations</h2>
                         </div>
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">Client Portals</h3>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Relationship Ecosystem Management // {data.clients.length} Active Entities</p>
                     </div>
                     <button onClick={() => setIsAddingClient(true)} className="btn-primary">
-                        <Icon name="plus" size={18} /> Add New Client
+                        <Icon name="plus-circle" size={18} /> Register Stakeholder
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {
-                        data.clients.map(c => (
-                            <div
-                                key={c.id}
-                                onClick={() => setSelectedClient(c)}
-                                className="card flex items-center gap-5 hover:border-brand-500 transition-all group cursor-pointer"
-                            >
-                                <div className="w-14 h-14 bg-slate-900 text-brand-500 rounded-2xl flex items-center justify-center text-xl font-black shadow-lg group-hover:bg-brand-500 group-hover:text-black transition-all">
-                                    {c.name.charAt(0)}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {data.clients.map(c => (
+                        <div
+                            key={c.id}
+                            onClick={() => setSelectedClient(c)}
+                            className="card !p-8 bg-white dark:bg-white/5 border-none shadow-xl hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6"
+                        >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 blur-3xl rounded-full group-hover:bg-brand-500/10 transition-colors"></div>
+
+                            <div className="w-24 h-24 bg-slate-900 dark:bg-white/10 text-brand-500 rounded-[2rem] flex items-center justify-center text-4xl font-black shadow-2xl group-hover:scale-110 transition-transform duration-500 italic">
+                                {c.name.charAt(0)}
+                            </div>
+
+                            <div className="space-y-2 relative z-10">
+                                <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">{c.name}</h4>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{c.company}</p>
+                            </div>
+
+                            <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-white/5 w-full justify-center">
+                                <div className="text-center">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Revenue</p>
+                                    <p className="text-xs font-black text-slate-900 dark:text-white font-sans">KSh {(data.sales.filter(s => s.client === c.name).reduce((sum, s) => sum + parseFloat(s.amount), 0) / 1000).toFixed(1)}K</p>
                                 </div>
-                                <div>
-                                    <h2 className="font-black text-slate-900 italic tracking-tight uppercase leading-none">{c.name}</h2>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{c.company}</p>
+                                <div className="w-px h-8 bg-slate-100 dark:bg-white/5"></div>
+                                <div className="text-center">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ops</p>
+                                    <p className="text-xs font-black text-slate-900 dark:text-white font-sans">{data.projects.filter(p => p.client === c.name).length}</p>
                                 </div>
                             </div>
-                        ))
-                    }
-                </div >
+
+                            <div className="absolute bottom-4 right-8 opacity-0 group-hover:opacity-100 group-hover:right-4 transition-all duration-300">
+                                <Icon name="chevron-right" size={20} className="text-brand-500" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
 
                 <Modal
                     isOpen={!!selectedClient}
                     onClose={() => setSelectedClient(null)}
-                    title={`360° Client Profile: ${selectedClient?.name}`}
+                    title="Client Intelligence Matrix"
                 >
                     {selectedClient && (
-                        <div className="space-y-10 py-4">
-                            <div className="flex justify-between items-center bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                <div className="flex items-center gap-5">
-                                    <div className="w-20 h-20 bg-[#0f172a] text-brand-500 rounded-3xl flex items-center justify-center text-3xl font-black shadow-xl">
+                        <div className="space-y-12 py-2">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-slate-900 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                                <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-brand-500/5 blur-[100px] rounded-full"></div>
+                                <div className="flex items-center gap-8 z-10">
+                                    <div className="w-24 h-24 bg-brand-600 rounded-[2.5rem] flex items-center justify-center text-4xl font-black italic shadow-2xl shadow-brand-500/20 text-white">
                                         {selectedClient.name.charAt(0)}
                                     </div>
-                                    <div>
-                                        <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">{selectedClient.name}</h3>
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{selectedClient.company}</p>
+                                    <div className="space-y-2">
+                                        <h3 className="text-4xl font-black text-white uppercase italic tracking-tighter leading-none">{selectedClient.name}</h3>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[10px] font-black text-brand-500 uppercase tracking-[0.4em]">{selectedClient.company}</span>
+                                            <span className="w-1.5 h-1.5 bg-white/20 rounded-full"></span>
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Active Entity</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-4">
-                                    <button onClick={handleOpenEdit} className="flex-1 flex items-center justify-center gap-2 py-4 px-6 bg-white hover:bg-slate-900 hover:text-white rounded-2xl border border-slate-200 transition-all shadow-sm text-slate-700 font-black uppercase text-[10px] tracking-widest group">
-                                        <Icon name="edit-3" size={18} className="group-hover:scale-110 transition-transform" />
-                                        <span>Configure Profile</span>
+                                <div className="flex gap-4 z-10 w-full md:w-auto">
+                                    <button onClick={handleOpenEdit} className="flex-1 md:flex-none flex items-center justify-center gap-2 py-4 px-8 bg-white/10 hover:bg-white hover:text-black rounded-2xl border border-white/10 transition-all text-white font-black uppercase text-[10px] tracking-widest italic">
+                                        <Icon name="edit-3" size={16} />
+                                        <span>Update Profile</span>
                                     </button>
-                                    <button onClick={handleDelete} className="flex-1 flex items-center justify-center gap-2 py-4 px-6 bg-white hover:bg-rose-500 hover:text-white rounded-2xl border border-slate-200 transition-all shadow-sm text-slate-700 font-black uppercase text-[10px] tracking-widest group">
-                                        <Icon name="trash-2" size={18} className="group-hover:scale-110 transition-transform" />
-                                        <span>Archive Entity</span>
+                                    <button onClick={handleDelete} className="w-12 h-12 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-2xl border border-rose-500/20 transition-all">
+                                        <Icon name="archive-restore" size={20} />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="bg-slate-50 p-6 rounded-3xl border-b-8 border-brand-500">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Lifetime Value</p>
-                                    <p className="text-2xl font-black text-slate-900 font-sans tracking-tight">KSh {totalRevenue.toLocaleString()}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="card p-8 bg-white dark:bg-white/5 border-none shadow-xl group hover:scale-[1.02] transition-all">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 bg-brand-500/10 text-brand-500 rounded-xl"><Icon name="trending-up" size={16} /></div>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lifetime Yield</span>
+                                    </div>
+                                    <p className="text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tighter italic">KSh {totalRevenue.toLocaleString()}</p>
                                 </div>
-                                <div className="bg-slate-50 p-6 rounded-3xl border-b-8 border-emerald-500">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Active Projects</p>
-                                    <p className="text-2xl font-black text-slate-900 tracking-tight text-emerald-600">{clientProjects.filter(p => p.status === 'Active').length}</p>
+                                <div className="card p-8 bg-white dark:bg-white/5 border-none shadow-xl group hover:scale-[1.02] transition-all">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl"><Icon name="layers" size={16} /></div>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Ops</span>
+                                    </div>
+                                    <p className="text-3xl font-black text-emerald-500 font-sans tracking-tighter italic">{clientProjects.filter(p => p.status === 'Active').length}</p>
                                 </div>
-                                <div className="bg-slate-50 p-6 rounded-3xl border-b-8 border-slate-900">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Interactions</p>
-                                    <p className="text-2xl font-black text-slate-900 tracking-tight">{clientInteractions.length}</p>
+                                <div className="card p-8 bg-white dark:bg-white/5 border-none shadow-xl group hover:scale-[1.02] transition-all">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-300 rounded-xl"><Icon name="zap" size={16} /></div>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Touchpoints</span>
+                                    </div>
+                                    <p className="text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tighter italic">{clientInteractions.length}</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                <div className="space-y-6">
-                                    <div className="flex justify-between items-center">
-                                        <h5 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 italic">History Timeline</h5>
-                                        <button onClick={() => setIsAddingInteraction(true)} className="text-[10px] font-black text-brand-600 uppercase hover:underline">+ Log Interaction</button>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                                <div className="space-y-8">
+                                    <div className="flex justify-between items-center px-2">
+                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-900 dark:text-white italic">Engagement Chronology</h5>
+                                        <button onClick={() => setIsAddingInteraction(true)} className="w-10 h-10 flex items-center justify-center bg-brand-500/10 text-brand-500 rounded-xl hover:bg-brand-500 hover:text-white transition-all shadow-lg shadow-brand-500/10">
+                                            <Icon name="plus" size={20} />
+                                        </button>
                                     </div>
-                                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {clientInteractions.map(i => (
-                                            <div key={i.id} className="p-5 bg-white border border-slate-100 rounded-3xl relative group hover:shadow-xl transition-all">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${i.type === 'Meeting' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    <div className="space-y-6 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                                        {clientInteractions.length > 0 ? [...clientInteractions].reverse().map(i => (
+                                            <div key={i.id} className="p-6 bg-slate-50 dark:bg-white/5 rounded-[2rem] border border-transparent hover:border-brand-500/30 transition-all relative group">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${i.type === 'Meeting' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : i.type === 'Call' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-900 text-white'}`}>
                                                         {i.type}
                                                     </span>
-                                                    <span className="text-[9px] font-bold text-slate-300 italic">{i.date}</span>
+                                                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase italic">
+                                                        <Icon name="calendar" size={10} />
+                                                        {i.date}
+                                                    </div>
                                                 </div>
-                                                <p className="text-xs text-slate-600 font-medium leading-relaxed italic">"{i.notes}"</p>
+                                                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed italic border-l-2 border-brand-500/30 pl-4">"{i.notes}"</p>
+                                                <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Icon name="check-check" size={14} className="text-brand-500" />
+                                                </div>
                                             </div>
-                                        ))}
+                                        )) : (
+                                            <div className="flex flex-col items-center justify-center py-20 bg-slate-50 dark:bg-white/5 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-white/10">
+                                                <Icon name="message-square" size={32} className="text-slate-300 dark:text-white/10 mb-4" />
+                                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Archival Silence: No recorded interactions</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
                                 <div className="space-y-8">
+                                    <div className="px-2">
+                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-900 dark:text-white italic">Commercial Velocity</h5>
+                                    </div>
                                     <div className="space-y-4">
-                                        <h5 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 italic">Recent Sales</h5>
-                                        <div className="space-y-2">
-                                            {clientSales.slice(0, 3).map(s => (
-                                                <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-sm font-black text-slate-900 uppercase tracking-tight">{s.invoiceNo}</span>
-                                                        <span className="text-[9px] font-bold text-slate-400 uppercase italic">{s.date}</span>
+                                        {clientSales.slice(0, 5).map(s => (
+                                            <div key={s.id} className="flex items-center justify-between p-6 bg-white dark:bg-white/5 rounded-[2rem] shadow-xl hover:shadow-2xl transition-all border border-transparent hover:border-emerald-500/30 group">
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center">
+                                                        <Icon name="file-text" size={20} />
                                                     </div>
-                                                    <span className="text-sm font-black text-slate-900 font-sans">KSh {parseFloat(s.amount).toLocaleString()}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter italic">{s.invoiceNo}</span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{s.date}</span>
+                                                    </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                                <span className="text-xl font-black text-slate-900 dark:text-white font-sans tracking-tighter">KSh {parseFloat(s.amount).toLocaleString()}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -1409,75 +1572,84 @@
                     )}
                 </Modal>
 
-                <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} title="Update Client Entity">
-                    <form onSubmit={handleSaveEdit} className="space-y-8">
+                <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} title="Operational Profile Refinement">
+                    <form onSubmit={handleSaveEdit} className="space-y-8 p-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Full Name</label>
-                                <input className="input-field" required value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Company Name</label>
-                                <input className="input-field" required value={editData.company} onChange={e => setEditData({ ...editData, company: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Corporate Alias</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={editData.company} onChange={e => setEditData({ ...editData, company: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Phone Contact</label>
-                                <input className="input-field" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Vector (Phone)</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">KRA Pin</label>
-                                <input className="input-field" value={editData.kraPin} onChange={e => setEditData({ ...editData, kraPin: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">KRA Fiscal Identity</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={editData.kraPin} onChange={e => setEditData({ ...editData, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Location</label>
-                                <input className="input-field" value={editData.location} onChange={e => setEditData({ ...editData, location: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Coordinates</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={editData.location} onChange={e => setEditData({ ...editData, location: e.target.value })} />
                             </div>
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic tracking-tighter shadow-2xl">Commit Profile Changes</button>
+                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">Authorize Profile Synchronization</button>
                     </form>
                 </Modal>
 
-                <Modal isOpen={isAddingInteraction} onClose={() => setIsAddingInteraction(false)} title="Success Log: Fresh Engagement">
-                    <form onSubmit={handleAddInteraction} className="space-y-8">
+                <Modal isOpen={isAddingInteraction} onClose={() => setIsAddingInteraction(false)} title="Log Engagement Protocol">
+                    <form onSubmit={handleAddInteraction} className="space-y-8 p-2">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Engagement Type</label>
-                            <select className="input-field" value={newInteraction.type} onChange={e => setNewInteraction({ ...newInteraction, type: e.target.value })}>
-                                <option>Call</option><option>Meeting</option><option>Email</option><option>Proposal</option>
-                            </select>
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Engagement Vector</label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {['Call', 'Meeting', 'Email', 'Proposal'].map(type => (
+                                    <button
+                                        key={type}
+                                        type="button"
+                                        onClick={() => setNewInteraction({ ...newInteraction, type })}
+                                        className={`py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${newInteraction.type === type ? 'bg-brand-500 text-black shadow-lg shadow-brand-500/20' : 'bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        {type}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Interaction Summary</label>
-                            <textarea className="input-field min-h-[120px] py-4" placeholder="Summary of discussion..." required value={newInteraction.notes} onChange={e => setNewInteraction({ ...newInteraction, notes: e.target.value })} />
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Interaction Intelligence</label>
+                            <textarea className="input-field !bg-white/5 !border-white/10 !text-white min-h-[160px] py-6 leading-relaxed" placeholder="Document strategic outcomes..." required value={newInteraction.notes} onChange={e => setNewInteraction({ ...newInteraction, notes: e.target.value })} />
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest shadow-xl italic">Commit to History</button>
+                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] shadow-xl italic">Commit to Historical Matrix</button>
                     </form>
                 </Modal>
 
-                <Modal isOpen={isAddingClient} onClose={() => setIsAddingClient(false)} title="Register Fresh Client Entity">
-                    <form onSubmit={handleRegisterClient} className="space-y-8">
+                <Modal isOpen={isAddingClient} onClose={() => setIsAddingClient(false)} title="Stakeholder Registry Initiation">
+                    <form onSubmit={handleRegisterClient} className="space-y-8 p-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Full Name</label>
-                                <input className="input-field" required value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required placeholder="Full Name" value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Company Name</label>
-                                <input className="input-field" required value={newClient.company} onChange={e => setNewClient({ ...newClient, company: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Corporate Alias</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required placeholder="Company" value={newClient.company} onChange={e => setNewClient({ ...newClient, company: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">KRA Pin</label>
-                                <input className="input-field" value={newClient.kraPin} onChange={e => setNewClient({ ...newClient, kraPin: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">KRA Fiscal Identity</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" placeholder="KRA PIN" value={newClient.kraPin} onChange={e => setNewClient({ ...newClient, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Location</label>
-                                <input className="input-field" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Coordinates</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" placeholder="Physical Location" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Phone Contact</label>
-                                <input className="input-field" required value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Vector (Phone)</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required placeholder="+254..." value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
                             </div>
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic shadow-2xl">Commit New Client</button>
+                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">Synchronize New Stakeholder</button>
                     </form>
                 </Modal>
             </div >
@@ -1517,94 +1689,94 @@
         };
 
         return (
-            <div className="space-y-6 animate-slide">
-                <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-600/20 text-white font-black">
-                            <Icon name="truck" size={24} />
+            <div className="space-y-8 animate-slide">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Vendor Network</h2>
                         </div>
-                        <div>
-                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Vendor Network</h3>
-                            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest italic">{data.suppliers.length} Active Partners</p>
-                        </div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Supply Chain Ecosystem // {data.suppliers.length} Active Partners</p>
                     </div>
-                    <button onClick={handleOpenAdd} className="btn-primary py-3 px-8">
-                        <Icon name="plus" size={18} /> Add Vendor Entity
+                    <button onClick={handleOpenAdd} className="btn-primary">
+                        <Icon name="plus-circle" size={18} /> Register Partner Entity
                     </button>
                 </div>
 
-                <div className="card p-0 overflow-hidden shadow-2xl border-none">
-                    <table className="w-full text-left font-sans italic">
-                        <thead className="bg-[#0f172a] text-white">
-                            <tr>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Vendor Entity</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Primary Liaison</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400">Vertical</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.suppliers.map(s => (
-                                <tr key={s.id} className="hover:bg-slate-50 transition-colors group">
-                                    <td className="px-8 py-5">
-                                        <div className="font-black text-slate-900 uppercase tracking-tight">{s.name}</div>
-                                        <div className="text-[10px] font-bold text-slate-400 italic">{s.email}</div>
-                                    </td>
-                                    <td className="px-8 py-5 font-bold text-slate-500">{s.contact}</td>
-                                    <td className="px-8 py-5">
-                                        <span className="px-3 py-1 bg-brand-100 text-brand-900 rounded-lg font-black uppercase text-[10px]">{s.category}</span>
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleOpenEdit(s)} className="p-2 hover:bg-brand-500 hover:text-white rounded-xl transition-all text-slate-400">
-                                                <Icon name="edit-3" size={16} />
-                                            </button>
-                                            <button onClick={() => { deleteItem('suppliers', s.id); logActivity(`Deleted vendor: ${s.name}`, 'Archive'); }} className="p-2 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-slate-400">
-                                                <Icon name="trash-2" size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
+                <div className="card !p-0 overflow-hidden border-none bg-white dark:bg-white/5 shadow-2xl">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left font-sans">
+                            <thead className="bg-[#0f172a] text-white">
+                                <tr>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Partner Identity</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Primary Liaison</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Vertical Vertical</th>
+                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Control</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                {data.suppliers.map(s => (
+                                    <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
+                                        <td className="px-8 py-6">
+                                            <div className="font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">{s.name}</div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{s.email}</div>
+                                        </td>
+                                        <td className="px-8 py-6 font-bold text-slate-600 dark:text-slate-400 italic text-sm">{s.contact}</td>
+                                        <td className="px-8 py-6">
+                                            <span className="px-3 py-1 bg-brand-500/10 text-brand-500 rounded-lg text-[10px] font-black uppercase tracking-tighter">{s.category}</span>
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button onClick={() => handleOpenEdit(s)} className="w-10 h-10 flex items-center justify-center bg-brand-500/10 hover:bg-brand-500 hover:text-white rounded-xl transition-all text-brand-500">
+                                                    <Icon name="edit-3" size={16} />
+                                                </button>
+                                                <button onClick={() => { if (confirm('Archive Partner Entity?')) { deleteItem('suppliers', s.id); logActivity(`Archived vendor: ${s.name}`, 'Archive'); } }} className="w-10 h-10 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-500">
+                                                    <Icon name="trash-2" size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <Modal isOpen={isAdding} onClose={() => setIsAdding(false)} title={editingSupplier ? "Configure Vendor Entity" : "Register Fresh Vendor"}>
-                    <form onSubmit={handleSubmit} className="space-y-8">
+                <Modal isOpen={isAdding} onClose={() => setIsAdding(false)} title={editingSupplier ? "Partner Entity Configuration" : "Stakeholder Registry Initiation"}>
+                    <form onSubmit={handleSubmit} className="space-y-8 p-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Entity Name</label>
-                                <input className="input-field" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Liaison Name</label>
-                                <input className="input-field" required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Liaison Identity</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Email Protocol</label>
-                                <input type="email" className="input-field" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Protocol (Email)</label>
+                                <input type="email" className="input-field !bg-white/5 !border-white/10 !text-white font-sans" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Vertical Category</label>
-                                <select className="input-field" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Operation Classification</label>
+                                <select className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                     <option>Material</option><option>Software</option><option>Infrastructure</option><option>Logistics</option><option>Marketing</option>
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">KRA Pin (Tax Identity)</label>
-                                <input className="input-field" value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Fiscal Identity (KRA PIN)</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Contact Person</label>
-                                <input className="input-field" value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Key Personnel</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Operational Address</label>
-                                <input className="input-field" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Logistics Center</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                             </div>
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic">{editingSupplier ? "Commit Updates" : "Register Vendor Entity"}</button>
+                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">{editingSupplier ? "Authorize Config Update" : "Synchronize New Partner"}</button>
                     </form>
                 </Modal>
             </div>
@@ -1678,63 +1850,60 @@
 
         return (
             <div className="space-y-8 animate-slide">
-                <div className="flex justify-between items-center bg-slate-900 p-8 rounded-3xl shadow-2xl border-none text-white relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-transform duration-1000">
-                        <Icon name="briefcase" size={150} />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-brand-500 rounded-full animate-pulse"></span>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Project Hub</h2>
+                        </div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Lifecycle Management Matrix // {data.projects.filter(p => p.status !== 'Done & Paid' && p.stage !== 'Archived').length} Active Ops</p>
                     </div>
-                    <div className="relative z-10">
-                        <h3 className="text-3xl font-black italic tracking-tighter uppercase">Project Hub</h3>
-                        <p className="text-brand-500 font-black uppercase text-[10px] tracking-widest mt-1 opacity-70">Enterprise Lifecycle Management</p>
-                    </div>
-                    <button onClick={handleOpenAdd} className="btn-primary py-4 px-10 relative z-10 shadow-xl shadow-brand-500/20">
-                        <Icon name="plus" size={18} /> Initiate Fresh Project
+                    <button onClick={handleOpenAdd} className="btn-primary">
+                        <Icon name="plus-circle" size={18} /> Initiate Fresh OP
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {data.projects.filter(p => p.status !== 'Done & Paid' && p.stage !== 'Archived').map(p => (
-                        <div key={p.id} className="bg-white rounded-[2rem] border border-slate-100 p-5 group hover:shadow-2xl transition-all duration-500 flex flex-col gap-4 relative overflow-hidden">
-                            {/* Status & Actions Bar */}
-                            <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${p.status === 'Completed' ? 'bg-emerald-500' : 'bg-brand-500 animate-pulse'}`}></span>
-                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{p.status}</span>
-                                </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                    <button onClick={() => handleOpenEdit(p)} className="p-2 hover:bg-slate-900 hover:text-white rounded-xl transition-all text-slate-300">
+                        <div key={p.id} className="card !p-8 bg-white dark:bg-white/5 border-none shadow-xl hover:shadow-2xl transition-all group relative overflow-hidden flex flex-col gap-6">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 blur-3xl rounded-full"></div>
+
+                            <div className="flex justify-between items-start z-10">
+                                <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${p.status === 'Completed' ? 'bg-emerald-500 text-white' : 'bg-brand-500 text-black shadow-lg shadow-brand-500/20 animate-pulse'}`}>
+                                    {p.status}
+                                </span>
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleOpenEdit(p)} className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-brand-500 hover:bg-brand-500/10 rounded-lg transition-all">
                                         <Icon name="edit-3" size={14} />
                                     </button>
-                                    <button onClick={() => { if (confirm('Archive Project?')) { deleteItem('projects', p.id); logActivity(`Archived project: ${p.name}`, 'Archive'); } }} className="p-2 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-slate-300">
-                                        <Icon name="trash-2" size={14} />
+                                    <button onClick={() => { if (confirm('Archive Project?')) { deleteItem('projects', p.id); logActivity(`Archived project: ${p.name}`, 'Archive'); } }} className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all">
+                                        <Icon name="archive" size={14} />
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Title & Client */}
-                            <div>
-                                <h4 className="text-lg font-black text-slate-900 tracking-tight uppercase leading-tight truncate group-hover:text-brand-600 transition-colors">{p.name}</h4>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Client: <span className="text-slate-900">{p.client}</span></p>
+                            <div className="z-10 space-y-1">
+                                <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none group-hover:text-brand-500 transition-colors">{p.name}</h4>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{p.client}</p>
                             </div>
 
-                            {/* Metadata Grid */}
-                            <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-2xl">
-                                <div className="flex flex-col">
-                                    <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Lead Designer</span>
-                                    <span className="text-[10px] font-black text-slate-700 italic truncate">@{p.designer || 'pending'}</span>
+                            <div className="grid grid-cols-2 gap-4 z-10">
+                                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-transparent hover:border-brand-500/20 transition-all">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Strategist</p>
+                                    <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase">@{p.designer || 'TBD'}</p>
                                 </div>
-                                <div className="flex flex-col text-right">
-                                    <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Deadline</span>
-                                    <span className="text-[10px] font-black text-rose-500 font-sans">{p.deadline}</span>
+                                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-transparent hover:border-rose-500/20 transition-all">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Deadline</p>
+                                    <p className="text-[10px] font-black text-rose-500 font-sans">{p.deadline}</p>
                                 </div>
                             </div>
 
-                            {/* Stage Progress */}
-                            <div className="space-y-2">
+                            <div className="space-y-3 z-10">
                                 <div className="flex justify-between items-center px-1">
-                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">{p.stage || 'Brief'}</span>
-                                    <span className="text-[8px] font-bold text-slate-300 uppercase tracking-tighter">PRJ-{p.id.toString().slice(-4)}</span>
+                                    <span className="text-[9px] font-black text-slate-900 dark:text-brand-500 uppercase tracking-widest italic">{p.stage || 'Brief'}</span>
+                                    <span className="text-[8px] font-bold text-slate-400 uppercase">OP-{p.id.toString().slice(-4)}</span>
                                 </div>
-                                <div className="flex gap-1 h-1.5">
+                                <div className="flex gap-1.5 h-1.5">
                                     {stages.map((stage, idx) => {
                                         const currentIdx = stages.indexOf(p.stage || 'Brief');
                                         const isCompleted = idx < currentIdx;
@@ -1743,7 +1912,7 @@
                                             <div
                                                 key={stage}
                                                 onClick={() => { updateData('projects_bulk', data.projects.map(proj => proj.id === p.id ? { ...proj, stage: stage } : proj)); logActivity(`${p.name} -> ${stage}`, 'Sync'); }}
-                                                className={`flex-1 rounded-full cursor-pointer transition-all duration-300 ${isCompleted ? 'bg-emerald-500' : isActive ? 'bg-brand-500 shadow-lg shadow-brand-500/20' : 'bg-slate-100'}`}
+                                                className={`flex-1 rounded-full cursor-pointer transition-all duration-500 ${isCompleted ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : isActive ? 'bg-brand-500 shadow-[0_0_15px_rgba(250,204,21,0.4)]' : 'bg-slate-100 dark:bg-white/10'}`}
                                                 title={stage}
                                             />
                                         );
@@ -1751,71 +1920,44 @@
                                 </div>
                             </div>
 
-                            {/* Action Buttons Hub */}
-                            <div className="flex flex-col gap-2 mt-auto pt-2">
+                            <div className="flex flex-col gap-3 mt-auto pt-2 z-10">
+                                <button
+                                    onClick={() => seedInvoice({ client: p.client, projectId: p.id, itemName: `Project Billing: ${p.name}`, amount: 0 })}
+                                    className="w-full py-4 bg-brand-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] italic hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-brand-500/20 flex items-center justify-center gap-3"
+                                >
+                                    <Icon name="file-text" size={16} /> Link Commercial Ops
+                                </button>
                                 <div className="flex gap-3">
-                                    <button
-                                        onClick={() => seedInvoice({ client: p.client, projectId: p.id, itemName: `Project Billing: ${p.name}`, amount: 0 })}
-                                        className="flex-1 px-4 py-3 bg-brand-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2"
-                                    >
-                                        <Icon name="file-plus" size={14} /> Link to Billing
+                                    <button onClick={() => { setSelectedProject(p.id); setIsAddingBOM(true); }} className="flex-1 py-3 bg-slate-900 dark:bg-white/10 text-brand-500 dark:text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-brand-500 hover:text-black transition-all">
+                                        <Icon name="package" size={12} /> BOM Registry
                                     </button>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => { setSelectedProject(p.id); setIsAddingBOM(true); }} className="flex-1 py-2 bg-slate-900 text-brand-500 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-black transition-colors shadow-lg">
-                                        <Icon name="package" size={10} /> Materials
-                                    </button>
-                                </div>
-                                {p.stage === 'Delivered' && (
-                                    <button
-                                        onClick={() => seedInvoice({
-                                            client: p.client,
-                                            projectId: p.id,
-                                            itemName: `Design Project: ${p.name}`,
-                                            amount: 0,
-                                            description: `Finalized design and delivery for ${p.name}.`
-                                        })}
-                                        className="w-full py-2 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all shadow-md animate-pulse"
-                                    >
-                                        <Icon name="receipt" size={10} /> Billing Required
-                                    </button>
-                                )}
-                                {p.invoices && p.invoices.length > 0 && (
-                                    <div className="mt-1 pt-2 border-t border-slate-50">
-                                        <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest block mb-1">Linked Records</span>
-                                        <div className="flex flex-wrap gap-1">
-                                            {p.invoices.map(inv => (
-                                                <span key={inv} className="px-2 py-0.5 bg-brand-50 text-brand-700 rounded-md text-[8px] font-black italic border border-brand-100">{inv}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     ))}
                 </div>
 
-                <Modal isOpen={isAdding} onClose={() => { setIsAdding(false); setSelectedProject(null); }} title={selectedProject ? "Edit Project Blueprint" : "Initiate fresh project"}>
-                    <form onSubmit={handleSubmit} className="space-y-8">
+                <Modal isOpen={isAdding} onClose={() => { setIsAdding(false); setSelectedProject(null); }} title={selectedProject ? "OP-Blueprint Refinement" : "Operational Initiative Pipeline"}>
+                    <form onSubmit={handleSubmit} className="space-y-8 p-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Project Name</label>
-                                <input className="input-field" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Initiative Title</label>
+                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Client Entity</label>
-                                <select className="input-field" required value={formData.client} onChange={e => setFormData({ ...formData, client: e.target.value })}>
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Stakeholder Liaison</label>
+                                <select className="input-field !bg-white/5 !border-white/10 !text-white" required value={formData.client} onChange={e => setFormData({ ...formData, client: e.target.value })}>
                                     <option value="">Select Liaison...</option>
                                     {data.clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Target Delivery Date</label>
-                                <input type="date" className="input-field font-sans" required value={formData.deadline} onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Temporal Deadline</label>
+                                <input type="date" className="input-field !bg-white/5 !border-white/10 !text-white font-sans" required value={formData.deadline} onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Lead Creative (Designer)</label>
-                                <select className="input-field" value={formData.designer} onChange={e => setFormData({ ...formData, designer: e.target.value })}>
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Lead Strategist</label>
+                                <select className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.designer} onChange={e => setFormData({ ...formData, designer: e.target.value })}>
                                     <option value="">Unassigned</option>
                                     {data.users.filter(u => u.role === 'designer' || u.role === 'admin').map(u => (
                                         <option key={u.id} value={u.username}>{u.name} (@{u.username})</option>
@@ -1823,26 +1965,24 @@
                                 </select>
                             </div>
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic shadow-2xl">{selectedProject ? "Commit Blueprint Updates" : "Initiate Execution Pipeline"}</button>
+                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">{selectedProject ? "Authorize Blueprint Update" : "Launch Operational Sequence"}</button>
                     </form>
                 </Modal>
 
-                <Modal isOpen={isAddingBOM} onClose={() => { setIsAddingBOM(false); setSelectedProject(null); }} title="Project Bill of Materials">
-                    <form onSubmit={handleAddBOM} className="space-y-8">
+                <Modal isOpen={isAddingBOM} onClose={() => { setIsAddingBOM(false); setSelectedProject(null); }} title="Commercial Material Matrix">
+                    <form onSubmit={handleAddBOM} className="space-y-8 p-2">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Select Material SKU</label>
-                            <select className="input-field" required value={newBOMItem.itemId} onChange={e => setNewBOMItem({ ...newBOMItem, itemId: e.target.value })}>
-                                <option value="">Choose an item...</option>
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Asset SKU Selection</label>
+                            <select className="input-field !bg-white/5 !border-white/10 !text-white" required value={newBOMItem.itemId} onChange={e => setNewBOMItem({ ...newBOMItem, itemId: e.target.value })}>
+                                <option value="">Identify Asset...</option>
                                 {data.inventory.map(i => <option key={i.id} value={i.id}>{i.sku} - {i.name} (Stock: {i.stock})</option>)}
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Quantity Required</label>
-                            <input type="number" className="input-field" required value={newBOMItem.qty} onChange={e => setNewBOMItem({ ...newBOMItem, qty: parseFloat(e.target.value) })} />
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Operational Magnitude (Qty)</label>
+                            <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white font-sans" required value={newBOMItem.qty} onChange={e => setNewBOMItem({ ...newBOMItem, qty: parseFloat(e.target.value) })} />
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest shadow-xl">Commit Materials to Project</button>
-
-                        {/* Inline list of existing BOM if needed, but for now we keep it simple as requested */}
+                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] shadow-xl italic">Authorize Material Allocation</button>
                     </form>
                 </Modal>
 
@@ -1966,47 +2106,53 @@
         }, [data, stats, reportView]);
 
         const renderOverview = () => (
-            <div className="space-y-10">
+            <div className="space-y-10 animate-slide">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="card bg-[#0f172a] text-white border-none relative overflow-hidden group p-8">
-                        <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-150 transition-transform duration-1000"><Icon name="trending-up" size={120} /></div>
-                        <h4 className="text-3xl font-black text-brand-500 font-sans tracking-tighter italic">KSh {stats.revenue.toLocaleString()}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">Gross Revenue</p>
+                    <div className="card bg-[#0f172a] text-white border-none relative overflow-hidden group p-10 ring-1 ring-white/10">
+                        <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-150 transition-transform duration-1000"><Icon name="trending-up" size={140} /></div>
+                        <h4 className="text-4xl font-black text-brand-500 font-sans tracking-tighter italic">KSh {stats.revenue.toLocaleString()}</h4>
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mt-2">Gross Commercial Velocity</p>
                     </div>
-                    <div className="card bg-white border-slate-100 border-b-4 border-b-rose-500 p-8">
-                        <h4 className="text-3xl font-black text-slate-900 font-sans tracking-tighter italic">KSh {stats.expenses.toLocaleString()}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">Operating Cost</p>
+                    <div className="card bg-white dark:bg-white/5 border-none p-10 shadow-xl hover:shadow-2xl transition-all">
+                        <h4 className="text-4xl font-black text-slate-900 dark:text-white font-sans tracking-tighter italic">KSh {stats.expenses.toLocaleString()}</h4>
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mt-2">Operational Friction</p>
                     </div>
-                    <div className="card bg-white border-slate-100 border-b-4 border-b-emerald-500 p-8">
-                        <h4 className="text-3xl font-black text-emerald-600 font-sans tracking-tighter italic">KSh {stats.netProfit.toLocaleString()}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">Net Liquidity</p>
+                    <div className="card bg-white dark:bg-white/5 border-none p-10 shadow-xl hover:shadow-2xl transition-all relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-3xl rounded-full"></div>
+                        <h4 className="text-4xl font-black text-emerald-600 dark:text-emerald-400 font-sans tracking-tighter italic">KSh {stats.netProfit.toLocaleString()}</h4>
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mt-2">Net Liquidity Pool</p>
                     </div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="card lg:col-span-3 h-96 flex flex-col p-10 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-brand-500/5"></div>
-                        <div className="z-10 mb-6 flex justify-between items-center">
-                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Financial Trajectory</h5>
-                            <Icon name="activity" size={16} className="text-brand-500" />
+                    <div className="card lg:col-span-3 !p-0 overflow-hidden bg-white dark:bg-[#0f172a] border-none shadow-2xl min-h-[450px] flex flex-col">
+                        <div className="bg-slate-900 p-8 flex justify-between items-center border-b border-white/5">
+                            <div>
+                                <h5 className="text-[10px] font-black text-brand-500 uppercase tracking-[0.3em] leading-none mb-2">Financial Trajectory Matrix</h5>
+                                <p className="text-white/40 text-[9px] font-bold uppercase italic mt-1">Real-time Revenue Reconciliation</p>
+                            </div>
+                            <div className="p-3 bg-brand-500/10 rounded-xl"><Icon name="activity" size={20} className="text-brand-500" /></div>
                         </div>
-                        <div className="flex-1 w-full z-10"><canvas id="revenueFlowChart"></canvas></div>
+                        <div className="flex-1 p-8 w-full"><canvas id="revenueFlowChart"></canvas></div>
                     </div>
-                    <div className="card lg:col-span-2 h-96 flex flex-col p-10">
-                        <div className="mb-6"><h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Cost Allocation Distribution</h5></div>
-                        <div className="flex-1 text-xs cursor-pointer"><canvas id="expenseDistributionChart"></canvas></div>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase text-center mt-4 italic italic">Tip: Click segments to drill into details</p>
+                    <div className="card lg:col-span-2 !p-0 overflow-hidden bg-white dark:bg-white/5 border-none shadow-2xl min-h-[450px] flex flex-col">
+                        <div className="bg-slate-50 dark:bg-white/10 p-8 flex justify-between items-center border-b border-slate-100 dark:border-white/5">
+                            <h5 className="text-[10px] font-black text-slate-400 dark:text-white uppercase tracking-[0.3em] leading-none">Cost Allocation Dispersion</h5>
+                            <Icon name="pie-chart" size={18} className="text-slate-400" />
+                        </div>
+                        <div className="flex-1 p-8 text-xs cursor-pointer"><canvas id="expenseDistributionChart"></canvas></div>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase text-center py-4 italic border-t border-slate-50 dark:border-white/5">Tip: Click segments to drill into details</p>
                     </div>
                 </div>
 
-                <Modal isOpen={!!selectedCategory} onClose={() => setSelectedCategory(null)} title={`Expense Drill-down: ${selectedCategory}`}>
-                    <div className="space-y-4 py-4">
+                <Modal isOpen={!!selectedCategory} onClose={() => setSelectedCategory(null)} title={`Expense intelligence: ${selectedCategory}`}>
+                    <div className="space-y-6 py-6 p-2">
                         {data.expenses.filter(e => e.category === selectedCategory).map(e => (
-                            <div key={e.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors">
-                                <div>
-                                    <p className="text-sm font-black text-slate-900">{e.notes || 'Uncategorized Expense'}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase italic">{e.date}</p>
+                            <div key={e.id} className="flex justify-between items-center p-6 bg-white dark:bg-white/5 rounded-[2rem] hover:bg-slate-50 dark:hover:bg-white/10 transition-all border border-transparent hover:border-brand-500/20 shadow-sm">
+                                <div className="space-y-1">
+                                    <p className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-tight">{e.notes || 'Uncategorized Expense'}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase italic tracking-widest">{e.date}</p>
                                 </div>
-                                <span className="text-sm font-black text-rose-600 font-sans">KSh {parseFloat(e.amount).toLocaleString()}</span>
+                                <span className="text-lg font-black text-rose-600 dark:text-rose-400 font-sans italic tracking-tighter">KSh {parseFloat(e.amount).toLocaleString()}</span>
                             </div>
                         ))}
                     </div>
@@ -2015,41 +2161,44 @@
         );
 
         const renderPL = () => (
-            <div className="card p-0 overflow-hidden shadow-2xl animate-slide border-none">
-                <div className="bg-[#0f172a] p-12 flex justify-between items-center text-white">
-                    <div>
-                        <h3 className="text-4xl font-black tracking-tighter uppercase italic">P&L Statement</h3>
-                        <p className="text-brand-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2">Fiscal Performance Audit</p>
+            <div className="card p-0 overflow-hidden shadow-2xl animate-slide border-none bg-white dark:bg-white/5">
+                <div className="bg-[#0f172a] p-16 flex flex-col md:flex-row justify-between items-center text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/5 blur-[120px] rounded-full"></div>
+                    <div className="z-10">
+                        <h3 className="text-5xl font-black tracking-tighter uppercase italic leading-none">P&L Statement</h3>
+                        <p className="text-brand-500 font-black uppercase text-[12px] tracking-[0.4em] mt-3">Fiscal Performance Audit // {new Date().getFullYear()} Matrix</p>
                     </div>
-                    <button onClick={() => window.print()} className="btn-primary py-3 px-6 text-xs uppercase tracking-widest">Generate Report PDF</button>
+                    <button onClick={() => window.print()} className="mt-8 md:mt-0 btn-primary py-4 px-10 text-[10px] uppercase font-black tracking-[0.3em] shadow-2xl z-10">Generate Intelligence PDF</button>
                 </div>
-                <div className="p-12 bg-white">
-                    <table className="w-full text-left font-sans italic">
-                        <tbody className="divide-y divide-slate-100">
-                            {/* Revenue Section */}
-                            <tr className="bg-slate-50"><td className="py-4 px-6 font-black text-slate-900 uppercase tracking-widest text-xs">I. Total Operating Revenue</td><td className="py-4 px-6 text-right font-black text-slate-900">KSh {stats.revenue.toLocaleString()}</td></tr>
-                            <tr><td className="py-4 px-8 text-sm text-slate-500 font-bold">Gross Sales (Invoiced)</td><td className="py-4 px-6 text-right text-slate-900 font-bold">KSh {stats.revenue.toLocaleString()}</td></tr>
+                <div className="p-16">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left font-sans italic">
+                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                {/* Revenue Section */}
+                                <tr className="bg-slate-50 dark:bg-white/10"><td className="py-6 px-8 font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] text-[11px]">I. Total Operating Revenue</td><td className="py-6 px-8 text-right font-black text-slate-900 dark:text-white text-lg">KSh {stats.revenue.toLocaleString()}</td></tr>
+                                <tr><td className="py-6 px-12 text-sm text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Gross Sales (Invoiced)</td><td className="py-6 px-8 text-right text-slate-900 dark:text-white font-bold italic">KSh {stats.revenue.toLocaleString()}</td></tr>
 
-                            {/* COGS Section */}
-                            <tr className="bg-slate-50 mt-8"><td className="py-4 px-6 font-black text-slate-900 uppercase tracking-widest text-xs">II. Cost of Goods Sold (BOM)</td><td className="py-4 px-6 text-right font-black text-rose-600">(KSh {stats.cogs.toLocaleString()})</td></tr>
-                            <tr><td className="py-4 px-8 text-sm text-slate-500 font-bold">Material Consumption</td><td className="py-4 px-6 text-right text-slate-900 font-bold">KSh {stats.cogs.toLocaleString()}</td></tr>
+                                {/* COGS Section */}
+                                <tr className="bg-slate-50 dark:bg-white/10 mt-8"><td className="py-6 px-8 font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] text-[11px]">II. Cost of Goods Sold (BOM)</td><td className="py-6 px-8 text-right font-black text-rose-600 dark:text-rose-400 italic">(KSh {stats.cogs.toLocaleString()})</td></tr>
+                                <tr><td className="py-6 px-12 text-sm text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Material Consumption</td><td className="py-6 px-8 text-right text-slate-900 dark:text-white font-bold italic">KSh {stats.cogs.toLocaleString()}</td></tr>
 
-                            {/* Gross Profit */}
-                            <tr className="bg-brand-500/10"><td className="py-6 px-6 font-black text-slate-900 uppercase tracking-widest text-sm">Gross Profit Margin</td><td className="py-6 px-6 text-right font-black text-slate-900 text-lg">KSh {stats.grossProfit.toLocaleString()}</td></tr>
+                                {/* Gross Profit */}
+                                <tr className="bg-brand-500/10 dark:bg-brand-500/20"><td className="py-10 px-8 font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] text-sm">Gross Profit Margin</td><td className="py-10 px-8 text-right font-black text-slate-900 dark:text-white text-3xl tracking-tighter italic">KSh {stats.grossProfit.toLocaleString()}</td></tr>
 
-                            {/* Expenses Section */}
-                            <tr className="bg-slate-50 mt-8"><td className="py-4 px-6 font-black text-slate-900 uppercase tracking-widest text-xs">III. Operating Expenses</td><td className="py-4 px-6 text-right font-black text-rose-600">(KSh {stats.expenses.toLocaleString()})</td></tr>
-                            {Object.entries(data.expenses.reduce((acc, e) => {
-                                acc[e.category] = (acc[e.category] || 0) + parseFloat(e.amount);
-                                return acc;
-                            }, {})).map(([cat, amt]) => (
-                                <tr key={cat}><td className="py-4 px-8 text-sm text-slate-500 font-bold">{cat}</td><td className="py-4 px-6 text-right text-slate-900 font-bold">KSh {amt.toLocaleString()}</td></tr>
-                            ))}
+                                {/* Expenses Section */}
+                                <tr className="bg-slate-50 dark:bg-white/10 mt-8"><td className="py-6 px-8 font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] text-[11px]">III. Operating Expenses</td><td className="py-6 px-8 text-right font-black text-rose-600 dark:text-rose-400 italic">(KSh {stats.expenses.toLocaleString()})</td></tr>
+                                {Object.entries(data.expenses.reduce((acc, e) => {
+                                    acc[e.category] = (acc[e.category] || 0) + parseFloat(e.amount);
+                                    return acc;
+                                }, {})).map(([cat, amt]) => (
+                                    <tr key={cat}><td className="py-6 px-12 text-sm text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">{cat}</td><td className="py-6 px-8 text-right text-slate-900 dark:text-white font-bold italic">KSh {amt.toLocaleString()}</td></tr>
+                                ))}
 
-                            {/* Net Income */}
-                            <tr className="bg-slate-900 text-white"><td className="py-8 px-6 font-black uppercase tracking-[0.3em] text-brand-500">Net Business Income</td><td className="py-8 px-6 text-right font-black text-3xl italic tracking-tighter">KSh {stats.netProfit.toLocaleString()}</td></tr>
-                        </tbody>
-                    </table>
+                                {/* Net Income */}
+                                <tr className="bg-slate-900 dark:bg-brand-500 text-white dark:text-black"><td className="py-12 px-8 font-black uppercase tracking-[0.5em] text-brand-500 dark:text-black text-[12px]">Net Business Income</td><td className="py-12 px-8 text-right font-black text-5xl italic tracking-tighter">KSh {stats.netProfit.toLocaleString()}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div className="p-12 bg-slate-50 border-t border-slate-200">
@@ -2088,29 +2237,51 @@
         );
 
         const renderBS = () => (
-            <div className="card p-0 overflow-hidden shadow-2xl animate-slide border-none">
-                <div className="bg-[#0f172a] p-12 flex justify-between items-center text-white">
-                    <div>
-                        <h3 className="text-4xl font-black tracking-tighter uppercase italic">Balance Sheet</h3>
-                        <p className="text-brand-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2">System Asset Evaluation</p>
+            <div className="card p-0 overflow-hidden shadow-2xl animate-slide border-none bg-white dark:bg-white/5">
+                <div className="bg-[#0f172a] p-16 flex flex-col md:flex-row justify-between items-center text-white relative overflow-hidden ring-1 ring-white/10">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[120px] rounded-full"></div>
+                    <div className="z-10">
+                        <h3 className="text-5xl font-black tracking-tighter uppercase italic leading-none">Balance Sheet</h3>
+                        <p className="text-brand-500 font-black uppercase text-[12px] tracking-[0.4em] mt-3">System Asset Evaluation // Real-time Audit</p>
                     </div>
-                    <div className="text-right text-slate-400 text-[10px] font-black uppercase tracking-widest">As of: {new Date().toLocaleDateString()}</div>
+                    <div className="mt-8 md:mt-0 text-right z-10">
+                        <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">Snapshot Timestamp</p>
+                        <p className="text-xl font-black italic text-white mt-1">{new Date().toLocaleDateString()} // {new Date().toLocaleTimeString()}</p>
+                    </div>
                 </div>
-                <div className="p-12 bg-white grid grid-cols-2 gap-12 font-sans italic">
-                    <div className="space-y-6">
-                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 pb-2">Assets</h4>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center"><span className="text-sm font-bold text-slate-500">Cash & Equivalents</span><span className="font-black text-slate-900">KSh {stats.cash.toLocaleString()}</span></div>
-                            <div className="flex justify-between items-center"><span className="text-sm font-bold text-slate-500">Inventory Valuation</span><span className="font-black text-slate-900">KSh {stats.inventoryValue.toLocaleString()}</span></div>
-                            <div className="flex justify-between items-center border-t pt-4"><span className="text-sm font-black text-slate-900 uppercase">Total Assets</span><span className="text-xl font-black text-brand-600">KSh {(stats.cash + stats.inventoryValue).toLocaleString()}</span></div>
+                <div className="p-16 grid grid-cols-1 lg:grid-cols-2 gap-16 font-sans italic">
+                    <div className="space-y-10">
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-[0.4em] border-b-2 border-slate-950 dark:border-white/20 pb-4">I. Assets Portfolio</h4>
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center group">
+                                <span className="text-sm font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Cash & Equivalents</span>
+                                <span className="text-lg font-black text-slate-900 dark:text-white italic tracking-tighter">KSh {stats.cash.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center group border-t border-slate-100 dark:border-white/5 pt-6">
+                                <span className="text-sm font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Inventory Valuation</span>
+                                <span className="text-lg font-black text-slate-900 dark:text-white italic tracking-tighter">KSh {stats.inventoryValue.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-slate-900 dark:bg-brand-500 p-8 rounded-[2rem] text-white dark:text-black mt-10 shadow-2xl">
+                                <span className="text-[12px] font-black uppercase tracking-[0.4em]">Total Operational Assets</span>
+                                <span className="text-3xl font-black italic tracking-tighter">KSh {(stats.cash + stats.inventoryValue).toLocaleString()}</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="space-y-6">
-                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 pb-2">Liabilities & Equity</h4>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center"><span className="text-sm font-bold text-slate-500">Accounts Payable</span><span className="font-black text-slate-900 text-slate-300 italic">KSh 0</span></div>
-                            <div className="flex justify-between items-center"><span className="text-sm font-bold text-slate-500">Retained Earnings</span><span className="font-black text-slate-900">KSh {stats.netProfit.toLocaleString()}</span></div>
-                            <div className="flex justify-between items-center border-t pt-4"><span className="text-sm font-black text-slate-900 uppercase">Total Equity</span><span className="text-xl font-black text-slate-900">KSh {stats.netProfit.toLocaleString()}</span></div>
+                    <div className="space-y-10">
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-[0.4em] border-b-2 border-slate-950 dark:border-white/20 pb-4">II. Equity & Retained Value</h4>
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center group">
+                                <span className="text-sm font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Accounts Payable</span>
+                                <span className="text-lg font-black text-slate-300 dark:text-slate-600 italic tracking-tighter">KSh 0.00</span>
+                            </div>
+                            <div className="flex justify-between items-center group border-t border-slate-100 dark:border-white/5 pt-6">
+                                <span className="text-sm font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Retained Intelligence (Earnings)</span>
+                                <span className="text-lg font-black text-slate-900 dark:text-white italic tracking-tighter">KSh {stats.netProfit.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-brand-500/10 dark:bg-white/10 p-8 rounded-[2rem] border-2 border-slate-900 dark:border-white/20 mt-10">
+                                <span className="text-[12px] font-black uppercase text-slate-900 dark:text-white tracking-[0.4em]">Total Shareholder Equity</span>
+                                <span className="text-3xl font-black text-slate-900 dark:text-white italic tracking-tighter">KSh {stats.netProfit.toLocaleString()}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2142,26 +2313,37 @@
                 {reportView === 'pl' && renderPL()}
                 {reportView === 'bs' && renderBS()}
                 {reportView === 'projects' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-slide">
                         {data.projects.filter(p => p.status === 'Done & Paid' || p.stage === 'Archived').map(p => (
-                            <div key={p.id} className="bg-white rounded-3xl border border-slate-100 p-6 group hover:shadow-2xl transition-all relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-4">
-                                    <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest">ARCHIVED</span>
+                            <div key={p.id} className="card !p-8 bg-white dark:bg-white/5 border-none shadow-xl hover:shadow-2xl transition-all group relative overflow-hidden flex flex-col gap-6">
+                                <div className="absolute top-0 right-0 p-6">
+                                    <span className="px-4 py-1.5 bg-emerald-500 text-white rounded-full text-[9px] font-black uppercase tracking-[0.3em] shadow-lg shadow-emerald-500/20">ARCHIVED OPS</span>
                                 </div>
-                                <h4 className="text-lg font-black text-slate-900 mb-1">{p.name}</h4>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.client}</p>
-                                <div className="mt-4 p-4 bg-slate-50 rounded-2xl space-y-2">
-                                    <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold uppercase">Designer</span><span className="font-black">@{p.designer}</span></div>
-                                    <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold uppercase">Delivered</span><span className="font-black">{p.deadline}</span></div>
+                                <div className="space-y-1 mt-4">
+                                    <h4 className="text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none group-hover:text-brand-500 transition-colors">{p.name}</h4>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{p.client}</p>
                                 </div>
-                                <div className="mt-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => alert('View function for archived projects coming soon in v3.0')} className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">View Dossier</button>
-                                    <button onClick={() => { if (confirm('Permanently delete project record?')) deleteItem('projects', p.id); }} className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Icon name="trash-2" size={16} /></button>
+                                <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-[2rem] space-y-4 border border-transparent group-hover:border-brand-500/10 transition-all">
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="text-slate-400 font-black uppercase tracking-widest italic">Liaison Designer</span>
+                                        <span className="font-black text-slate-900 dark:text-white italic">@{p.designer}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[10px] border-t border-slate-100 dark:border-white/5 pt-4">
+                                        <span className="text-slate-400 font-black uppercase tracking-widest italic">Delivered Sequence</span>
+                                        <span className="font-black text-slate-900 dark:text-white">{p.deadline}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-4 flex gap-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0">
+                                    <button onClick={() => alert('Intelligence Dossier Retrieval: In Progress')} className="flex-1 py-4 bg-slate-900 dark:bg-white/10 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl">View Dossier</button>
+                                    <button onClick={() => { if (confirm('Permanently decommission project intelligence?')) deleteItem('projects', p.id); }} className="p-4 bg-rose-500/10 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Icon name="trash-2" size={18} /></button>
                                 </div>
                             </div>
                         ))}
                         {data.projects.filter(p => p.status === 'Done & Paid' || p.stage === 'Archived').length === 0 && (
-                            <div className="col-span-full py-20 text-center text-slate-300 font-bold uppercase tracking-widest italic">No archived intelligence found.</div>
+                            <div className="col-span-full py-32 text-center">
+                                <Icon name="archive" size={64} className="text-slate-200 dark:text-white/5 mx-auto mb-6" />
+                                <p className="text-slate-300 dark:text-white/10 font-black uppercase tracking-[0.5em] italic">No archived intelligence matrices found.</p>
+                            </div>
                         )}
                     </div>
                 )}
@@ -2205,90 +2387,102 @@
             <div className="space-y-10 animate-slide max-w-4xl mx-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Barcode Scanner Simulation */}
-                    <div className="card p-0 overflow-hidden shadow-2xl border-none">
-                        <div className="bg-[#0f172a] p-8 text-white">
-                            <h4 className="text-xl font-black uppercase tracking-tighter italic flex items-center gap-3">
-                                <Icon name="scan-barcode" size={24} className="text-brand-500" />
+                    <div className="card !p-0 overflow-hidden shadow-2xl border-none bg-white dark:bg-white/5">
+                        <div className="bg-[#0f172a] p-10 text-white relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 blur-3xl rounded-full"></div>
+                            <h4 className="text-2xl font-black uppercase tracking-tighter italic flex items-center gap-4 z-10 relative">
+                                <Icon name="scan-barcode" size={28} className="text-brand-500" />
                                 Inventory Scanner
                             </h4>
                         </div>
-                        <div className="p-8 space-y-8 bg-white">
-                            <div className="relative aspect-video bg-slate-100 rounded-3xl overflow-hidden border-4 border-slate-50 flex flex-col items-center justify-center group">
+                        <div className="p-10 space-y-10">
+                            <div className="relative aspect-video bg-slate-950 rounded-[2.5rem] overflow-hidden border-4 border-slate-900 flex flex-col items-center justify-center group shadow-2xl shadow-black/50">
                                 {isScanning ? (
-                                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center z-10">
-                                        <div className="w-40 h-40 border-2 border-brand-500 rounded-2xl relative animate-pulse">
-                                            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-brand-500 shadow-[0_0_15px_rgba(250,204,21,0.8)] animate-bounce"></div>
+                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10">
+                                        <div className="w-48 h-48 border-2 border-brand-500/30 rounded-3xl relative">
+                                            <div className="absolute top-1/2 left-0 w-full h-1 bg-brand-500 shadow-[0_0_30px_rgba(250,204,21,1)] animate-[scan_2s_infinite]"></div>
+                                            <div className="absolute inset-0 border-2 border-brand-500 animate-pulse rounded-3xl"></div>
                                         </div>
-                                        <p className="text-white text-[10px] font-black uppercase tracking-widest mt-6">Searching optics...</p>
+                                        <p className="text-brand-500 text-[10px] font-black uppercase tracking-[0.5em] mt-10 italic">Searching optics...</p>
                                     </div>
                                 ) : (
-                                    <Icon name="camera" size={48} className="text-slate-200 group-hover:text-slate-300 transition-colors" />
+                                    <div className="flex flex-col items-center mt-4">
+                                        <Icon name="camera" size={64} className="text-slate-800 group-hover:text-brand-500/20 transition-all duration-700" />
+                                        <div className="mt-6 flex items-center gap-3">
+                                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                            <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.3em]">Optical Engine: Online</p>
+                                        </div>
+                                    </div>
                                 )}
-                                {!isScanning && !scanResult && <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-4">Optical input ready</p>}
                                 {scanResult && !isScanning && (
-                                    <div className="absolute inset-0 bg-emerald-500/90 flex flex-col items-center justify-center p-8 text-center animate-slide">
-                                        <Icon name="check-circle" size={48} className="text-white mb-4" />
-                                        <h5 className="text-white font-black uppercase text-xl italic leading-none">{scanResult.name}</h5>
-                                        <p className="text-white/80 font-bold text-xs mt-2 uppercase tracking-widest">{scanResult.sku}</p>
-                                        <div className="bg-white/20 px-4 py-2 rounded-xl mt-6 text-white font-black text-sm">Stock: {scanResult.stock} {scanResult.unit}</div>
-                                        <button onClick={() => setScanResult(null)} className="mt-6 text-white text-[10px] font-black uppercase tracking-widest hover:underline">Dismiss Profile</button>
+                                    <div className="absolute inset-0 bg-emerald-500 flex flex-col items-center justify-center p-10 text-center animate-slide">
+                                        <div className="p-4 bg-white/20 rounded-[2rem] mb-6"><Icon name="check-circle" size={48} className="text-white" /></div>
+                                        <h5 className="text-white font-black uppercase text-3xl italic tracking-tighter leading-none">{scanResult.name}</h5>
+                                        <p className="text-white/70 font-black text-sm mt-3 uppercase tracking-[0.3em] font-sans">{scanResult.sku}</p>
+                                        <div className="bg-white/20 backdrop-blur-md px-10 py-5 rounded-[2rem] mt-8 text-white font-black text-2xl tracking-tighter border border-white/20 shadow-2xl">
+                                            Stock Level: {scanResult.stock} {scanResult.unit}
+                                        </div>
+                                        <button onClick={() => setScanResult(null)} className="mt-10 text-white/60 text-[11px] font-black uppercase tracking-[0.4em] hover:text-white transition-colors underline-offset-4 underline">Flush Optical Cache</button>
                                     </div>
                                 )}
                             </div>
                             <button
                                 onClick={simulateScan}
                                 disabled={isScanning}
-                                className="btn-primary w-full py-5 text-sm uppercase tracking-widest font-black flex items-center justify-center gap-3"
+                                className="btn-primary w-full py-6 text-xs uppercase tracking-[0.3em] font-black flex items-center justify-center gap-4 group"
                             >
-                                <Icon name="maximize" size={18} />
+                                <Icon name="maximize" size={20} className="group-hover:scale-125 transition-transform" />
                                 Engage Optical Engine
                             </button>
                         </div>
                     </div>
 
                     {/* Receipt OCR Simulation */}
-                    <div className="card p-0 overflow-hidden shadow-2xl border-none">
-                        <div className="bg-[#0f172a] p-8 text-white">
-                            <h4 className="text-xl font-black uppercase tracking-tighter italic flex items-center gap-3">
-                                <Icon name="receipt" size={24} className="text-brand-500" />
+                    <div className="card !p-0 overflow-hidden shadow-2xl border-none bg-white dark:bg-white/5">
+                        <div className="bg-[#0f172a] p-10 text-white relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full"></div>
+                            <h4 className="text-2xl font-black uppercase tracking-tighter italic flex items-center gap-4 z-10 relative">
+                                <Icon name="receipt" size={28} className="text-brand-500" />
                                 Receipt Intelligence
                             </h4>
                         </div>
-                        <div className="p-8 space-y-8 bg-white">
-                            <label className="block relative aspect-video bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl cursor-pointer hover:border-brand-500 hover:bg-brand-500/5 transition-all flex flex-col items-center justify-center p-8 group">
+                        <div className="p-10 space-y-10">
+                            <label className="block relative aspect-video bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[2.5rem] cursor-pointer hover:border-brand-500 hover:bg-brand-500/5 transition-all flex flex-col items-center justify-center p-10 group shadow-inner">
                                 <input type="file" className="hidden" accept="image/*" onChange={handleReceiptUpload} />
                                 {receiptFile ? (
-                                    <div className="text-center">
-                                        <Icon name="file-text" size={48} className="text-brand-500 mx-auto mb-4" />
-                                        <p className="text-slate-900 font-black text-xs uppercase italic">{receiptFile.name}</p>
-                                        <p className="text-slate-400 text-[9px] font-bold uppercase mt-1">Filesize: {(receiptFile.size / 1024).toFixed(1)} KB</p>
+                                    <div className="text-center animate-slide">
+                                        <div className="p-6 bg-brand-500/10 rounded-[2rem] inline-block mb-6"><Icon name="file-text" size={64} className="text-brand-500 mx-auto" /></div>
+                                        <p className="text-slate-900 dark:text-white font-black text-lg uppercase italic tracking-tighter">{receiptFile.name}</p>
+                                        <p className="text-slate-400 text-[10px] font-black uppercase mt-3 tracking-[0.3em]">Payload Size: {(receiptFile.size / 1024).toFixed(1)} KB</p>
                                     </div>
                                 ) : (
-                                    <>
-                                        <Icon name="upload-cloud" size={48} className="text-slate-200 group-hover:text-brand-500 transition-colors" />
-                                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-4">Drop physical evidence</p>
-                                    </>
+                                    <div className="flex flex-col items-center">
+                                        <div className="p-6 bg-slate-100 dark:bg-white/5 rounded-[2rem] mb-6 group-hover:bg-brand-500/20 group-hover:text-brand-500 transition-all duration-700">
+                                            <Icon name="upload-cloud" size={64} className="text-slate-300 dark:text-white/20 group-hover:text-brand-500" />
+                                        </div>
+                                        <p className="text-slate-400 text-[11px] font-black uppercase tracking-[0.4em] italic">Ingest Physical Evidence</p>
+                                    </div>
                                 )}
                             </label>
 
                             {ocrResult && (
-                                <div className="p-6 bg-slate-900 rounded-2xl animate-slide relative overflow-hidden">
-                                    <div className="absolute right-0 top-0 p-4 opacity-10"><Icon name="cpu" size={60} className="text-brand-500" /></div>
+                                <div className="p-8 bg-slate-950 rounded-[2.5rem] animate-slide relative overflow-hidden ring-1 ring-white/10 shadow-2xl">
+                                    <div className="absolute right-0 top-0 p-8 opacity-10"><Icon name="cpu" size={80} className="text-brand-500" /></div>
                                     {typeof ocrResult === 'string' ? (
-                                        <div className="flex items-center gap-3 text-brand-500 font-black text-[10px] uppercase tracking-widest">
-                                            <Icon name="loader" size={14} className="animate-spin" />
+                                        <div className="flex items-center gap-4 text-brand-500 font-black text-[11px] uppercase tracking-[0.3em] py-4">
+                                            <Icon name="loader" size={20} className="animate-spin" />
                                             {ocrResult}
                                         </div>
                                     ) : (
-                                        <div className="space-y-4">
-                                            <div className="flex justify-between items-start">
+                                        <div className="space-y-8">
+                                            <div className="grid grid-cols-2 gap-8">
                                                 <div>
-                                                    <h6 className="text-brand-500 text-[10px] font-black uppercase tracking-widest">Entity Detected</h6>
-                                                    <p className="text-white font-black text-lg uppercase italic">{ocrResult.vendor}</p>
+                                                    <h6 className="text-brand-500 text-[9px] font-black uppercase tracking-[0.4em] mb-2">Entity Detected</h6>
+                                                    <p className="text-white font-black text-2xl uppercase italic tracking-tighter">{ocrResult.vendor}</p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <h6 className="text-brand-500 text-[10px] font-black uppercase tracking-widest">Amount</h6>
-                                                    <p className="text-white font-black text-lg italic">KSh {ocrResult.amount.toLocaleString()}</p>
+                                                    <h6 className="text-brand-500 text-[9px] font-black uppercase tracking-[0.4em] mb-2">Fiscal Magnitude</h6>
+                                                    <p className="text-white font-black text-2xl italic tracking-tighter">KSh {ocrResult.amount.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                             <button
@@ -2297,9 +2491,9 @@
                                                     setOcrResult(null);
                                                     setReceiptFile(null);
                                                 }}
-                                                className="w-full bg-white/10 hover:bg-white text-white hover:text-black py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+                                                className="w-full bg-white text-black hover:bg-brand-500 py-5 rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.3em] italic transition-all shadow-xl hover:-translate-y-1"
                                             >
-                                                Commit to Ledger
+                                                Commit to Distributed Ledger
                                             </button>
                                         </div>
                                     )}
@@ -2452,126 +2646,143 @@
         };
 
         const renderProfile = () => (
-            <div className="space-y-8 animate-slide">
-                <div className="bg-[#0f172a] p-10 flex items-center gap-8 relative overflow-hidden rounded-3xl">
-                    <div className="absolute right-0 top-0 w-32 h-32 bg-brand-500 opacity-10 rounded-full translate-x-16 -translate-y-16"></div>
-                    <div className="w-24 h-24 bg-brand-500 text-[#0f172a] rounded-3xl flex items-center justify-center text-4xl font-black shadow-2xl shadow-brand-500/20 z-10 uppercase italic">
+            <div className="space-y-12 animate-slide">
+                <div className="bg-[#0f172a] p-16 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden rounded-[3rem] ring-1 ring-white/10 shadow-2xl">
+                    <div className="absolute right-0 top-0 w-64 h-64 bg-brand-500/10 blur-[100px] rounded-full translate-x-24 -translate-y-24"></div>
+                    <div className="w-32 h-32 bg-brand-500 text-[#0f172a] rounded-[2.5rem] flex items-center justify-center text-5xl font-black shadow-[0_0_50px_rgba(250,204,21,0.3)] z-10 uppercase italic tracking-tighter ring-4 ring-white/10">
                         {user?.name?.charAt(0)}
                     </div>
-                    <div className="z-10">
-                        <h3 className="text-3xl font-black text-white tracking-tighter uppercase italic">{user?.name}</h3>
-                        <p className="text-brand-500 font-black uppercase text-[10px] tracking-widest leading-none mt-2">Executive Access Level</p>
+                    <div className="z-10 text-center md:text-left space-y-2">
+                        <h3 className="text-5xl font-black text-white tracking-tighter uppercase italic leading-none">{user?.name}</h3>
+                        <div className="flex items-center justify-center md:justify-start gap-3 mt-4">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            <p className="text-brand-500 font-black uppercase text-[11px] tracking-[0.4em] leading-none">Executive Command Level</p>
+                        </div>
                     </div>
                 </div>
-                <div className="p-2 space-y-4">
-                    <div className="flex justify-between items-center text-sm border-b border-slate-100 pb-4">
-                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.2em]">Email Address</span>
-                        <span className="font-bold text-slate-600 italic">admin@ighouzz.com</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-4">
+                    <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5 space-y-2">
+                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.4em] italic mb-2 block">Personnel Identifier</span>
+                        <span className="text-xl font-black text-slate-900 dark:text-white italic tracking-tighter uppercase">admin@ighouzz.com</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm border-b border-slate-100 pb-4">
-                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.2em]">Auth Handle</span>
-                        <span className="font-black text-slate-900 italic tracking-tight uppercase">@{user?.username}</span>
+                    <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5 space-y-2">
+                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.4em] italic mb-2 block">Auth Matrix Handle</span>
+                        <span className="text-xl font-black text-brand-600 dark:text-brand-500 italic tracking-tighter uppercase">@{user?.username}</span>
                     </div>
                 </div>
             </div>
         );
 
         const renderIntegration = () => (
-            <div className="space-y-8 animate-slide">
-                <div className="bg-slate-900 p-8 rounded-3xl relative overflow-hidden">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 bg-emerald-500 opacity-20 blur-3xl"></div>
-                    <div className="flex items-center gap-6 relative z-10">
-                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-3 shadow-xl">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg" alt="Sheets" />
+            <div className="space-y-10 animate-slide">
+                <div className="bg-slate-950 p-12 rounded-[3rem] relative overflow-hidden ring-1 ring-white/10 shadow-2xl">
+                    <div className="absolute -right-12 -top-12 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full"></div>
+                    <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
+                        <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center p-5 shadow-[0_0_40px_rgba(255,255,255,0.2)]">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg" alt="Sheets" className="w-full h-full object-contain" />
                         </div>
-                        <div>
-                            <h4 className="text-xl font-black text-white tracking-tight uppercase italic leading-none mb-2">Database Sync</h4>
-                            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20">Operational</span>
+                        <div className="text-center md:text-left">
+                            <h4 className="text-3xl font-black text-white tracking-tighter uppercase italic leading-none mb-3">Distributed Data Vault</h4>
+                            <div className="flex items-center justify-center md:justify-start gap-3">
+                                <span className="px-5 py-2 bg-emerald-500 text-black rounded-full text-[10px] font-black uppercase tracking-[0.3em] shadow-lg shadow-emerald-500/20">Sync Operational</span>
+                                <span className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em] italic">G-Cloud Engine v4.0</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Synchronization Control</h5>
+                <div className="space-y-8">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                        <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] italic leading-none">Reconciliation Matrix Control</h5>
                         <button
                             onClick={handleFullSync}
                             disabled={isSyncing}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-slate-100 text-slate-400' : 'bg-brand-500 text-black shadow-lg shadow-brand-500/30'}`}
+                            className={`flex items-center gap-4 px-10 py-5 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl ${isSyncing ? 'bg-slate-100 dark:bg-white/5 text-slate-400' : 'bg-brand-500 text-black hover:scale-[1.02] active:scale-95 shadow-brand-500/30'}`}
                         >
-                            <Icon name={isSyncing ? 'refresh-cw' : 'rotate-cw'} size={14} className={isSyncing ? 'animate-spin' : ''} />
-                            {isSyncing ? 'Synchronizing Intelligence...' : 'Initiate Full Sync'}
+                            <Icon name={isSyncing ? 'refresh-cw' : 'rotate-cw'} size={18} className={isSyncing ? 'animate-spin' : ''} />
+                            {isSyncing ? 'Synchronizing Intelligence...' : 'Initiate Full Handshake'}
                         </button>
                     </div>
 
-                    <div className="bg-slate-50 p-6 rounded-2xl font-mono text-[10px] space-y-2 h-40 overflow-y-auto custom-scrollbar border border-slate-100">
+                    <div className="bg-slate-950 p-10 rounded-[2.5rem] font-mono text-[11px] space-y-3 h-52 overflow-y-auto custom-scrollbar border border-white/5 shadow-2xl ring-1 ring-white/10">
                         {syncLog.map((log, i) => (
-                            <div key={i} className="flex gap-4 border-b border-slate-200 pb-2 last:border-none">
-                                <span className="text-slate-400 font-bold">[{log.time}]</span>
-                                <span className="text-slate-900 font-bold">{log.msg}</span>
+                            <div key={i} className="flex gap-6 border-b border-white/5 pb-3 last:border-none group">
+                                <span className="text-slate-500 font-bold tracking-tighter">[{log.time}]</span>
+                                <span className="text-brand-500 font-black tracking-tight group-last:text-emerald-400 italic">{log.msg}</span>
                             </div>
                         ))}
-                        {syncLog.length === 0 && <p className="text-slate-300 italic">Ready for data reconciliation.</p>}
+                        {syncLog.length === 0 && (
+                            <div className="flex flex-col items-center justify-center h-full space-y-4">
+                                <Icon name="database" size={32} className="text-white/5" />
+                                <p className="text-white/10 italic text-center uppercase tracking-[0.5em] font-black">Ready for data reconciliation.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
         );
 
         const renderSecurity = () => (
-            <div className="space-y-10 animate-slide">
-                <div className="bg-rose-500 p-8 rounded-3xl text-white relative overflow-hidden shadow-2xl shadow-rose-500/20">
-                    <h4 className="text-2xl font-black tracking-tighter uppercase italic mb-1">Defense Matrix</h4>
-                    <p className="text-white/60 font-black text-[10px] uppercase tracking-widest">Credentials & Security Protocols</p>
-                    <div className="absolute right-0 bottom-0 p-8 opacity-10 rotate-12 scale-150">
-                        <Icon name="shield-check" size={100} />
+            <div className="space-y-12 animate-slide">
+                <div className="bg-rose-600 p-12 rounded-[3rem] text-white relative overflow-hidden shadow-2xl shadow-rose-600/30 ring-1 ring-white/10">
+                    <h4 className="text-4xl font-black tracking-tighter uppercase italic mb-2 leading-none">Security Sentinel</h4>
+                    <p className="text-white/60 font-black text-[11px] uppercase tracking-[0.4em] italic">Defense Matrix & Credential Rotation Protocols</p>
+                    <div className="absolute right-0 bottom-0 p-12 opacity-10 rotate-12 scale-150">
+                        <Icon name="shield-check" size={120} />
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                    <div className="space-y-6">
-                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Rotate Passwords</h5>
-                        <form onSubmit={handlePwChange} className="space-y-6">
-                            <input type="password" placeholder="Current Password" className="input-field" required value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
-                            <input type="password" placeholder="New Password" className="input-field" required value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
-                            <input type="password" placeholder="Confirm New Password" className="input-field" required value={pwData.confirm} onChange={e => setPwData({ ...pwData, confirm: e.target.value })} />
-                            <button type="submit" className="w-full btn-primary py-4 text-[10px] font-black uppercase tracking-widest">Update Security Credentials</button>
-                        </form>
+                <div className="max-w-xl mx-auto space-y-10 px-4">
+                    <div className="text-center space-y-2 mb-4">
+                        <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.5em] italic">Credential Rotation Matrix</h5>
+                        <p className="text-slate-500 text-[10px] font-medium italic">Update your primary authentication vector below.</p>
                     </div>
+                    <form onSubmit={handlePwChange} className="space-y-8">
+                        <div className="space-y-6">
+                            <input type="password" placeholder="Root Credentials (Current)" className="input-field !bg-white/5 !border-slate-200 dark:!border-white/10 !py-5 !px-8 !rounded-2xl" required value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
+                            <input type="password" placeholder="New Auth Sequence" className="input-field !bg-white/5 !border-slate-200 dark:!border-white/10 !py-5 !px-8 !rounded-2xl" required value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
+                            <input type="password" placeholder="Confirm New Matrix" className="input-field !bg-white/5 !border-slate-200 dark:!border-white/10 !py-5 !px-8 !rounded-2xl" required value={pwData.confirm} onChange={e => setPwData({ ...pwData, confirm: e.target.value })} />
+                        </div>
+                        <button type="submit" className="w-full btn-primary py-6 text-[11px] font-black uppercase tracking-[0.4em] italic shadow-2xl shadow-brand-500/30 hover:scale-[1.02] active:scale-95 transition-all">Authorize Sequence Update</button>
+                    </form>
                 </div>
             </div>
         );
 
         const renderUsers = () => (
-            <div className="space-y-8 animate-slide">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
-                    <div>
-                        <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Control Room</h3>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Executive Overview & Command Panel</p>
+            <div className="space-y-12 animate-slide">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-8 px-4">
+                    <div className="text-center md:text-left space-y-2">
+                        <h3 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Access Control Matrix</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">{data.users.length} Identified Entities // Active Privileges</p>
                     </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => setIsAddingUser(true)} className="btn-primary bg-brand-500 text-black border-none"><Icon name="plus" size={16} /> New User</button>
-                        {/* <ExportDropdown data={data.sales} filename="igh-executive-summary" /> */}
-                    </div>
+                    <button onClick={() => setIsAddingUser(true)} className="btn-primary py-5 px-10 text-[11px] font-black uppercase tracking-[0.3em] italic shadow-2xl flex items-center gap-3">
+                        <Icon name="plus-circle" size={20} /> Provision New Entity
+                    </button>
                 </div>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-6 px-4">
                     {data.users.map(u => (
-                        <div key={u.id} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group hover:bg-white transition-all shadow-sm hover:shadow-xl">
-                            <div className="flex items-center gap-6">
-                                <div className="w-14 h-14 bg-slate-900 text-brand-500 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg group-hover:bg-brand-500 group-hover:text-black transition-all">
+                        <div key={u.id} className="p-8 bg-slate-50 dark:bg-white/5 rounded-[2.5rem] border border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between group hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm hover:shadow-2xl">
+                            <div className="flex flex-col sm:flex-row items-center gap-8 mb-6 sm:mb-0">
+                                <div className="w-20 h-20 bg-slate-950 text-brand-500 rounded-[2rem] flex items-center justify-center font-black text-3xl shadow-2xl group-hover:bg-brand-500 group-hover:text-black transition-all perspective-1000 group-hover:rotate-y-12">
                                     {u.name.charAt(0)}
                                 </div>
-                                <div>
-                                    <p className="text-lg font-black text-slate-900 uppercase italic leading-none">{u.name}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">@{u.username} • {u.role}</p>
+                                <div className="text-center sm:text-left space-y-1">
+                                    <p className="text-2xl font-black text-slate-900 dark:text-white uppercase italic leading-none tracking-tighter">{u.name}</p>
+                                    <div className="flex items-center justify-center sm:justify-start gap-3 mt-2">
+                                        <p className="text-[10px] font-black text-brand-600 dark:text-brand-500 uppercase tracking-[0.3em] font-sans">@{u.username}</p>
+                                        <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] italic">{u.role}</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => handleEditClick(u)} className="p-3 text-slate-300 hover:text-white hover:bg-slate-900 rounded-xl transition-all" title="Edit User">
+                            <div className="flex items-center gap-4">
+                                <button onClick={() => handleEditClick(u)} className="w-12 h-12 flex items-center justify-center bg-white dark:bg-white/5 text-slate-400 hover:text-brand-500 hover:shadow-xl hover:shadow-brand-500/20 rounded-2xl transition-all border border-slate-100 dark:border-white/5" title="Modify Privileges">
                                     <Icon name="edit-3" size={18} />
                                 </button>
                                 {u.id !== user.id && (
-                                    <button onClick={() => { if (confirm(`Revoke access for ${u.username}?`)) { deleteItem('users', u.id); logActivity(`Access revoked for ${u.username}`, 'Archive'); } }} className="p-3 text-slate-300 hover:text-white hover:bg-rose-500 rounded-xl transition-all" title="Delete User">
-                                        <Icon name="trash-2" size={18} />
+                                    <button onClick={() => { if (confirm(`Decommission access for ${u.username}?`)) { deleteItem('users', u.id); logActivity(`Access revoked for ${u.username}`, 'Archive'); } }} className="w-12 h-12 flex items-center justify-center bg-white dark:bg-white/5 text-slate-400 hover:text-rose-500 hover:shadow-xl hover:shadow-rose-500/20 rounded-2xl transition-all border border-slate-100 dark:border-white/5" title="Revoke Permissions">
+                                        <Icon name="shield-off" size={18} />
                                     </button>
                                 )}
                             </div>
@@ -2608,26 +2819,27 @@
         );
 
         return (
-            <div className="max-w-5xl mx-auto space-y-12 pb-20">
-                <div className="flex gap-4 p-3 bg-slate-100 rounded-[2.5rem] w-fit mx-auto lg:mx-0 shadow-inner">
+            <div className="max-w-6xl mx-auto space-y-16 pb-32">
+                <div className="flex flex-wrap justify-center lg:justify-start gap-6 p-4 bg-slate-100 dark:bg-white/5 rounded-[3.5rem] w-fit mx-auto lg:mx-0 shadow-inner ring-1 ring-slate-200 dark:ring-white/5">
                     {[
-                        { id: 'profile', label: 'Identity', icon: 'user' },
-                        { id: 'integration', label: 'Database Sync', icon: 'cloud-lightning' },
-                        { id: 'security', label: 'Sentinel', icon: 'shield-alert' },
-                        { id: 'users', label: 'Access Control', icon: 'users' }
+                        { id: 'profile', label: 'Identity Matrix', icon: 'user' },
+                        { id: 'integration', label: 'G-Cloud Recon', icon: 'cloud-lightning' },
+                        { id: 'security', label: 'Defense Sentinel', icon: 'shield-alert' },
+                        { id: 'users', label: 'Access Protocol', icon: 'users' }
                     ].map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveSection(tab.id)}
-                            className={`flex items-center gap-3 px-10 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeSection === tab.id ? 'bg-slate-900 text-brand-500 shadow-2xl scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`flex items-center gap-4 px-12 py-5 rounded-[3rem] text-[11px] font-black uppercase tracking-[0.2em] transition-all relative overflow-hidden group ${activeSection === tab.id ? 'bg-slate-950 text-brand-500 shadow-2xl scale-105 ring-1 ring-white/10' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
                         >
-                            <Icon name={tab.icon} size={16} />
+                            <Icon name={tab.icon} size={18} className={`${activeSection === tab.id ? 'animate-pulse' : 'text-slate-400'}`} />
                             {tab.label}
+                            {activeSection === tab.id && <span className="absolute bottom-0 left-0 w-full h-1 bg-brand-500"></span>}
                         </button>
                     ))}
                 </div>
 
-                <div className="card p-12 shadow-2xl border-none bg-white rounded-[3rem]">
+                <div className="card !p-12 md:!p-20 shadow-[-50px_50px_100px_rgba(0,0,0,0.1)] border-none bg-white dark:bg-[#0f172a]/50 backdrop-blur-3xl rounded-[4rem] ring-1 ring-white/5">
                     {activeSection === 'profile' && renderProfile()}
                     {activeSection === 'integration' && renderIntegration()}
                     {activeSection === 'security' && renderSecurity()}

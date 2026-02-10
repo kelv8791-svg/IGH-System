@@ -12,40 +12,50 @@
     };
 
     const SidebarLink = ({ id, icon, label, isOpen }) => {
-        const { activeTab, setActiveTab } = useContext(AppContext);
+        const { activeTab, setActiveTab, isDarkMode } = useContext(AppContext);
         const isActive = activeTab === id;
         return (
             <button
                 onClick={() => setActiveTab(id)}
-                className={`w-full nav-link ${isActive ? 'nav-link-active' : 'nav-link-inactive'} ${!isOpen ? 'justify-center px-0' : ''}`}
+                className={`w-full nav-link group ${isActive ? 'nav-link-active' : 'nav-link-inactive'} ${!isOpen ? 'justify-center px-0' : ''}`}
             >
-                <Icon name={icon} size={isOpen ? 20 : 24} className={`${isActive ? 'text-black' : 'text-slate-500'} transition-all duration-300 ${!isOpen ? 'scale-110' : ''}`} />
-                <span className={`transition-all duration-300 ${isOpen ? 'opacity-100 ml-3' : 'opacity-0 w-0 overflow-hidden'}`}>{label}</span>
+                <div className={`p-2 rounded-xl transition-all duration-300 ${isActive ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-slate-800/10 text-slate-500 group-hover:bg-brand-500/10 group-hover:text-brand-500'} ${!isOpen ? 'mx-auto' : ''}`}>
+                    <Icon name={icon} size={18} />
+                </div>
+                <span className={`transition-all duration-300 font-bold tracking-tight ${isOpen ? 'opacity-100 ml-1' : 'opacity-0 w-0 overflow-hidden'}`}>{label}</span>
+                {isActive && isOpen && <div className="ml-auto w-1.5 h-1.5 bg-brand-500 rounded-full shadow-lg shadow-brand-500/50 mr-1"></div>}
             </button>
         );
     };
 
     const StatCard = ({ icon, label, value, color, trend }) => {
         const colors = {
-            green: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-            red: 'bg-rose-50 text-rose-600 border-rose-100',
-            brand: 'bg-brand-50 text-brand-600 border-brand-100',
-            orange: 'bg-amber-50 text-amber-600 border-amber-100',
+            green: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-emerald-500/10',
+            red: 'bg-rose-500/10 text-rose-500 border-rose-500/20 shadow-rose-500/10',
+            brand: 'bg-brand-500/10 text-brand-500 border-brand-500/20 shadow-brand-500/10',
+            orange: 'bg-amber-500/10 text-amber-500 border-amber-500/20 shadow-amber-500/10',
         };
+        const trendColor = trend?.startsWith('+') ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10';
+
         return (
-            <div className="card p-5 group hover:border-brand-300 transition-all cursor-default">
-                <div className="flex items-start justify-between">
-                    <div>
-                        <p className="text-sm font-semibold text-slate-500 mb-1">{label}</p>
-                        <h4 className="text-2xl font-bold text-slate-900">{value}</h4>
+            <div className="card p-8 group hover:scale-[1.02] transition-all duration-500 cursor-default border-none bg-white dark:bg-white/5 relative overflow-hidden">
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-brand-500/5 blur-3xl rounded-full group-hover:bg-brand-500/10 transition-colors"></div>
+
+                <div className="flex items-start justify-between relative z-10">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-2 rounded-xl ${colors[color]} border shadow-lg`}>
+                                <Icon name={icon} size={20} />
+                            </div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{label}</p>
+                        </div>
+                        <h4 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">{value}</h4>
                         {trend && (
-                            <p className={`text-xs mt-2 font-bold px-2 py-0.5 rounded-full inline-block ${trend.startsWith('+') ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                {trend} vs last month
-                            </p>
+                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black w-fit uppercase tracking-wider ${trendColor}`}>
+                                {trend.startsWith('+') ? <Icon name="trending-up" size={12} /> : <Icon name="trending-down" size={12} />}
+                                {trend}
+                            </div>
                         )}
-                    </div>
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-transform group-hover:scale-110 ${colors[color]}`}>
-                        <Icon name={icon} size={24} />
                     </div>
                 </div>
             </div>
@@ -64,69 +74,74 @@
             if (success) {
                 setError('');
             } else {
-                setError('Invalid credentials. Hint: admin / admin');
+                setError('Authentication Failed: Invalid Credentials Context');
             }
         };
 
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-                <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 transition-all hover:shadow-2xl">
-                    <div className="bg-brand-500 p-8 text-center text-white">
-                        <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 border border-black/10 shadow-sm">
-                            <img src="logo.jpg" alt="IGH Logo" className="w-12 h-12 object-contain" />
-                        </div>
-                        <h1 className="text-2xl font-black tracking-tight text-black">IGH Expense Tracker</h1>
-                        <p className="text-black/60 text-xs font-bold uppercase tracking-widest mt-1">Enterprise Management</p>
-                    </div>
-                    <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                        {error && (
-                            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-medium border border-red-100 flex items-center gap-2">
-                                <Icon name="alert-circle" size={16} />
-                                {error}
+            <div className="min-h-screen flex items-center justify-center bg-[#020617] p-8 overflow-hidden relative">
+                {/* Visual Blobs */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 blur-[120px] rounded-full -mr-48 -mt-48"></div>
+                <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/10 blur-[120px] rounded-full -ml-48 -mb-48"></div>
+
+                <div className="max-w-md w-full relative z-10">
+                    <div className="bg-white/5 backdrop-blur-2xl p-10 rounded-[2.5rem] border border-white/10 shadow-2xl space-y-8">
+                        <div className="text-center space-y-4">
+                            <div className="w-20 h-20 bg-brand-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-brand-500/40 transform hover:scale-110 transition-transform">
+                                <img src="logo.jpg" alt="IGH Logo" className="w-12 h-12 object-contain" />
                             </div>
-                        )}
-                        <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-700 block">Username</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                placeholder="Enter your username"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                required
-                            />
+                            <div>
+                                <h1 className="text-3xl font-black tracking-tight text-white uppercase italic">IGH <span className="text-brand-500">Tracker</span></h1>
+                                <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Next-Gen Business Control</p>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-700 block">Password</label>
-                            <input
-                                type="password"
-                                className="input-field"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                            <label className="flex items-center gap-2 cursor-pointer text-slate-600">
-                                <input type="checkbox" className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-                                Remember me
-                            </label>
-                            <a href="#" className="text-brand-600 font-semibold hover:underline">Forgot password?</a>
-                        </div>
-                        <button type="submit" className="btn-primary w-full py-3 text-lg">
-                            Sign In
-                        </button>
-                        <div className="text-center">
-                            <button
-                                type="button"
-                                onClick={() => { localStorage.clear(); window.location.reload(); }}
-                                className="text-[10px] text-slate-400 hover:text-brand-600 transition-colors uppercase font-bold tracking-widest"
-                            >
-                                Trouble logging in? Reset system data
+
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {error && (
+                                <div className="bg-rose-500/10 text-rose-500 p-4 rounded-2xl text-[11px] font-black border border-rose-500/20 uppercase tracking-wider flex items-center gap-3 animate-pulse">
+                                    <Icon name="shield-alert" size={16} />
+                                    {error}
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Operator Identity</label>
+                                <input
+                                    type="text"
+                                    className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500 text-sm"
+                                    placeholder="Username or Identifier"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Access Code</label>
+                                <input
+                                    type="password"
+                                    className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500 text-sm"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <button type="submit" className="w-full bg-brand-600 text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-brand-500/40 hover:bg-brand-500 transition-all active:scale-95 text-xs">
+                                Authorize Session
                             </button>
-                        </div>
-                    </form>
+
+                            <div className="text-center pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => { localStorage.clear(); window.location.reload(); }}
+                                    className="text-[9px] text-slate-500 hover:text-brand-500 transition-colors uppercase font-black tracking-[0.2em]"
+                                >
+                                    Emergency Reset Procedure
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <p className="text-center text-slate-500 text-[9px] mt-8 uppercase font-black tracking-widest opacity-50">Secure Enclave v4.0.2 // Proprietary System</p>
                 </div>
             </div>
         );
@@ -134,15 +149,18 @@
     const Modal = ({ isOpen, onClose, title, children }) => {
         if (!isOpen) return null;
         return ReactDOM.createPortal(
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-slide">
-                    <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight">{title}</h3>
-                        <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400">
-                            <Icon name="x" size={20} />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-500">
+                <div className="bg-slate-50 dark:bg-[#020617] rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col animate-slide border border-white/10">
+                    <div className="p-8 border-b border-slate-200/60 dark:border-white/5 flex items-center justify-between bg-white/50 dark:bg-white/5 backdrop-blur-xl">
+                        <div className="space-y-1">
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">{title}</h3>
+                            <p className="text-[9px] text-brand-500 font-black uppercase tracking-[0.3em]">Command Interface Overlay</p>
+                        </div>
+                        <button onClick={onClose} className="w-12 h-12 flex items-center justify-center bg-slate-100 hover:bg-rose-500 hover:text-white dark:bg-white/5 rounded-2xl transition-all text-slate-400">
+                            <Icon name="x" size={24} />
                         </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
                         {children}
                     </div>
                 </div>
