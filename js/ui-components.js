@@ -1,4 +1,5 @@
 const { useState, useEffect, useMemo, useContext } = React;
+const AppContext = window.AppContext;
 
 const Icon = ({ name, size = 20, className = "" }) => {
     useEffect(() => {
@@ -56,9 +57,10 @@ const LoginScreen = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (login(email, password)) {
+        const success = await login(email, password);
+        if (success) {
             setError('');
         } else {
             setError('Invalid credentials. Hint: admin / admin');
@@ -147,3 +149,9 @@ const Modal = ({ isOpen, onClose, title, children }) => {
         document.body
     );
 };
+// Attach to window for global scoping
+window.Icon = Icon;
+window.SidebarLink = SidebarLink;
+window.StatCard = StatCard;
+window.LoginScreen = LoginScreen;
+window.Modal = Modal;

@@ -1,0 +1,13 @@
+{
+    "name": "igh-system",
+    "version": "1.0.0",
+    "description": "IGH Business Management System",
+    "main": "index.html",
+    "scripts": {
+        "build": "echo 'No build step required'",
+        "start": "echo 'Use a static server to serve index.html'"
+    },
+    "keywords": [],
+    "author": "Kelvin",
+    "license": "ISC"
+}

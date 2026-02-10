@@ -1,6 +1,11 @@
 const { useState, useEffect, useMemo, useContext } = React;
+const AppContext = window.AppContext;
 
 const downloadCSV = (data, filename) => {
+    if (!data || data.length === 0) {
+        alert("No data available to export.");
+        return;
+    }
     const headers = Object.keys(data[0]);
     const csvRows = [
         headers.join(','),
@@ -410,15 +415,17 @@ const SalesModule = () => {
         return { subtotal, tax, total: subtotal + tax };
     }, [newSale]);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+    const handleSubmit = (e, isQuote = false) => {
+        if (e) e.preventDefault();
         const sale = {
             ...newSale,
             id: Date.now(),
-            invoiceNo: getNextInvoiceNumber(),
+            invoiceNo: isQuote ? `QUO-${Date.now()}` : getNextInvoiceNumber(),
+            isQuote,
             amount: totals.total,
             subtotal: totals.subtotal,
-            tax: totals.tax
+            tax: totals.tax,
+            status: isQuote ? 'Draft' : 'Pending'
         };
         updateData('sales', sale);
 
@@ -442,6 +449,11 @@ const SalesModule = () => {
             status: 'Pending',
             taxRate: data.config?.taxRate || 16
         });
+
+        if (isQuote) {
+            logActivity(`Quote generated for ${newSale.client}`, 'Sync');
+            alert(`Quote ${sale.invoiceNo} successfully recorded. Preview is available in the ledger.`);
+        }
     };
 
     const unbilledProjects = useMemo(() => {
@@ -601,7 +613,7 @@ const SalesModule = () => {
                                     <button type="submit" className="flex-1 btn-primary py-4 uppercase tracking-widest text-xs">Authorize & Issue</button>
                                     <button
                                         type="button"
-                                        onClick={() => { const sale = { ...newSale, invoiceNo: 'QUOTE-' + Date.now(), amount: totals.total, status: 'Draft' }; alert(`Quote Generated: ${sale.invoiceNo}\n\nSharing options enabled: [WhatsApp/Email]`); }}
+                                        onClick={() => handleSubmit(null, true)}
                                         className="btn-primary bg-slate-100 text-slate-600 hover:bg-slate-200"
                                     >
                                         <Icon name="file-text" size={16} /> Save as Quote
@@ -1327,11 +1339,7 @@ const ClientModule = () => {
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Company Name</label>
                             <input className="input-field" required value={editData.company} onChange={e => setEditData({ ...editData, company: e.target.value })} />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Email Address</label>
-                            <input type="email" className="input-field" required value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} />
-                        </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 lg:col-span-2">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Phone Contact</label>
                             <input className="input-field" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
                         </div>
@@ -1383,11 +1391,7 @@ const ClientModule = () => {
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Location</label>
                             <input className="input-field" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Email Address</label>
-                            <input type="email" className="input-field" required value={newClient.email} onChange={e => setNewClient({ ...newClient, email: e.target.value })} />
-                        </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 lg:col-span-2">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Phone Contact</label>
                             <input className="input-field" required value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
                         </div>
@@ -1572,7 +1576,7 @@ const ProjectModule = () => {
         if (!project) return;
         const inventoryItem = data.inventory.find(i => i.id === parseInt(newBOMItem.itemId));
         const bomItem = { id: Date.now(), itemId: parseInt(newBOMItem.itemId), sku: inventoryItem?.sku, name: inventoryItem?.name, qty: parseFloat(newBOMItem.qty), status: 'Reserved' };
-        updateData('projects_bulk', data.projects.map(p => p.id === selectedProject ? { ...p, bom: [...(p.bom || []), bomItem] ] } : p));
+        updateData('projects_bulk', data.projects.map(p => p.id === selectedProject ? { ...p, bom: [...(p.bom || []), bomItem] } : p));
         logActivity(`BOM item added to ${project.name}`, 'Sync');
         setIsAddingBOM(false);
     };
@@ -2241,7 +2245,7 @@ const SettingsModule = () => {
     const [activeSection, setActiveSection] = useState('profile'); // 'profile', 'security', 'integration', 'users'
 
     const [isAddingUser, setIsAddingUser] = useState(false);
-    const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'operative' });
+    const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'reception' });
     const [editingUser, setEditingUser] = useState(null);
     const [pwData, setPwData] = useState({ current: '', new: '', confirm: '' });
 
@@ -2333,7 +2337,7 @@ const SettingsModule = () => {
         }
         setIsAddingUser(false);
         setEditingUser(null);
-        setNewUser({ name: '', username: '', password: '', role: 'operative' });
+        setNewUser({ name: '', username: '', password: '', role: 'reception' });
     };
 
     const handleEditClick = (u) => {
@@ -2441,18 +2445,6 @@ const SettingsModule = () => {
                     </form>
                 </div>
 
-                <div className="space-y-6">
-                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Persistence Protocols</h5>
-                    <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-black text-slate-900 uppercase">Multi-Factor Auth</p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Sentinel Verification</p>
-                        </div>
-                        <div className="w-12 h-6 bg-slate-200 rounded-full relative p-1 cursor-pointer">
-                            <div className="w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     );
@@ -2552,3 +2544,15 @@ const SettingsModule = () => {
         </div>
     );
 };
+
+// Attach to window for global scoping
+window.Dashboard = Dashboard;
+window.SalesModule = SalesModule;
+window.ExpenseModule = ExpenseModule;
+window.InventoryModule = InventoryModule;
+window.ClientModule = ClientModule;
+window.SupplierModule = SupplierModule;
+window.ProjectModule = ProjectModule;
+window.ReportModule = ReportModule;
+window.FieldOpsModule = FieldOpsModule;
+window.SettingsModule = SettingsModule;

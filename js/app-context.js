@@ -4,7 +4,7 @@ const AppContext = createContext();
 
 const AppProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isDarkModeState, setIsDarkModeState] = useState(false);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [isLoading, setIsLoading] = useState(true);
 
@@ -29,7 +29,6 @@ const AppProvider = ({ children }) => {
             const { data: interactions } = await window.supabaseClient.from('interactions').select('*').order('id', { ascending: false });
             const { data: activities } = await window.supabaseClient.from('activities').select('*').order('id', { ascending: false }).limit(50);
 
-            // For now, we keep users in local state or Supabase Auth, but let's fetch from table if it exists
             const { data: dbUsers } = await window.supabaseClient.from('users').select('*');
 
             setData(prev => ({
@@ -53,71 +52,40 @@ const AppProvider = ({ children }) => {
         }
     };
 
-    // Migration logic
-    const migrateLegacyData = async (localData) => {
-        setIsLoading(true);
-        try {
-            const tables = ['sales', 'expenses', 'projects', 'clients', 'inventory', 'activities', 'users'];
-            for (const table of tables) {
-                if (localData[table] && localData[table].length > 0) {
-                    await window.supabaseClient.from(table).upsert(localData[table]);
-                }
-            }
-            if (localData.config) {
-                await window.supabaseClient.from('config').upsert({ id: 1, ...localData.config });
-            }
-            await fetchAllData();
-        } catch (err) {
-            console.error('Migration Error:', err);
-        } finally {
-            setIsLoading(false);
+    // Helper to map JS CamelCase to Supabase snake_case
+    const toSnakeCase = (obj) => {
+        const snakeObj = {};
+        for (let key in obj) {
+            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            snakeObj[snakeKey] = obj[key];
         }
+        return snakeObj;
     };
 
-    // Initial Load & Migration
-    useEffect(() => {
-        const init = async () => {
-            await fetchAllData();
-
-            // Migration check: If no sales found, try migrating from localStorage
-            const { count } = await window.supabaseClient.from('sales').select('*', { count: 'exact', head: true });
-            if (!count || count === 0) {
-                const saved = localStorage.getItem('expense_system_data');
-                if (saved) {
-                    const localData = JSON.parse(saved);
-                    await migrateLegacyData(localData);
-                }
-            }
-        };
-        init();
-    }, []);
-
     const getNextInvoiceNumber = () => {
-        const num = data.config?.nextInvoiceId || 1001;
+        const num = data.config?.next_invoice_id || 1001;
         return `INV-${num}`;
     };
 
     const updateData = async (key, newItem) => {
         setIsLoading(true);
         try {
+            // Map table names to snake_case (e.g., stockMovements -> stock_movements)
+            const tableName = key.replace('_bulk', '').replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+
             if (key === 'sales') {
-                // Cloud Update: Sale + Config Increment
-                const nextId = (data.config.nextInvoiceId || 1001) + 1;
+                const nextId = (data.config.next_invoice_id || 1001) + 1;
                 await window.supabaseClient.from('config').update({ next_invoice_id: nextId }).eq('id', 1);
-                await window.supabaseClient.from('sales').insert([newItem]);
+                await window.supabaseClient.from('sales').insert([toSnakeCase(newItem)]);
             }
             else if (key.endsWith('_bulk')) {
-                const table = key.replace('_bulk', '');
-                // Standard Supabase pattern for bulk: delete all and insert or upsert
-                // For safety in this demo, we'll do upserts if possible or just handle specific ones
-                await window.supabaseClient.from(table).upsert(newItem);
+                const formattedItems = Array.isArray(newItem) ? newItem.map(toSnakeCase) : [toSnakeCase(newItem)];
+                await window.supabaseClient.from(tableName).upsert(formattedItems);
             }
             else {
-                // Generic single insert
-                await window.supabaseClient.from(key).insert([newItem]);
+                await window.supabaseClient.from(tableName).insert([toSnakeCase(newItem)]);
             }
 
-            // Refresh local state after cloud update
             await fetchAllData();
         } catch (err) {
             console.error(`Update Error (${key}):`, err);
@@ -133,14 +101,14 @@ const AppProvider = ({ children }) => {
             type,
             msg
         };
-        await window.supabaseClient.from('activities').insert([activity]);
-        // No need to refresh immediately for logs, or fetchAllData
+        await window.supabaseClient.from('activities').insert([toSnakeCase(activity)]);
     };
 
     const deleteItem = async (key, id) => {
         setIsLoading(true);
         try {
-            await window.supabaseClient.from(key).delete().eq('id', id);
+            const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            await window.supabaseClient.from(tableName).delete().eq('id', id);
             await fetchAllData();
         } catch (err) {
             console.error(`Delete Error (${key}):`, err);
@@ -192,26 +160,35 @@ const AppProvider = ({ children }) => {
         const savedDarkMode = localStorage.getItem('igh_dark_mode');
         if (savedDarkMode) {
             const isDark = JSON.parse(savedDarkMode);
-            setIsDarkMode(isDark);
+            setIsDarkModeState(isDark);
             if (isDark) document.documentElement.classList.add('dark');
         }
     }, []);
 
+    useEffect(() => {
+        if (user) {
+            fetchAllData();
+        }
+    }, [user]);
+
+    const contextValue = useMemo(() => ({
+        user, setUser, login, logout, changePassword,
+        data, setData, updateData, deleteItem, getNextInvoiceNumber,
+        logActivity,
+        isDarkMode: isDarkModeState,
+        setIsDarkMode: (val) => {
+            setIsDarkModeState(val);
+            localStorage.setItem('igh_dark_mode', JSON.stringify(val));
+            if (val) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        },
+        activeTab, setActiveTab,
+        invoiceDraft, setInvoiceDraft, seedInvoice,
+        isLoading
+    }), [user, data, isDarkModeState, activeTab, invoiceDraft, isLoading]);
+
     return (
-        <AppContext.Provider value={{
-            user, setUser, login, logout, changePassword,
-            data, setData, updateData, deleteItem, getNextInvoiceNumber,
-            logActivity,
-            isDarkMode, setIsDarkMode: (val) => {
-                setIsDarkMode(val);
-                localStorage.setItem('igh_dark_mode', JSON.stringify(val));
-                if (val) document.documentElement.classList.add('dark');
-                else document.documentElement.classList.remove('dark');
-            },
-            activeTab, setActiveTab,
-            invoiceDraft, setInvoiceDraft, seedInvoice,
-            isLoading
-        }}>
+        <AppContext.Provider value={contextValue}>
             {children}
             {isLoading && (
                 <div className="fixed bottom-8 right-8 z-[100] animate-bounce">
@@ -224,3 +201,7 @@ const AppProvider = ({ children }) => {
         </AppContext.Provider>
     );
 };
+
+// Attach to window for global scoping across Babel script blocks
+window.AppContext = AppContext;
+window.AppProvider = AppProvider;
