@@ -363,8 +363,9 @@
     };
 
     const SalesModule = () => {
-        const { data, updateData, getNextInvoiceNumber, logActivity, invoiceDraft, setInvoiceDraft, seedInvoice } = useContext(AppContext);
+        const { data, updateData, getNextInvoiceNumber, logActivity, invoiceDraft, setInvoiceDraft, seedInvoice, user, deleteItem } = useContext(AppContext);
         const [isAdding, setIsAdding] = useState(false);
+        const [searchTerm, setSearchTerm] = useState('');
         const [selectedInvoice, setSelectedInvoice] = useState(null);
         const [newSale, setNewSale] = useState({
             client: '',
@@ -420,7 +421,7 @@
             return { subtotal, tax, total: subtotal + tax };
         }, [newSale]);
 
-        const handleSubmit = (e, isQuote = false) => {
+        const handleSubmit = async (e, isQuote = false) => {
             if (e) e.preventDefault();
             const sale = {
                 ...newSale,
@@ -432,40 +433,43 @@
                 tax: totals.tax,
                 status: isQuote ? 'Draft' : 'Pending'
             };
-            updateData('sales', sale);
 
-            // Link to project if selected
-            if (newSale.projectId) {
-                const proj = data.projects.find(p => p.id === parseInt(newSale.projectId));
-                if (proj) {
-                    const updatedProjects = data.projects.map(p =>
-                        p.id === proj.id ? { ...p, invoices: [...(p.invoices || []), sale.invoiceNo] } : p
-                    );
-                    updateData('projects_bulk', updatedProjects);
+            const success = await updateData('sales', sale);
+
+            if (success) {
+                // Link to project if selected
+                if (newSale.projectId) {
+                    const proj = data.projects.find(p => p.id === parseInt(newSale.projectId));
+                    if (proj) {
+                        const updatedProjects = data.projects.map(p =>
+                            p.id === proj.id ? { ...p, invoices: [...(p.invoices || []), sale.invoiceNo] } : p
+                        );
+                        await updateData('projects_bulk', updatedProjects);
+                    }
                 }
-            }
 
-            setIsAdding(false);
-            setNewSale({
-                client: '',
-                projectId: '',
-                date: new Date().toISOString().split('T')[0],
-                items: [{ desc: '', qty: 1, price: 0 }],
-                status: 'Pending',
-                taxRate: data.config?.taxRate || 16
-            });
+                setIsAdding(false);
+                setNewSale({
+                    client: '',
+                    projectId: '',
+                    date: new Date().toISOString().split('T')[0],
+                    items: [{ desc: '', qty: 1, price: 0 }],
+                    status: 'Pending',
+                    taxRate: data.config?.taxRate || 16
+                });
 
-            if (isQuote) {
-                logActivity(`Quote generated for ${newSale.client}`, 'Sync');
-                alert(`Quote ${sale.invoiceNo} successfully recorded. Preview is available in the ledger.`);
+                if (isQuote) {
+                    logActivity(`Quote generated for ${newSale.client}`, 'Sync');
+                    alert(`Quote ${sale.invoiceNo} successfully recorded. Preview is available in the ledger.`);
+                } else {
+                    logActivity(`Invoice ${sale.invoiceNo} issued to ${sale.client}`, 'Sync');
+                }
+            } else {
+                alert('Submission failed. Please check your connection and try again.');
             }
         };
 
-        const unbilledProjects = useMemo(() => {
-            return data.projects.filter(p => p.stage === 'Delivered' && (!p.invoices || p.invoices.length === 0));
-        }, [data.projects]);
-
-        const handleSettle = (e) => {
+        const handleSettle = async (e) => {
             e.preventDefault();
             const currentPayment = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
             const totalPaidSoFar = (settlingInvoice.amountPaid || 0) + currentPayment;
@@ -479,19 +483,21 @@
                     amountPaid: (s.amountPaid || 0) + currentPayment
                 } : s
             );
-            updateData('sales_bulk', updatedSales);
+            const success = await updateData('sales_bulk', updatedSales);
 
-            // Link back to project if linked and fully paid
-            if (isFullyPaid && settlingInvoice.projectId) {
-                const updatedProjects = data.projects.map(p =>
-                    p.id === parseInt(settlingInvoice.projectId) ? { ...p, status: 'Done & Paid', stage: 'Archived' } : p
-                );
-                updateData('projects_bulk', updatedProjects);
+            if (success) {
+                // Link back to project if linked and fully paid
+                if (isFullyPaid && settlingInvoice.projectId) {
+                    const updatedProjects = data.projects.map(p =>
+                        p.id === parseInt(settlingInvoice.projectId) ? { ...p, status: 'Done & Paid', stage: 'Archived' } : p
+                    );
+                    await updateData('projects_bulk', updatedProjects);
+                }
+
+                logActivity(`Invoice ${settlingInvoice.invoiceNo} settled via ${payments.map(p => p.mode).join('+')}`, 'Sync');
+                setSettlingInvoice(null);
+                setPayments([{ mode: 'Mpesa', amount: 0, ref: '' }]);
             }
-
-            logActivity(`Invoice ${settlingInvoice.invoiceNo} settled via ${payments.map(p => p.mode).join('+')}`, 'Sync');
-            setSettlingInvoice(null);
-            setPayments([{ mode: 'Mpesa', amount: 0, ref: '' }]);
         };
 
         const statusCounts = useMemo(() => {
@@ -513,9 +519,26 @@
                             <p className="text-slate-500 font-medium italic">Pipeline: {statusCounts.pending} Pending Invoices</p>
                         </div>
                     </div>
-                    <button onClick={() => setIsAdding(!isAdding)} className="btn-primary">
-                        <Icon name={isAdding ? 'x' : 'plus'} size={18} /> {isAdding ? 'Cancel' : 'New Invoice'}
-                    </button>
+                    <div className="flex gap-3">
+                        <div className="relative group">
+                            <Icon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Search ledger..."
+                                className="input-field pl-12 py-3 bg-white border-slate-200 focus:border-brand-500 w-48 sm:w-64"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
+                            {searchTerm && (
+                                <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors">
+                                    <Icon name="x-circle" size={14} />
+                                </button>
+                            )}
+                        </div>
+                        <button onClick={() => setIsAdding(!isAdding)} className="btn-primary">
+                            <Icon name={isAdding ? 'x' : 'plus'} size={18} /> {isAdding ? 'Cancel' : 'New Invoice'}
+                        </button>
+                    </div>
                 </div>
 
                 {unbilledProjects.length > 0 && (
@@ -643,47 +666,81 @@
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {data.sales.map(sale => (
-                                <tr key={sale.id} className="hover:bg-slate-50 transition-all group">
-                                    <td className="px-8 py-5 font-black text-slate-900">{sale.invoiceNo}</td>
-                                    <td className="px-8 py-5 font-bold text-slate-500 italic shrink-0">{sale.client}</td>
-                                    <td className="px-8 py-5 font-black text-slate-400 text-xs font-sans italic">{sale.date}</td>
-                                    <td className="px-8 py-5 text-right font-black text-slate-900 font-sans tracking-tight">KSh {parseFloat(sale.amount).toLocaleString()}</td>
-                                    <td className="px-8 py-5">
-                                        <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${sale.status === 'Paid' ? 'bg-emerald-100 text-emerald-600' :
-                                            sale.status === 'Partial' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
-                                            }`}>
-                                            {sale.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    setNewSale({
-                                                        ...sale,
-                                                        items: sale.items || [{ desc: '', qty: 1, price: 0 }]
-                                                    });
-                                                    setIsAdding(true);
-                                                }}
-                                                className="p-2 text-slate-400 hover:text-brand-600 transition-colors"
-                                                title="Edit Blueprint"
-                                            >
-                                                <Icon name="edit-3" size={16} />
-                                            </button>
-                                            <button onClick={() => setSelectedInvoice(sale)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Print/PDF spec">
-                                                <Icon name="printer" size={16} />
-                                            </button>
-                                            <button onClick={() => setSettlingInvoice(sale)} className="p-2 text-slate-400 hover:text-emerald-500 transition-colors" title="Record Payment">
-                                                <Icon name="wallet" size={16} />
-                                            </button>
-                                            <button onClick={() => { if (confirm('Delete ledger entry?')) deleteItem('sales', sale.id); }} className="p-2 text-slate-400 hover:text-rose-500 transition-colors" title="Delete">
-                                                <Icon name="trash-2" size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            {data.sales
+                                .filter(s =>
+                                    s.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    s.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    s.status.toLowerCase().includes(searchTerm.toLowerCase())
+                                )
+                                .map(sale => (
+                                    <tr key={sale.id} className="hover:bg-slate-50 transition-all group">
+                                        <td className="px-8 py-5 font-black text-slate-900">{sale.invoiceNo}</td>
+                                        <td className="px-8 py-5 font-bold text-slate-500 italic shrink-0">{sale.client}</td>
+                                        <td className="px-8 py-5 font-black text-slate-400 text-xs font-sans italic">{sale.date}</td>
+                                        <td className="px-8 py-5 text-right font-black text-slate-900 font-sans tracking-tight">KSh {parseFloat(sale.amount).toLocaleString()}</td>
+                                        <td className="px-8 py-5">
+                                            <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${sale.status === 'Paid' ? 'bg-emerald-100 text-emerald-600' :
+                                                sale.status === 'Partial' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
+                                                }`}>
+                                                {sale.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {user?.role === 'admin' && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => {
+                                                                setNewSale({
+                                                                    ...sale,
+                                                                    items: sale.items || [{ desc: '', qty: 1, price: 0 }]
+                                                                });
+                                                                setIsAdding(true);
+                                                            }}
+                                                            className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all"
+                                                            title="Edit Blueprint"
+                                                        >
+                                                            <Icon name="edit-3" size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('Delete ledger entry?')) deleteItem('sales', sale.id);
+                                                            }}
+                                                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                            title="Delete"
+                                                        >
+                                                            <Icon name="trash-2" size={16} />
+                                                        </button>
+                                                    </>
+                                                )}
+                                                <button
+                                                    onClick={() => setSelectedInvoice(sale)}
+                                                    className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all"
+                                                    title="Print/PDF spec"
+                                                >
+                                                    <Icon name="printer" size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const text = `Hi, here is your ${sale.isQuote ? 'Quote' : 'Invoice'} ${sale.invoiceNo} for KSh ${parseFloat(sale.amount).toLocaleString()}.`;
+                                                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                                    }}
+                                                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                    title="Send via WhatsApp"
+                                                >
+                                                    <Icon name="share-2" size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setSettlingInvoice(sale)}
+                                                    className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
+                                                    title="Record Payment"
+                                                >
+                                                    <Icon name="wallet" size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
                         </tbody >
                     </table >
                 </div >
@@ -1575,15 +1632,15 @@
             setIsAdding(true);
         };
 
-        const handleSubmit = (e) => {
+        const handleSubmit = async (e) => {
             e.preventDefault();
             if (selectedProject && isAdding) {
                 const updated = data.projects.map(p => p.id === selectedProject ? { ...formData, id: p.id } : p);
-                updateData('projects_bulk', updated);
+                await updateData('projects_bulk', updated);
                 logActivity(`Updated project: ${formData.name}`, 'Update');
             } else {
                 const project = { ...formData, id: Date.now(), team: [], bom: [], assets: [] };
-                updateData('projects', project);
+                await updateData('projects', project);
                 logActivity(`Launched new project: ${formData.name}`, 'Success');
             }
             setIsAdding(false);
@@ -1614,14 +1671,6 @@
             logActivity(`Material consumed for ${project.name}`, 'Action');
         };
 
-        const handleAddAsset = (e) => {
-            e.preventDefault();
-            const project = data.projects.find(p => p.id === selectedProject);
-            const asset = { id: Date.now(), name: newAsset.name, url: newAsset.url, status: 'Pending Approval' };
-            updateData('projects_bulk', data.projects.map(p => p.id === selectedProject ? { ...p, assets: [...(p.assets || []), asset] } : p));
-            logActivity(`New asset uploaded for ${project.name}`, 'Upload');
-            setIsAddingAsset(false);
-        };
 
         return (
             <div className="space-y-8 animate-slide">
@@ -1639,7 +1688,7 @@
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {data.projects.map(p => (
+                    {data.projects.filter(p => p.status !== 'Done & Paid' && p.stage !== 'Archived').map(p => (
                         <div key={p.id} className="bg-white rounded-[2rem] border border-slate-100 p-5 group hover:shadow-2xl transition-all duration-500 flex flex-col gap-4 relative overflow-hidden">
                             {/* Status & Actions Bar */}
                             <div className="flex justify-between items-center">
@@ -1715,7 +1764,13 @@
                                 </div>
                                 {p.stage === 'Delivered' && (
                                     <button
-                                        onClick={() => seedInvoice({ client: p.client, projectId: p.id, itemName: p.name, amount: 0 })}
+                                        onClick={() => seedInvoice({
+                                            client: p.client,
+                                            projectId: p.id,
+                                            itemName: `Design Project: ${p.name}`,
+                                            amount: 0,
+                                            description: `Finalized design and delivery for ${p.name}.`
+                                        })}
                                         className="w-full py-2 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all shadow-md animate-pulse"
                                     >
                                         <Icon name="receipt" size={10} /> Billing Required
@@ -1787,19 +1842,6 @@
                     </form>
                 </Modal>
 
-                <Modal isOpen={isAddingAsset} onClose={() => { setIsAddingAsset(false); setSelectedProject(null); }} title="Register Design Asset">
-                    <form onSubmit={handleAddAsset} className="space-y-8">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Asset Name</label>
-                            <input className="input-field" placeholder="e.g. Logo Concept V1" required value={newAsset.name} onChange={e => setNewAsset({ ...newAsset, name: e.target.value })} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Asset URL / Reference</label>
-                            <input className="input-field" placeholder="e.g. https://figma.com/..." required value={newAsset.url} onChange={e => setNewAsset({ ...newAsset, url: e.target.value })} />
-                        </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest shadow-xl">Commit Asset to Pipeline</button>
-                    </form>
-                </Modal>
             </div>
         );
     };
@@ -2078,7 +2120,8 @@
                         {[
                             { id: 'overview', label: 'Executive Summary' },
                             { id: 'pl', label: 'P&L Statement' },
-                            { id: 'bs', label: 'Balance Sheet' }
+                            { id: 'bs', label: 'Balance Sheet' },
+                            { id: 'projects', label: 'Archived Projects' }
                         ].map(v => (
                             <button
                                 key={v.id}
@@ -2091,7 +2134,33 @@
                     </div>
                 </div>
 
-                {reportView === 'overview' ? renderOverview() : reportView === 'pl' ? renderPL() : renderBS()}
+                {reportView === 'overview' && renderOverview()}
+                {reportView === 'pl' && renderPL()}
+                {reportView === 'bs' && renderBS()}
+                {reportView === 'projects' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide">
+                        {data.projects.filter(p => p.status === 'Done & Paid' || p.stage === 'Archived').map(p => (
+                            <div key={p.id} className="bg-white rounded-3xl border border-slate-100 p-6 group hover:shadow-2xl transition-all relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4">
+                                    <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest">ARCHIVED</span>
+                                </div>
+                                <h4 className="text-lg font-black text-slate-900 mb-1">{p.name}</h4>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.client}</p>
+                                <div className="mt-4 p-4 bg-slate-50 rounded-2xl space-y-2">
+                                    <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold uppercase">Designer</span><span className="font-black">@{p.designer}</span></div>
+                                    <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold uppercase">Delivered</span><span className="font-black">{p.deadline}</span></div>
+                                </div>
+                                <div className="mt-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => alert('View function for archived projects coming soon in v3.0')} className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">View Dossier</button>
+                                    <button onClick={() => { if (confirm('Permanently delete project record?')) deleteItem('projects', p.id); }} className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Icon name="trash-2" size={16} /></button>
+                                </div>
+                            </div>
+                        ))}
+                        {data.projects.filter(p => p.status === 'Done & Paid' || p.stage === 'Archived').length === 0 && (
+                            <div className="col-span-full py-20 text-center text-slate-300 font-bold uppercase tracking-widest italic">No archived intelligence found.</div>
+                        )}
+                    </div>
+                )}
             </div>
         );
     };
@@ -2412,7 +2481,7 @@
                             <img src="https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg" alt="Sheets" />
                         </div>
                         <div>
-                            <h4 className="text-xl font-black text-white tracking-tight uppercase italic leading-none mb-2">Google Cloud Sync</h4>
+                            <h4 className="text-xl font-black text-white tracking-tight uppercase italic leading-none mb-2">Database Sync</h4>
                             <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20">Operational</span>
                         </div>
                     </div>
@@ -2456,7 +2525,7 @@
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                     <div className="space-y-6">
-                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Rotate Credentials</h5>
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Rotate Passwords</h5>
                         <form onSubmit={handlePwChange} className="space-y-6">
                             <input type="password" placeholder="Current Password" className="input-field" required value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
                             <input type="password" placeholder="New Password" className="input-field" required value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
@@ -2464,7 +2533,6 @@
                             <button type="submit" className="w-full btn-primary py-4 text-[10px] font-black uppercase tracking-widest">Update Security Credentials</button>
                         </form>
                     </div>
-
                 </div>
             </div>
         );
@@ -2498,7 +2566,7 @@
                                     <Icon name="edit-3" size={18} />
                                 </button>
                                 {u.id !== user.id && (
-                                    <button onClick={() => { if (confirm(`Revoke access for ${u.username}?`)) { updateData('users_bulk', data.users.filter(usr => usr.id !== u.id)); logActivity(`Access revoked for ${u.username}`, 'Archive'); } }} className="p-3 text-slate-300 hover:text-white hover:bg-rose-500 rounded-xl transition-all" title="Delete User">
+                                    <button onClick={() => { if (confirm(`Revoke access for ${u.username}?`)) { deleteItem('users', u.id); logActivity(`Access revoked for ${u.username}`, 'Archive'); } }} className="p-3 text-slate-300 hover:text-white hover:bg-rose-500 rounded-xl transition-all" title="Delete User">
                                         <Icon name="trash-2" size={18} />
                                     </button>
                                 )}
@@ -2540,7 +2608,7 @@
                 <div className="flex gap-4 p-3 bg-slate-100 rounded-[2.5rem] w-fit mx-auto lg:mx-0 shadow-inner">
                     {[
                         { id: 'profile', label: 'Identity', icon: 'user' },
-                        { id: 'integration', label: 'Cloud Sync', icon: 'cloud-lightning' },
+                        { id: 'integration', label: 'Database Sync', icon: 'cloud-lightning' },
                         { id: 'security', label: 'Sentinel', icon: 'shield-alert' },
                         { id: 'users', label: 'Access Control', icon: 'users' }
                     ].map(tab => (

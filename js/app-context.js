@@ -88,8 +88,10 @@
                 }
 
                 await fetchAllData();
+                return true;
             } catch (err) {
                 console.error(`Update Error (${key}):`, err);
+                return false;
             } finally {
                 setIsLoading(false);
             }
@@ -109,10 +111,13 @@
             setIsLoading(true);
             try {
                 const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-                await window.supabaseClient.from(tableName).delete().eq('id', id);
+                const { error } = await window.supabaseClient.from(tableName).delete().eq('id', id);
+                if (error) throw error;
                 await fetchAllData();
+                return true;
             } catch (err) {
                 console.error(`Delete Error (${key}):`, err);
+                return false;
             } finally {
                 setIsLoading(false);
             }

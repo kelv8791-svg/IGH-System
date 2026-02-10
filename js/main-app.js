@@ -76,21 +76,9 @@
         return (
             <div className="flex min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
                 <aside className={`bg-[#0f172a] text-white transition-all duration-500 ease-in-out flex flex-col z-20 shadow-2xl sidebar ${isSidebarOpen ? 'w-72' : 'w-24'}`}>
-                    <div className="p-8 border-b border-white/5 flex items-center justify-between">
-                        <div
-                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                            className={`flex items-center gap-4 transition-all duration-300 cursor-pointer hover:opacity-80 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden shrink-0'}`}
-                        >
-                            <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-brand-500/20">
-                                <img src="logo.jpg" alt="Logo" className="w-7 h-7 object-contain" />
-                            </div>
-                            <div className="flex flex-col min-w-max">
-                                <span className="text-xl font-black tracking-tighter text-white uppercase italic">IGH Tracker</span>
-                                <span className="text-[9px] font-black text-brand-500 uppercase tracking-widest opacity-80 leading-tight mt-1">where creativity meets excellence</span>
-                            </div>
-                        </div>
-                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className={`p-2 hover:bg-white/10 rounded-xl text-slate-400 transition-colors ${!isSidebarOpen && 'mx-auto'}`}>
-                            {window.Icon && <window.Icon name={isSidebarOpen ? 'chevron-left' : 'menu'} size={24} />}
+                    <div className="p-8 border-b border-white/5 flex items-center justify-center">
+                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className={`p-2 hover:bg-white/10 rounded-xl text-slate-400 transition-colors ${isSidebarOpen ? 'rotate-0' : 'rotate-180'}`}>
+                            {window.Icon && <window.Icon name="chevron-left" size={24} />}
                         </button>
                     </div>
                     <nav className="flex-1 p-6 space-y-3 overflow-y-auto custom-scrollbar">
@@ -119,13 +107,29 @@
                 </aside>
                 <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-[#f8fafc] dark:bg-slate-950">
                     <header className="h-20 bg-white/70 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-4 sm:px-10 sticky top-0 z-30 shadow-sm sticky-header dark:bg-slate-900/70 dark:border-slate-800">
-                        <div className="flex items-center gap-8 flex-1">
-                            <div className="flex flex-col min-w-0">
-                                <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight capitalize truncate max-w-[150px] sm:max-w-none">{activeTab ? activeTab.replace('_', ' ') : 'Dashboard'}</h2>
-                                <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest overflow-hidden">
-                                    <span className="hover:text-brand-600 cursor-pointer transition-colors shrink-0">IGH</span>
-                                    {window.Icon && <window.Icon name="chevron-right" size={10} />}<span className="text-slate-500 truncate">{activeTab}</span>
+                        <div className="flex items-center gap-6 flex-1">
+                            <button
+                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-900 dark:text-white transition-all"
+                            >
+                                <Icon name="menu" size={24} />
+                            </button>
+
+                            <div className="flex items-center gap-4 border-l border-slate-200 dark:border-slate-800 pl-6">
+                                <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-brand-500/20 hover:scale-105 transition-transform cursor-pointer">
+                                    <img src="logo.jpg" alt="Logo" className="w-7 h-7 object-contain" />
                                 </div>
+                                <div className="hidden sm:flex flex-col">
+                                    <span className="text-lg font-black tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">IGH Tracker</span>
+                                    <span className="text-[8px] font-black text-brand-600 uppercase tracking-widest opacity-80 leading-tight mt-1">where creativity meets excellence</span>
+                                </div>
+                            </div>
+
+                            <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 hidden lg:block mx-2"></div>
+
+                            <div className="flex flex-col min-w-0">
+                                <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight capitalize truncate">{activeTab ? activeTab.replace('_', ' ') : 'Dashboard'}</h2>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Live Session Control</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 sm:gap-6">
