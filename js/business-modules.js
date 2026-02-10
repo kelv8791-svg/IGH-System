@@ -364,6 +364,10 @@
 
     const SalesModule = () => {
         const { data, updateData, getNextInvoiceNumber, logActivity, invoiceDraft, setInvoiceDraft, seedInvoice, user, deleteItem } = useContext(AppContext);
+
+        const unbilledProjects = useMemo(() => {
+            return data.projects.filter(p => (p.stage === 'Delivered' || p.status === 'Completed') && !(p.invoices && p.invoices.length > 0));
+        }, [data.projects]);
         const [isAdding, setIsAdding] = useState(false);
         const [searchTerm, setSearchTerm] = useState('');
         const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -2328,7 +2332,7 @@
     };
 
     const SettingsModule = () => {
-        const { data, user, updateData, logActivity, changePassword } = useContext(AppContext);
+        const { data, user, updateData, deleteItem, logActivity, changePassword } = useContext(AppContext);
         const [isSyncing, setIsSyncing] = useState(false);
         const [syncLog, setSyncLog] = useState([]);
         const [activeSection, setActiveSection] = useState('profile'); // 'profile', 'security', 'integration', 'users'
