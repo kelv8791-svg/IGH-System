@@ -149,7 +149,7 @@
     const Modal = ({ isOpen, onClose, title, children }) => {
         if (!isOpen) return null;
         return ReactDOM.createPortal(
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-500">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md transition-opacity duration-500">
                 <div className="bg-slate-50 dark:bg-[#020617] rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col animate-slide border border-white/10">
                     <div className="p-8 border-b border-slate-200/60 dark:border-white/5 flex items-center justify-between bg-white/50 dark:bg-white/5 backdrop-blur-xl">
                         <div className="space-y-1">
