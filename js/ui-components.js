@@ -4,22 +4,10 @@
 
     const Icon = ({ name, size = 20, className = "" }) => {
         const svgRef = React.useRef(null);
-        useEffect(() => {
-            if (!svgRef.current) return;
+        const isLogo = name === 'logo-box';
 
-            // Custom Brand Logo
-            if (name === 'logo-box') {
-                svgRef.current.innerHTML = `
-                    <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/>
-                    <rect x="8" y="8" width="8" height="8" fill="black"/>
-                    <circle cx="12" cy="12" r="2" fill="currentColor"/>
-                    <rect x="11.5" y="6" width="1" height="1" fill="white"/>
-                    <rect x="11.5" y="17" width="1" height="1" fill="white"/>
-                    <rect x="6" y="11.5" width="1" height="1" fill="white"/>
-                    <rect x="17" y="11.5" width="1" height="1" fill="white"/>
-                `;
-                return;
-            }
+        useEffect(() => {
+            if (!svgRef.current || isLogo) return;
 
             if (!window.lucide || !window.lucide.icons) return;
             const iconData = window.lucide.icons[name];
@@ -39,7 +27,19 @@
                 });
             }
             svgRef.current.innerHTML = inner;
-        }, [name]);
+        }, [name, isLogo]);
+
+        const renderLogo = () => (
+            <>
+                <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" />
+                <rect x="8" y="8" width="8" height="8" fill="black" />
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+                <rect x="11.5" y="6" width="1" height="1" fill="white" />
+                <rect x="11.5" y="17" width="1" height="1" fill="white" />
+                <rect x="6" y="11.5" width="1" height="1" fill="white" />
+                <rect x="17" y="11.5" width="1" height="1" fill="white" />
+            </>
+        );
 
         return (
             <svg
@@ -54,7 +54,9 @@
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className={className}
-            />
+            >
+                {isLogo && renderLogo()}
+            </svg>
         );
     };
 
