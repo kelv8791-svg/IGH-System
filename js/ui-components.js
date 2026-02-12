@@ -124,14 +124,14 @@
 
     const LoginScreen = () => {
         const { login } = useContext(AppContext);
-        const [email, setEmail] = useState('');
+        const [username, setUsername] = useState('');
         const [password, setPassword] = useState('');
         const [error, setError] = useState('');
 
         const handleSubmit = async (e) => {
             e.preventDefault();
-            const success = await login(email, password);
-            if (!success) setError('Incorrect email or password. Please try again.');
+            const success = await login(username, password);
+            if (!success) setError('Authentication failed. Check credentials.');
         };
 
         return (
@@ -173,17 +173,17 @@
                             )}
 
                             <div>
-                                <label className="brand-label">Email Address</label>
+                                <label className="brand-label">Access Handle (Username / Email)</label>
                                 <div className="relative">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                        <Icon name="mail" size={18} />
+                                        <Icon name="user" size={18} />
                                     </div>
                                     <input
-                                        type="email"
+                                        type="text"
                                         className="brand-input !pl-12 !border-slate-100 focus:!border-brand-500 !text-black"
-                                        placeholder="Enter your email"
-                                        value={email}
-                                        onChange={e => setEmail(e.target.value)}
+                                        placeholder="Enter your handle"
+                                        value={username}
+                                        onChange={e => setUsername(e.target.value)}
                                         required
                                     />
                                 </div>

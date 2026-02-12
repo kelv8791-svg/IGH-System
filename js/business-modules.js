@@ -2849,6 +2849,119 @@
                 setIsSyncing(false);
             }
         };
+        const handleEditClick = (u) => {
+            setEditingUser(u);
+            setNewUser({ name: u.name, username: u.username, password: u.password, role: u.role });
+            setIsAddingUser(true);
+        };
+
+        const handleProvisionUser = async (e) => {
+            e.preventDefault();
+            setIsLoading(true);
+            try {
+                if (editingUser) {
+                    await window.supabaseClient.from('users').update(toSnakeCase(newUser)).eq('id', editingUser.id);
+                    logActivity(`User privileges updated: ${newUser.username}`, 'Update');
+                } else {
+                    await window.supabaseClient.from('users').insert([toSnakeCase(newUser)]);
+                    logActivity(`New user provisioned: ${newUser.username}`, 'Access');
+                }
+                await fetchAllData();
+                setIsAddingUser(false);
+                setEditingUser(null);
+                setNewUser({ name: '', username: '', password: '', role: 'reception' });
+            } catch (err) {
+                console.error('Provision Error:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        const renderIntegration = () => (
+            <div className="space-y-12 animate-slide">
+                <div className="bg-[#0f172a] p-16 flex flex-col items-center justify-center text-center space-y-8 border-4 border-black relative overflow-hidden group shadow-premium">
+                    <div className="absolute right-0 top-0 p-8 opacity-[0.03] group-hover:scale-110 transition-all pointer-events-none"><Icon name="cloud-lightning" size={200} /></div>
+                    <div className="w-24 h-24 bg-emerald-500/10 text-emerald-500 flex items-center justify-center border-2 border-emerald-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <Icon name="database" size={40} />
+                    </div>
+                    <div>
+                        <h3 className="text-4xl font-display font-black text-white italic tracking-tighter uppercase">G-Cloud Reconciliation</h3>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic mt-4">Active Sync Protocol: Google Sheets API v4</p>
+                    </div>
+                    <button
+                        onClick={handleFullSync}
+                        disabled={isSyncing}
+                        className="brand-button-yellow !py-5 !px-12 flex items-center gap-4 italic group disabled:opacity-50"
+                    >
+                        {isSyncing ? <Icon name="refresh-cw" className="animate-spin" /> : <Icon name="zap" />}
+                        {isSyncing ? "Executing Reconciliation..." : "initiate master sync"}
+                    </button>
+                </div>
+
+                {syncLog.length > 0 && (
+                    <div className="bg-black border-4 border-black p-10 space-y-6 shadow-premium">
+                        <div className="flex items-center gap-4 border-b border-white/10 pb-4">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-none animate-pulse"></div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Live Telemetry Feed</span>
+                        </div>
+                        <div className="space-y-4 font-mono text-[10px] max-h-[300px] overflow-y-auto custom-scrollbar pr-4">
+                            {syncLog.map((log, i) => (
+                                <div key={i} className="flex gap-6 opacity-60 hover:opacity-100 transition-opacity">
+                                    <span className="text-emerald-500 font-black shrink-0">[{log.time}]</span>
+                                    <span className="text-white tracking-tight uppercase">{log.msg}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+
+        const renderSecurity = () => (
+            <div className="space-y-12 animate-slide max-w-4xl mx-auto">
+                <div className="bg-rose-600/5 border-4 border-black p-12 space-y-10 shadow-premium">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-black text-rose-500 flex items-center justify-center border-2 border-rose-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                            <Icon name="shield-alert" size={28} />
+                        </div>
+                        <div>
+                            <h3 className="text-3xl font-display font-black text-black italic tracking-tighter uppercase leading-none">Credential Rotation</h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mt-2">Active Sentinel Protocol // SHA-256 Encryption</p>
+                        </div>
+                    </div>
+
+                    <form className="space-y-8" onSubmit={e => {
+                        e.preventDefault();
+                        if (pwData.new !== pwData.confirm) return alert('Cipher mismatch. Verification failed.');
+                        changePassword(pwData.current, pwData.new).then(res => {
+                            if (res) alert('Security sequence updated.');
+                            else alert('Authentication invalid.');
+                        });
+                    }}>
+                        <div className="space-y-6">
+                            <div>
+                                <label className="brand-label">Current Authentication Cipher</label>
+                                <input type="password" required className="brand-input" value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <label className="brand-label">New Sequence Designation</label>
+                                    <input type="password" required className="brand-input" value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="brand-label">Sequence Confirmation</label>
+                                    <input type="password" required className="brand-input" value={pwData.confirm} onChange={e => setPwData({ ...pwData, confirm: e.target.value })} />
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" className="brand-button-black w-full !py-5 italic border-2 border-black">
+                            Execute Rotation Protocol
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+
 
         const renderOverview = () => (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 animate-slide">
