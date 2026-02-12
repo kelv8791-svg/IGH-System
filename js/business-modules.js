@@ -166,14 +166,14 @@
         }, [stats, isDarkMode]);
 
         return (
-            <div className="space-y-8 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-brand-500 rounded-full animate-pulse"></span>
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Command Dashboard</h2>
+            <div className="space-y-12 animate-slide">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4 border-b-4 border-black">
+                    <div className="space-y-2">
+                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Command Dashboard</h2>
+                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                            <div className="w-12 h-1 bg-brand-500"></div>
+                            Operational Intelligence Vector // {new Date().toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })}
                         </div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Operational Intelligence Vector // {new Date().toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                     </div>
                     <div className="flex gap-4">
                         <button
@@ -184,16 +184,16 @@
                                 ].sort((a, b) => new Date(b.Date) - new Date(a.Date));
                                 downloadCSV(exportData, `IGH_Master_Log_${new Date().toISOString().split('T')[0]}.csv`);
                             }}
-                            className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl text-[10px] font-black text-slate-600 dark:text-slate-400 hover:bg-slate-50 transition-all flex items-center gap-3 uppercase tracking-widest shadow-premium"
+                            className="brand-button-yellow !px-6 !py-4 flex items-center gap-3 italic"
                         >
-                            <Icon name="download" size={16} /> Data Export
+                            <Icon name="download" size={18} /> Data Handshake (Export)
                         </button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard icon="zap" label="Aggregate Revenue" value={`KSh ${stats.revenue.toLocaleString()}`} color="brand" trend="+12.5%" />
-                    <StatCard icon="pie-chart" label="Total Burn Rate" value={`KSh ${stats.expenses.toLocaleString()}`} color="red" trend="-2.4%" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <StatCard icon="zap" label="Aggregate Revenue" value={`KSh ${stats.revenue.toLocaleString()}`} color="brand" trend="+12.5%" trendType="up" />
+                    <StatCard icon="pie-chart" label="Total Burn Rate" value={`KSh ${stats.expenses.toLocaleString()}`} color="red" trend="-2.4%" trendType="down" />
                     <StatCard icon="activity" label="Active Projects" value={stats.projects} color="green" />
                     <StatCard icon="shield-alert" label="Pending Settlement" value={stats.pending} color="orange" />
                 </div>
@@ -350,86 +350,122 @@
         };
 
         return (
-            <div className="space-y-8 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Expenditure Hub</h2>
-                        </div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Capital Outflow Management // {data.expenses.length} Records Detected</p>
+            <div className="space-y-12">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div>
+                        <h2 className="text-4xl mb-2 italic uppercase font-display tracking-tight">Financial Ledger</h2>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest italic">Capital Outflow Control & Monitoring</p>
                     </div>
-                    <button onClick={() => setIsAdding(!isAdding)} className="btn-primary">
-                        <Icon name={isAdding ? 'x' : 'plus'} size={18} /> {isAdding ? 'Dismiss' : 'Log Expenditure'}
+                    <button
+                        onClick={() => setIsAdding(!isAdding)}
+                        className="brand-button-yellow !px-8 !py-4 flex items-center gap-3"
+                    >
+                        <Icon name={isAdding ? 'x' : 'plus'} size={18} />
+                        {isAdding ? 'Dismiss Entry Form' : 'Log New Expenditure'}
                     </button>
                 </div>
 
                 {isAdding && (
-                    <div className="card border-none bg-white dark:bg-white/5 shadow-2xl animate-slide p-8">
-                        <form onSubmit={addExpense} className="space-y-8">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Temporal Stamp</label>
-                                    <input type="date" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" required value={newExp.date} onChange={e => setNewExp({ ...newExp, date: e.target.value })} />
+                    <div className="bg-black text-white p-12 shadow-2xl animate-slide relative overflow-hidden">
+                        <div className="relative z-10">
+                            <h3 className="text-2xl mb-8 flex items-center gap-4">
+                                <div className="w-1.5 h-8 bg-brand-500"></div>
+                                Log Capital Outflow
+                            </h3>
+                            <form onSubmit={addExpense} className="space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                                    <div>
+                                        <label className="brand-label !text-slate-500">Temporal Stamp</label>
+                                        <input
+                                            type="date"
+                                            className="brand-input !bg-dark-surface !border-dark-border !text-white !py-4"
+                                            required
+                                            value={newExp.date}
+                                            onChange={e => setNewExp({ ...newExp, date: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="brand-label !text-slate-500">Magnitude (KES)</label>
+                                        <input
+                                            type="number"
+                                            className="brand-input !bg-dark-surface !border-dark-border !text-white !py-4"
+                                            placeholder="0.00"
+                                            required
+                                            value={newExp.amount}
+                                            onChange={e => setNewExp({ ...newExp, amount: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="brand-label !text-slate-500">Classification</label>
+                                        <select
+                                            className="brand-input !bg-dark-surface !border-dark-border !text-white !py-4"
+                                            value={newExp.category}
+                                            onChange={e => setNewExp({ ...newExp, category: e.target.value })}
+                                        >
+                                            <option>Raw Materials</option>
+                                            <option>Human Resource</option>
+                                            <option>Office Supplies</option>
+                                            <option>Marketing</option>
+                                            <option>Software</option>
+                                            <option>Logistics</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Magnitude (KSh)</label>
-                                    <input type="number" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="0.00" required value={newExp.amount} onChange={e => setNewExp({ ...newExp, amount: e.target.value })} />
+                                <div>
+                                    <label className="brand-label !text-slate-500">Operational Description</label>
+                                    <input
+                                        type="text"
+                                        className="brand-input !bg-dark-surface !border-dark-border !text-white !py-4"
+                                        placeholder="Specify the purpose of this expenditure..."
+                                        value={newExp.notes}
+                                        onChange={e => setNewExp({ ...newExp, notes: e.target.value })}
+                                    />
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Category Vector</label>
-                                    <select className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newExp.category} onChange={e => setNewExp({ ...newExp, category: e.target.value })}>
-                                        <option>Office Supplies</option><option>Software</option><option>Marketing</option><option>Travel</option><option>Raw Materials</option><option>Human Resource</option>
-                                    </select>
+                                <div className="flex justify-end pt-6 border-t border-dark-border">
+                                    <button type="submit" className="brand-button-yellow !px-12 !py-5 uppercase text-[10px] font-black italic">
+                                        Authorize & Commit to Ledger
+                                    </button>
                                 </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Description / Operational Notes</label>
-                                <input type="text" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="Specify expenditure intent..." value={newExp.notes} onChange={e => setNewExp({ ...newExp, notes: e.target.value })} />
-                            </div>
-                            <div className="flex justify-end pt-4 border-t border-white/5">
-                                <button type="submit" className="btn-primary py-4 px-10 uppercase tracking-widest text-[10px] font-black italic">Commit to Ledger</button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500 opacity-5 translate-x-32 -translate-y-32 rotate-45"></div>
                     </div>
                 )}
 
-                <div className="card !p-0 overflow-hidden border-none bg-white dark:bg-white/5 shadow-xl">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left font-sans">
-                            <thead className="bg-[#0f172a] text-white">
-                                <tr>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Date</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Classification</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Operational Notes</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Magnitude</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Control</th>
+                <div className="brand-card !p-0 overflow-hidden border-2 bg-white">
+                    <table className="w-full text-left">
+                        <thead className="bg-[#f0f0f0] border-b-2 border-black">
+                            <tr>
+                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black">Timeline</th>
+                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black">Category</th>
+                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black">Description</th>
+                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black text-right">Amount (KES)</th>
+                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y-2 divide-slate-50">
+                            {data.expenses.map(exp => (
+                                <tr key={exp.id} className="hover:bg-brand-500/5 transition-colors group">
+                                    <td className="px-8 py-6 text-[10px] font-bold text-slate-400">{exp.date}</td>
+                                    <td className="px-8 py-6">
+                                        <span className="px-4 py-1 bg-black text-white text-[9px] font-black uppercase tracking-tighter">
+                                            {exp.category}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-6 text-sm font-bold text-slate-800">{exp.notes}</td>
+                                    <td className="px-8 py-6 text-right font-display text-lg">KES {parseFloat(exp.amount).toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-right">
+                                        <button
+                                            onClick={() => { if (confirm('Purge this record?')) deleteItem('expenses', exp.id); }}
+                                            className="w-12 h-12 flex items-center justify-center bg-white border-2 border-slate-100 hover:border-black text-slate-400 hover:text-black transition-all"
+                                        >
+                                            <Icon name="trash-2" size={18} />
+                                        </button>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                                {data.expenses.map(exp => (
-                                    <tr key={exp.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
-                                        <td className="px-8 py-6 font-black text-slate-400 text-[10px] uppercase tracking-widest">{exp.date}</td>
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
-                                                <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-lg text-[10px] font-black uppercase text-slate-600 dark:text-slate-400 tracking-tighter">{exp.category}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6 font-bold text-slate-600 dark:text-slate-400 italic text-sm">{exp.notes}</td>
-                                        <td className="px-8 py-6 text-right font-black text-slate-900 dark:text-white font-sans tracking-tight">KSh {parseFloat(exp.amount).toLocaleString()}</td>
-                                        <td className="px-8 py-6 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => { if (confirm('Delete expense entry?')) deleteItem('expenses', exp.id); }} className="w-10 h-10 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-500">
-                                                    <Icon name="trash-2" size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         );
@@ -467,6 +503,7 @@
                 setInvoiceDraft(null);
             }
         }, [invoiceDraft]);
+
         const [settlingInvoice, setSettlingInvoice] = useState(null);
         const [payments, setPayments] = useState([{ mode: 'Mpesa', amount: 0, ref: '' }]);
 
@@ -479,13 +516,11 @@
         };
 
         const addItem = () => setNewSale(prev => ({ ...prev, items: [...prev.items, { desc: '', qty: 1, price: 0 }] }));
-
         const updateItem = (index, field, value) => {
             const items = [...newSale.items];
             items[index][field] = value;
             setNewSale({ ...newSale, items });
         };
-
         const removeItem = (index) => {
             if (newSale.items.length > 1) {
                 setNewSale({ ...newSale, items: newSale.items.filter((_, i) => i !== index) });
@@ -512,9 +547,7 @@
             };
 
             const success = await updateData('sales', sale);
-
             if (success) {
-                // Link to project if selected
                 if (newSale.projectId) {
                     const proj = data.projects.find(p => p.id === parseInt(newSale.projectId));
                     if (proj) {
@@ -524,7 +557,6 @@
                         await updateData('projects_bulk', updatedProjects);
                     }
                 }
-
                 setIsAdding(false);
                 setNewSale({
                     client: '',
@@ -534,15 +566,11 @@
                     status: 'Pending',
                     taxRate: data.config?.taxRate || 16
                 });
-
                 if (isQuote) {
                     logActivity(`Quote generated for ${newSale.client}`, 'Sync');
-                    alert(`Quote ${sale.invoiceNo} successfully recorded. Preview is available in the ledger.`);
                 } else {
                     logActivity(`Invoice ${sale.invoiceNo} issued to ${sale.client}`, 'Sync');
                 }
-            } else {
-                alert('Submission failed. Please check your connection and try again.');
             }
         };
 
@@ -563,14 +591,12 @@
             const success = await updateData('sales_bulk', updatedSales);
 
             if (success) {
-                // Link back to project if linked and fully paid
                 if (isFullyPaid && settlingInvoice.projectId) {
                     const updatedProjects = data.projects.map(p =>
                         p.id === parseInt(settlingInvoice.projectId) ? { ...p, status: 'Done & Paid', stage: 'Archived' } : p
                     );
                     await updateData('projects_bulk', updatedProjects);
                 }
-
                 logActivity(`Invoice ${settlingInvoice.invoiceNo} settled via ${payments.map(p => p.mode).join('+')}`, 'Sync');
                 setSettlingInvoice(null);
                 setPayments([{ mode: 'Mpesa', amount: 0, ref: '' }]);
@@ -585,172 +611,236 @@
         }, [data.sales]);
 
         return (
-            <div className="space-y-8 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Revenue Ledger</h2>
-                        </div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Financial Vector Management // {statusCounts.pending} Awaiting Settlement</p>
+            <div className="space-y-12">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div>
+                        <h2 className="text-4xl mb-2 italic uppercase font-display tracking-tight">Revenue Hub</h2>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest italic">Invoicing, Quotes & Settlement Architecture</p>
                     </div>
                     <div className="flex flex-wrap gap-4">
-                        <div className="relative group">
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors pointer-events-none">
-                                <Icon name="search" size={14} />
-                            </div>
+                        <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Locate Transaction..."
-                                className="input-field !pl-10 !py-3 !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500 w-48 sm:w-64 text-[10px] font-black uppercase tracking-widest"
+                                placeholder="Search Transactions..."
+                                className="brand-input !bg-white border-2 !py-4 !pl-12 w-64"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                <Icon name="search" size={16} />
+                            </div>
                         </div>
-                        <button onClick={() => setIsAdding(!isAdding)} className="btn-primary">
-                            <Icon name={isAdding ? 'x' : 'plus'} size={18} /> {isAdding ? 'Dismiss' : 'Generate Invoice'}
+                        <button
+                            onClick={() => setIsAdding(!isAdding)}
+                            className="brand-button-yellow !px-8 !py-4 flex items-center gap-3"
+                        >
+                            <Icon name={isAdding ? 'x' : 'plus'} size={18} />
+                            {isAdding ? 'Dismiss Panel' : 'Issue New Invoice'}
                         </button>
                     </div>
                 </div>
 
                 {unbilledProjects.length > 0 && (
-                    <div className="card bg-brand-50 border-brand-100 border-2 shadow-inner p-6 animate-pulse-slow no-print">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-brand-500 rounded-lg text-black">
-                                <Icon name="alert-circle" size={18} />
+                    <div className="bg-brand-500 p-8 flex items-center justify-between shadow-xl">
+                        <div className="flex items-center gap-6">
+                            <div className="w-12 h-12 bg-black text-brand-500 rounded-full flex items-center justify-center">
+                                <Icon name="alert-circle" size={24} />
                             </div>
                             <div>
-                                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest italic leading-none">Unbilled Deliverables</h4>
-                                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">Awaiting Invoice Generation</p>
+                                <h4 className="text-sm font-black uppercase tracking-widest">Unbilled Deliverables Detected</h4>
+                                <p className="text-[10px] font-bold uppercase mt-1 opacity-70">{unbilledProjects.length} Projects awaiting invoice issuance</p>
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {unbilledProjects.map(up => (
-                                <div key={up.id} className="bg-white p-4 rounded-2xl border border-brand-200 shadow-sm flex justify-between items-center group">
-                                    <div>
-                                        <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest">{up.client}</p>
-                                        <h5 className="text-sm font-black text-slate-900 italic">{up.name}</h5>
-                                    </div>
-                                    <button onClick={() => seedInvoice({ client: up.client, projectId: up.id, itemName: up.name })} className="p-2 bg-slate-900 text-white rounded-xl hover:bg-black transition-all group-hover:scale-110">
-                                        <Icon name="file-plus" size={16} />
-                                    </button>
-                                </div>
+                        <div className="flex gap-2">
+                            {unbilledProjects.slice(0, 3).map(up => (
+                                <button
+                                    key={up.id}
+                                    onClick={() => seedInvoice({ client: up.client, projectId: up.id, itemName: up.name })}
+                                    className="bg-black text-white px-4 py-2 text-[9px] font-black uppercase tracking-tighter hover:bg-slate-800 transition-colors"
+                                >
+                                    Bill {up.client.substring(0, 10)}...
+                                </button>
                             ))}
                         </div>
                     </div>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-slate-500/10 text-slate-500 rounded-xl"><Icon name="file-text" size={16} /></div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aggregate Records</span>
-                        </div>
-                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{statusCounts.total}</span>
+                    <div className="brand-card bg-white border-2 border-black p-8 group hover:bg-black hover:text-white transition-all">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-brand-500 mb-4">Total Records</p>
+                        <h3 className="text-4xl font-display">{statusCounts.total}</h3>
                     </div>
-                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl"><Icon name="clock" size={16} /></div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Awaiting Settlement</span>
-                        </div>
-                        <span className="text-3xl font-black text-amber-500 tracking-tighter">{statusCounts.pending}</span>
+                    <div className="brand-card bg-white border-2 border-black p-8">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Awaiting Settlement</p>
+                        <h3 className="text-4xl font-display text-rose-600">{statusCounts.pending}</h3>
                     </div>
-                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl"><Icon name="dollar-sign" size={16} /></div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pipeline Valuation</span>
-                        </div>
-                        <span className="text-3xl font-black text-emerald-500 tracking-tighter font-sans">KSh {statusCounts.value.toLocaleString()}</span>
+                    <div className="brand-card bg-black text-white p-8">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-500 mb-4">Pipeline Valuation</p>
+                        <h3 className="text-4xl font-display">KES {statusCounts.value.toLocaleString()}</h3>
                     </div>
-                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all border-l-4 border-rose-500/50">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-rose-500/10 text-rose-500 rounded-xl"><Icon name="alert-triangle" size={16} /></div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Overdue Threshold</span>
-                        </div>
-                        <span className="text-3xl font-black text-rose-600 tracking-tighter">{statusCounts.overdue}</span>
+                    <div className="brand-card bg-brand-500 p-8">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-black/40 mb-4">Overdue Threshold</p>
+                        <h3 className="text-4xl font-display text-black">{statusCounts.overdue}</h3>
                     </div>
                 </div>
 
                 {isAdding && (
-                    <div className="card shadow-2xl border-brand-200 animate-slide">
-                        <form onSubmit={handleSubmit} className="space-y-8">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Client Name</label>
-                                    <select className="input-field" required value={newSale.client} onChange={e => setNewSale({ ...newSale, client: e.target.value })}>
-                                        <option value="">Select Client</option>
-                                        {data.clients.map(c => <option key={c.id} value={c.name}>{c.name} ({c.company})</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Link Project</label>
-                                    <select className="input-field" value={newSale.projectId} onChange={e => setNewSale({ ...newSale, projectId: e.target.value })}>
-                                        <option value="">N/A (General Sale)</option>
-                                        {data.projects.filter(p => p.client === newSale.client).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Invoice Date</label>
-                                    <input type="date" className="input-field" required value={newSale.date} onChange={e => setNewSale({ ...newSale, date: e.target.value })} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Invoice ID</label>
-                                    <div className="input-field bg-slate-50 font-black text-brand-600">{getNextInvoiceNumber()}</div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center border-b border-slate-50 pb-3">
-                                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 italic">Billable items</h4>
-                                    <button type="button" onClick={addItem} className="text-xs font-black text-brand-600 hover:text-brand-700 flex items-center gap-1">
-                                        <Icon name="plus-circle" size={14} /> append row
-                                    </button>
-                                </div>
-                                {newSale.items.map((item, idx) => (
-                                    <div key={idx} className="flex gap-4 items-end animate-slide">
-                                        <div className="flex-1 space-y-1"><input className="input-field" placeholder="Graphic Package etc." value={item.desc} onChange={e => updateItem(idx, 'desc', e.target.value)} required /></div>
-                                        <div className="w-24 space-y-1"><input type="number" className="input-field text-center" value={item.qty} onChange={e => updateItem(idx, 'qty', parseFloat(e.target.value))} required /></div>
-                                        <div className="w-40 space-y-1"><input type="number" className="input-field text-right" value={item.price} onChange={e => updateItem(idx, 'price', parseFloat(e.target.value))} required /></div>
-                                        <button type="button" onClick={() => removeItem(idx)} className="p-3 text-slate-300 hover:text-rose-500"><Icon name="trash-2" size={18} /></button>
+                    <div className="bg-black text-white p-12 shadow-2xl animate-slide relative overflow-hidden">
+                        <div className="relative z-10">
+                            <h3 className="text-2xl mb-8 flex items-center gap-4 italic uppercase font-display">
+                                <div className="w-1.5 h-8 bg-brand-500"></div>
+                                Issue Document
+                            </h3>
+                            <form onSubmit={handleSubmit} className="space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                                    <div>
+                                        <label className="brand-label !text-slate-500">Recipient Client</label>
+                                        <select
+                                            className="brand-input !bg-dark-surface !border-dark-border !text-white"
+                                            required
+                                            value={newSale.client}
+                                            onChange={e => setNewSale({ ...newSale, client: e.target.value })}
+                                        >
+                                            <option value="">Select Client Entity</option>
+                                            {data.clients.map(c => <option key={c.id} value={c.name} className="bg-dark-surface">{c.name} ({c.company})</option>)}
+                                        </select>
                                     </div>
-                                ))}
-                            </div>
+                                    <div>
+                                        <label className="brand-label !text-slate-500">Linked Project</label>
+                                        <select
+                                            className="brand-input !bg-dark-surface !border-dark-border !text-white"
+                                            value={newSale.projectId}
+                                            onChange={e => setNewSale({ ...newSale, projectId: e.target.value })}
+                                        >
+                                            <option value="">N/A (General Transaction)</option>
+                                            {data.projects.filter(p => p.client === newSale.client).map(p => <option key={p.id} value={p.id} className="bg-dark-surface">{p.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="brand-label !text-slate-500">Document Date</label>
+                                        <input
+                                            type="date"
+                                            className="brand-input !bg-dark-surface !border-dark-border !text-white"
+                                            required
+                                            value={newSale.date}
+                                            onChange={e => setNewSale({ ...newSale, date: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="brand-label !text-slate-500">Draft Sequence</label>
+                                        <div className="brand-input !bg-dark-surface !border-brand-500/30 !text-brand-500 font-display flex items-center">
+                                            {getNextInvoiceNumber()}
+                                        </div>
+                                    </div>
+                                </div>
 
-                            <div className="flex justify-end pt-6 border-t border-slate-100">
-                                <div className="w-80 space-y-3 text-right">
-                                    <div className="flex justify-between text-sm font-medium text-slate-500"><span>Subtotal (Net)</span><span className="font-sans">KSh {totals.subtotal.toLocaleString()}</span></div>
-                                    <div className="flex justify-between text-sm font-medium text-slate-400 italic"><span>VAT ({newSale.taxRate}%)</span><span className="font-sans">KSh {totals.tax.toLocaleString()}</span></div>
-                                    <div className="flex justify-between text-xl font-black text-slate-900 border-t border-slate-100 pt-3"><span>Grand Total</span><span className="text-brand-600 font-sans">KSh {totals.total.toLocaleString()}</span></div>
-                                    <div className="flex gap-3">
-                                        <button type="submit" className="flex-1 btn-primary py-4 uppercase tracking-widest text-xs">Authorize & Issue</button>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center border-b border-dark-border pb-4">
+                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Billable Assets & Services</h4>
                                         <button
                                             type="button"
-                                            onClick={() => handleSubmit(null, true)}
-                                            className="btn-primary bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                            onClick={addItem}
+                                            className="text-[9px] font-black text-brand-500 uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity"
                                         >
-                                            <Icon name="file-text" size={16} /> Save as Quote
+                                            <Icon name="plus-circle" size={14} /> Append Row
                                         </button>
                                     </div>
+                                    {newSale.items.map((item, idx) => (
+                                        <div key={idx} className="flex gap-4 items-end animate-slide">
+                                            <div className="flex-1">
+                                                <input
+                                                    className="brand-input !bg-dark-surface !border-dark-border !text-white"
+                                                    placeholder="Asset/Service Specification..."
+                                                    value={item.desc}
+                                                    onChange={e => updateItem(idx, 'desc', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="w-24">
+                                                <input
+                                                    type="number"
+                                                    className="brand-input !bg-dark-surface !border-dark-border !text-white text-center"
+                                                    value={item.qty}
+                                                    onChange={e => updateItem(idx, 'qty', parseFloat(e.target.value))}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="w-40">
+                                                <input
+                                                    type="number"
+                                                    className="brand-input !bg-dark-surface !border-dark-border !text-white text-right"
+                                                    value={item.price}
+                                                    onChange={e => updateItem(idx, 'price', parseFloat(e.target.value))}
+                                                    required
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeItem(idx)}
+                                                className="w-12 h-12 flex items-center justify-center text-slate-500 hover:text-rose-500 transition-colors"
+                                            >
+                                                <Icon name="trash-2" size={18} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
-                            </div>
-                        </form>
+
+                                <div className="flex flex-col md:flex-row justify-between items-end gap-12 pt-8 border-t border-dark-border">
+                                    <div className="flex-1 text-slate-500 max-w-sm">
+                                        <p className="text-[10px] leading-relaxed uppercase tracking-widest italic">
+                                            Authorization generates a permanent record in the financial ledger and notifies the client repository.
+                                        </p>
+                                    </div>
+                                    <div className="w-80 space-y-4">
+                                        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-500">
+                                            <span>Subtotal</span>
+                                            <span className="font-display">KES {totals.subtotal.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-500 italic opacity-50">
+                                            <span>VAT ({newSale.taxRate}%)</span>
+                                            <span className="font-display">KES {totals.tax.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between text-2xl font-display text-white border-t border-dark-border pt-4">
+                                            <span className="italic">Aggregate</span>
+                                            <span className="text-brand-500">KES {totals.total.toLocaleString()}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 pt-4">
+                                            <button
+                                                type="submit"
+                                                className="brand-button-yellow !py-5 uppercase text-[10px] font-black italic shadow-2xl"
+                                            >
+                                                Authorize
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSubmit(null, true)}
+                                                className="bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all font-black uppercase text-[10px] tracking-widest italic"
+                                            >
+                                                Save Quote
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500 opacity-5 translate-x-48 -translate-y-48 rotate-45 pointer-events-none"></div>
                     </div>
                 )}
 
-                <div className="card !p-0 overflow-hidden border-none bg-white dark:bg-white/5">
+                <div className="bg-white border-2 border-black overflow-hidden shadow-premium transition-all">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left font-sans">
-                            <thead className="bg-slate-900 text-white">
+                        <table className="w-full text-left font-display">
+                            <thead className="bg-black text-white">
                                 <tr>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Invoice Identifier</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Recipient Subject</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Temporal Stamp</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Magnitude</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Status Vector</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Control</th>
+                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-brand-500">ID / Sequence</th>
+                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Recipient Client</th>
+                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 text-center">Date</th>
+                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 text-right">Magnitude</th>
+                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Vector</th>
+                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 text-right">Control</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                            <tbody className="divide-y-2 divide-black/5">
                                 {data.sales
                                     .filter(s =>
                                         s.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -758,51 +848,55 @@
                                         s.status.toLowerCase().includes(searchTerm.toLowerCase())
                                     )
                                     .map(sale => (
-                                        <tr key={sale.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
-                                            <td className="px-8 py-6">
-                                                <span className="font-black text-slate-900 dark:text-white uppercase italic">{sale.invoiceNo}</span>
-                                                {sale.isQuote && <span className="ml-2 px-2 py-0.5 bg-brand-500/10 text-brand-500 text-[8px] font-black rounded-full uppercase tracking-widest">Quote</span>}
-                                            </td>
-                                            <td className="px-8 py-6">
+                                        <tr key={sale.id} className="hover:bg-brand-500/5 transition-all group">
+                                            <td className="px-10 py-8">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-[10px] font-black text-slate-400 uppercase">
-                                                        {sale.client.charAt(0)}
-                                                    </div>
-                                                    <span className="font-bold text-slate-700 dark:text-slate-300 italic">{sale.client}</span>
+                                                    <div className="w-1.5 h-6 bg-black group-hover:bg-brand-500 transition-colors"></div>
+                                                    <span className="font-black text-black uppercase italic text-lg tracking-tighter">{sale.invoiceNo}</span>
+                                                    {sale.isQuote && <span className="px-2 py-0.5 bg-black text-brand-500 text-[8px] font-black uppercase tracking-widest">Quote</span>}
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 font-black text-slate-400 text-[10px] uppercase font-sans tracking-widest">{sale.date}</td>
-                                            <td className="px-8 py-6 text-right font-black text-slate-900 dark:text-white font-sans tracking-tight">KSh {parseFloat(sale.amount).toLocaleString()}</td>
-                                            <td className="px-8 py-6">
-                                                <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ${sale.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                                                    sale.status === 'Partial' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                                            <td className="px-10 py-8">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-black group-hover:text-brand-500 transition-all">
+                                                        {sale.client.charAt(0)}
+                                                    </div>
+                                                    <span className="font-bold text-black uppercase text-xs tracking-tight">{sale.client}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-10 py-8 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">{sale.date}</td>
+                                            <td className="px-10 py-8 text-right font-display text-lg font-black text-black">KES {parseFloat(sale.amount).toLocaleString()}</td>
+                                            <td className="px-10 py-8">
+                                                <span className={`px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] border-2 ${sale.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500' :
+                                                    sale.status === 'Partial' ? 'bg-amber-500/10 text-amber-600 border-amber-500' :
+                                                        'bg-rose-500/10 text-rose-600 border-rose-500'
                                                     }`}>
                                                     {sale.status}
                                                 </span>
                                             </td>
-                                            <td className="px-8 py-6 text-right">
-                                                <div className="flex items-center justify-end gap-2">
+                                            <td className="px-10 py-8 text-right">
+                                                <div className="flex items-center justify-end gap-3">
                                                     <button
                                                         onClick={() => { setSelectedInvoice(sale); }}
-                                                        className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-white/5 hover:bg-brand-500 hover:text-white rounded-xl transition-all text-slate-400"
-                                                        title="View Specifications"
+                                                        className="w-12 h-12 flex items-center justify-center border-2 border-black hover:bg-black hover:text-brand-500 transition-all text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none translate-y-[-2px] active:translate-y-0"
+                                                        title="View Specification"
                                                     >
-                                                        <Icon name="eye" size={16} />
+                                                        <Icon name="eye" size={18} />
                                                     </button>
                                                     <button
                                                         onClick={() => setSettlingInvoice(sale)}
-                                                        className="w-10 h-10 flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500 hover:text-white rounded-xl transition-all text-emerald-500"
-                                                        title="Authorize Settlement"
+                                                        className="w-12 h-12 flex items-center justify-center border-2 border-black bg-brand-500 hover:bg-black hover:text-brand-500 transition-all text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none translate-y-[-2px] active:translate-y-0 font-black"
+                                                        title="Settle Account"
                                                     >
-                                                        <Icon name="wallet" size={16} />
+                                                        <Icon name="wallet" size={18} />
                                                     </button>
                                                     {user?.role === 'admin' && (
                                                         <button
                                                             onClick={() => { if (confirm('Purge ledger entry?')) deleteItem('sales', sale.id); }}
-                                                            className="w-10 h-10 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-500"
+                                                            className="w-12 h-12 flex items-center justify-center border-2 border-slate-200 hover:border-rose-500 hover:text-rose-500 transition-all text-slate-300"
                                                             title="Purge Record"
                                                         >
-                                                            <Icon name="trash-2" size={16} />
+                                                            <Icon name="trash-2" size={18} />
                                                         </button>
                                                     )}
                                                 </div>
@@ -819,76 +913,80 @@
                 </Modal>
 
                 <Modal isOpen={!!settlingInvoice} onClose={() => setSettlingInvoice(null)} title={`Flexible Settlement: ${settlingInvoice?.invoiceNo}`}>
-                    <form onSubmit={handleSettle} className="space-y-6">
-                        <div className="p-6 bg-slate-900 text-white rounded-[2rem] flex justify-between items-center shadow-xl">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Net Remaining Due</p>
-                                <h4 className="text-3xl font-black text-brand-500 font-sans tracking-tighter">KSh {(parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0)).toLocaleString()}</h4>
-                                <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">Total Invoice: KSh {parseFloat(settlingInvoice?.amount || 0).toLocaleString()}</p>
+                    <form onSubmit={handleSettle} className="space-y-8 p-2">
+                        <div className="p-8 bg-black text-white border-2 border-black flex flex-col md:flex-row justify-between items-center gap-6 shadow-[8px_8px_0px_0px_rgba(255,193,7,1)]">
+                            <div className="text-center md:text-left">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 italic">Net Remaining Due</p>
+                                <h4 className="text-4xl font-display text-brand-500 tracking-tighter">KES {(parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0)).toLocaleString()}</h4>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase mt-3 tracking-widest border-t border-white/10 pt-3">Total Invoice: KES {parseFloat(settlingInvoice?.amount || 0).toLocaleString()}</p>
                             </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Due From</p>
-                                <h4 className="text-lg font-black text-white px-4 py-1 bg-white/10 rounded-xl inline-block italic leading-none">{settlingInvoice?.client}</h4>
+                            <div className="text-center md:text-right border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-8">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 italic">Due From Entity</p>
+                                <h4 className="text-xl font-black text-white px-6 py-2 bg-white/10 italic leading-none inline-block">{settlingInvoice?.client}</h4>
                             </div>
                         </div>
 
-                        <div className="space-y-4 max-h-[40vh] overflow-y-auto px-1">
+                        <div className="space-y-6 max-h-[45vh] overflow-y-auto px-1 custom-scrollbar">
                             {payments.map((p, idx) => (
-                                <div key={idx} className="p-5 bg-slate-50 border border-slate-100 rounded-2xl relative animate-slide space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Entry #{idx + 1}</h5>
+                                <div key={idx} className="p-6 bg-white border-2 border-black relative animate-slide space-y-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
+                                    <div className="flex justify-between items-center border-b border-black/5 pb-4">
+                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Payment Entry Vector #{idx + 1}</h5>
                                         {payments.length > 1 && (
-                                            <button type="button" onClick={() => removePaymentEntry(idx)} className="text-rose-500 hover:text-rose-700 transition-colors">
-                                                <Icon name="x-circle" size={16} />
+                                            <button type="button" onClick={() => removePaymentEntry(idx)} className="w-8 h-8 flex items-center justify-center bg-rose-500 text-white hover:bg-black transition-colors">
+                                                <Icon name="x" size={14} />
                                             </button>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mode</label>
-                                            <select className="input-field py-2" value={p.mode} onChange={e => updatePaymentEntry(idx, 'mode', e.target.value)}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="brand-label">Mode of Transfer</label>
+                                            <select className="brand-input" value={p.mode} onChange={e => updatePaymentEntry(idx, 'mode', e.target.value)}>
                                                 <option>Mpesa</option><option>Cash</option><option>Cheque</option><option>Bank Transfer</option>
                                             </select>
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount (KSh)</label>
-                                            <input type="number" className="input-field py-2" required value={p.amount} onChange={e => updatePaymentEntry(idx, 'amount', e.target.value)} />
+                                        <div className="space-y-2">
+                                            <label className="brand-label">Amount (KES)</label>
+                                            <input type="number" className="brand-input !font-display !text-lg" required value={p.amount} onChange={e => updatePaymentEntry(idx, 'amount', e.target.value)} />
                                         </div>
                                     </div>
                                     {(p.mode === 'Mpesa' || p.mode === 'Cheque') && (
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{p.mode} Reference Code</label>
-                                            <input className="input-field py-2 uppercase font-black" placeholder="Code/Ref#" required value={p.ref} onChange={e => updatePaymentEntry(idx, 'ref', e.target.value)} />
+                                        <div className="space-y-2 animate-slide">
+                                            <label className="brand-label">{p.mode} Authorization Reference</label>
+                                            <input className="brand-input uppercase font-black placeholder:opacity-30" placeholder="Alpha-Numeric Reference..." required value={p.ref} onChange={e => updatePaymentEntry(idx, 'ref', e.target.value)} />
                                         </div>
                                     )}
                                 </div>
                             ))}
                         </div>
 
-                        <button type="button" onClick={addPaymentEntry} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-brand-500 hover:text-brand-600 transition-all flex items-center justify-center gap-2">
-                            <Icon name="plus" size={12} /> Add Partial Mode
+                        <button
+                            type="button"
+                            onClick={addPaymentEntry}
+                            className="w-full py-4 border-2 border-dashed border-slate-300 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] hover:border-black hover:text-black hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
+                        >
+                            <Icon name="plus" size={12} /> Split Settlement
                         </button>
 
-                        <div className="pt-4 border-t border-slate-100">
-                            <div className="space-y-3 mb-6 px-2">
-                                <div className="flex justify-between items-center text-xs font-black text-slate-400 uppercase tracking-widest">
-                                    <span>Subtotal Entry</span>
-                                    <span className="text-slate-900 font-sans">KSh {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toLocaleString()}</span>
+                        <div className="pt-8 border-t-2 border-black">
+                            <div className="space-y-4 mb-8">
+                                <div className="flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
+                                    <span>Subtotal of Entries</span>
+                                    <span className="text-black font-display text-base">KES {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between items-center text-sm font-black uppercase tracking-widest">
-                                    <span className="text-slate-400">Remaining Balance</span>
-                                    <span className={`text-xl font-sans ${payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) >= (parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0)) ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                        KSh {Math.max(0, parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0) - payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)).toLocaleString()}
+                                <div className="flex justify-between items-center text-xs font-black uppercase tracking-[0.3em]">
+                                    <span className="text-slate-500 italic">Residual Balance</span>
+                                    <span className={`text-2xl font-display ${payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) >= (parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0)) ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        KES {Math.max(0, parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0) - payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)).toLocaleString()}
                                     </span>
                                 </div>
                                 {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) >= (parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0)) && (
-                                    <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 justify-center animate-pulse">
-                                        <Icon name="check-circle" size={12} /> Full Settlement Reached
+                                    <div className="bg-emerald-500 text-white px-6 py-4 text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 justify-center animate-pulse border-2 border-black">
+                                        <Icon name="check-circle" size={14} /> Full Settlement Achieved
                                     </div>
                                 )}
                             </div>
-                            <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic shadow-2xl">
-                                Authorize & Confirm Transaction
+                            <button type="submit" className="brand-button-yellow w-full !py-6 text-sm uppercase font-black tracking-[0.2em] italic shadow-2xl">
+                                Authorize & Finalize Transaction
                             </button>
                         </div>
                     </form>
@@ -902,128 +1000,134 @@
         if (!invoice) return null;
 
         return (
-            <div className="space-y-12 py-8 px-4 sm:px-12 bg-white text-slate-900 rounded-[2rem] shadow-2xl border border-slate-100" id="invoice-content">
-                {/* Visual Accent */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-500 to-emerald-500"></div>
+            <div className="space-y-16 py-12 px-8 sm:px-16 bg-white text-black relative border-2 border-black" id="invoice-content">
+                {/* Brand Sidebar Accent */}
+                <div className="absolute top-0 right-0 w-2 h-full bg-brand-500"></div>
 
-                <div className="flex justify-between items-start border-b border-slate-100 pb-12">
-                    <div className="flex items-center gap-6">
-                        <div className="w-20 h-20 bg-brand-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-brand-500/30">
-                            <span className="text-2xl font-black text-white italic">IG</span>
+                <div className="flex flex-col md:flex-row justify-between items-start gap-12 border-b-4 border-black pb-12">
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-black flex items-center justify-center">
+                                <span className="text-2xl font-black text-brand-500 italic">IG</span>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-black uppercase tracking-tighter italic leading-none">Identity Graphics</h2>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2 italic">Creative Excellence Lab</p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">Identity Graphics</h2>
-                            <p className="text-[10px] font-black text-brand-600 uppercase tracking-[0.4em] mt-2">where creativity meets excellence</p>
+                        <div className="text-[11px] space-y-1 font-bold uppercase tracking-wider text-slate-500">
+                            <p className="text-black font-black">Identity Graphics Houzz</p>
+                            <p>Pekars Building, 4th Floor</p>
+                            <p>Mburu Gichua Rd, Nakuru-KENYA</p>
+                            <p className="flex items-center gap-2 pt-2"><Icon name="phone" size={10} className="text-brand-500" /> +254 714 561 533</p>
+                            <p className="text-black underline">identitygraphics@gmail.com</p>
                         </div>
                     </div>
-                    <div className="text-right space-y-2">
-                        <h1 className="text-6xl font-black text-slate-100 uppercase tracking-tighter leading-none select-none">INVOICE</h1>
-                        <div className="space-y-1 relative -mt-8">
-                            <p className="text-sm font-black text-slate-900 uppercase tracking-widest">{invoice.invoiceNo}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{invoice.date}</p>
+                    <div className="md:text-right space-y-4">
+                        <div className="inline-block bg-black text-brand-500 px-8 py-3 text-sm font-black uppercase tracking-[0.4em] italic mb-6">
+                            {invoice.isQuote ? 'Quotation' : 'Invoice'}
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Temporal Sequence</p>
+                            <p className="text-lg font-black italic">{invoice.date}</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Document Identifier</p>
+                            <p className="text-lg font-black italic text-brand-600">{invoice.invoiceNo}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
                     <div className="space-y-4">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-50 pb-3">Corporate Identity</h4>
-                        <div className="text-[13px] space-y-2 font-medium leading-relaxed">
-                            <p className="font-black text-slate-900 uppercase">Identity Graphics Houzz</p>
-                            <p className="text-slate-500">Pekars Building, 4th Floor</p>
-                            <p className="text-slate-500">Mburu Gichua Rd, Nakuru-KENYA</p>
-                            <div className="pt-2">
-                                <p className="text-slate-500 flex items-center gap-2"><Icon name="phone" size={12} className="text-brand-500" /> +254 714 561 533</p>
-                                <p className="text-brand-600 font-bold underline flex items-center gap-2 mt-1"><Icon name="mail" size={12} /> identitygraphics@gmail.com</p>
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] border-b-2 border-black pb-4">Billed Recipient</h4>
+                        <div className="space-y-2">
+                            <p className="text-2xl font-black text-black uppercase italic tracking-tighter">{invoice.client}</p>
+                            <p className="text-sm font-bold text-slate-500 uppercase tracking-tight">{data.clients.find(c => c.name === invoice.client)?.company}</p>
+                            <p className="text-xs font-medium text-slate-400 underline">{data.clients.find(c => c.name === invoice.client)?.email}</p>
+                            <div className={`mt-6 inline-flex items-center gap-3 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] border-2 ${invoice.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500' : 'bg-rose-500/10 text-rose-600 border-rose-500'}`}>
+                                <div className={`w-2 h-2 rounded-full ${invoice.status === 'Paid' ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`}></div>
+                                Status: {invoice.status}
                             </div>
                         </div>
                     </div>
                     <div className="space-y-4">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-50 pb-3">Bill Recipient</h4>
-                        <div className="text-[13px] space-y-2 font-medium leading-relaxed">
-                            <p className="font-black text-slate-900 uppercase text-lg italic">{invoice.client}</p>
-                            <p className="text-slate-500 font-bold">{data.clients.find(c => c.name === invoice.client)?.company}</p>
-                            <p className="text-slate-500">{data.clients.find(c => c.name === invoice.client)?.email}</p>
-                            <div className={`mt-4 inline-block px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${invoice.status === 'Paid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'}`}>
-                                Account Status: {invoice.status}
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] border-b-2 border-black pb-4">Settlement Credentials</h4>
+                        <div className="p-6 bg-slate-50 border-2 border-black italic">
+                            <p className="text-[11px] font-bold text-slate-600 leading-relaxed uppercase tracking-widest">
+                                Standard business terms apply: 7 operational days. Use reference <span className="text-black font-black">{invoice.invoiceNo}</span> for automated recognition.
+                            </p>
+                            <div className="pt-6 grid grid-cols-3 gap-3">
+                                <div className="text-center py-2 border border-black/10 text-[8px] font-black uppercase tracking-widest bg-white">M-Pesa</div>
+                                <div className="text-center py-2 border border-black/10 text-[8px] font-black uppercase tracking-widest bg-white">Bank</div>
+                                <div className="text-center py-2 border border-black/10 text-[8px] font-black uppercase tracking-widest bg-white">Cash</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-premium bg-slate-50/50">
-                    <table className="w-full text-left font-sans">
-                        <thead className="bg-slate-900 text-white">
+                <div className="border-4 border-black overflow-hidden shadow-premium">
+                    <table className="w-full text-left font-display">
+                        <thead className="bg-black text-white">
                             <tr>
-                                <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em]">Service/Asset Specification</th>
-                                <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-center">Qty</th>
-                                <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-right">Unit Rate</th>
-                                <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-right">Subtotal</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Asset Specification</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-center">Qty</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right">Rate</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right text-brand-500">Magnitude</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-200">
+                        <tbody className="divide-y-2 divide-black/5">
                             {(invoice.items || []).map((item, i) => (
-                                <tr key={i} className="text-[13px] font-medium transition-colors hover:bg-white/80">
-                                    <td className="px-10 py-6 font-black text-slate-900 uppercase tracking-tight">{item.desc}</td>
-                                    <td className="px-10 py-6 text-center font-bold text-slate-500">{item.qty}</td>
-                                    <td className="px-10 py-6 text-right font-medium text-slate-500">KSh {parseFloat(item.price).toLocaleString()}</td>
-                                    <td className="px-10 py-6 text-right font-black text-slate-900">KSh {(item.qty * item.price).toLocaleString()}</td>
+                                <tr key={i} className="text-sm transition-colors hover:bg-slate-50">
+                                    <td className="px-8 py-6 font-black text-black uppercase italic tracking-tight">{item.desc}</td>
+                                    <td className="px-8 py-6 text-center font-bold text-slate-400">{item.qty}</td>
+                                    <td className="px-8 py-6 text-right font-medium text-slate-400">KES {parseFloat(item.price).toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-right font-black text-black">KES {(item.qty * item.price).toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-between items-end gap-12 pt-8">
-                    <div className="flex-1 space-y-4 max-w-sm">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Settlement Information</h4>
-                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-                                Please settle this invoice within 7 operational days. Use invoice reference <span className="text-brand-600 font-black">{invoice.invoiceNo}</span> for all transactions.
-                            </p>
-                            <div className="pt-2 flex items-center gap-4 border-t border-slate-200 mt-4 pt-4">
-                                <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">Accepted:</div>
-                                <div className="flex gap-2">
-                                    <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase">M-Pesa</span>
-                                    <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase">Bank</span>
-                                    <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase">Cash</span>
-                                </div>
-                            </div>
+                <div className="flex flex-col md:flex-row justify-between items-end gap-12 pt-12">
+                    <div className="flex-1 italic max-w-sm">
+                        <div className="flex items-center gap-4 text-slate-300 mb-6">
+                            <div className="h-px flex-1 bg-current"></div>
+                            <Icon name="award" size={16} />
+                            <div className="h-px flex-1 bg-current"></div>
                         </div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em] leading-relaxed text-center">
+                            Thank you for partnering with Identity Graphics. Your vision drives our pursuit of creative excellence.
+                        </p>
                     </div>
 
-                    <div className="w-80 space-y-4">
-                        <div className="space-y-3 px-2">
-                            <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    <div className="w-full md:w-96 space-y-6">
+                        <div className="space-y-4 bg-black p-8 text-white shadow-[8px_8px_0px_0px_rgba(255,193,7,1)]">
+                            <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
                                 <span>Aggregate Net</span>
-                                <span className="font-sans">KSh {(invoice.subtotal || 0).toLocaleString()}</span>
+                                <span className="font-display text-white">KES {(invoice.subtotal || 0).toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest italic">
+                            <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic opacity-50">
                                 <span>Tax Load ({invoice.taxRate}%)</span>
-                                <span className="font-sans">KSh {(invoice.tax || 0).toLocaleString()}</span>
+                                <span className="font-display text-white">KES {(invoice.tax || 0).toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between text-3xl font-black text-slate-900 pt-6 border-t-4 border-slate-900 italic tracking-tighter">
-                                <span>Total Due</span>
-                                <span className="text-brand-600">KSh {parseFloat(invoice.amount).toLocaleString()}</span>
+                            <div className="flex justify-between text-4xl font-display text-brand-500 pt-6 border-t border-white/10 italic">
+                                <span>TOTAL</span>
+                                <span>KES {parseFloat(invoice.amount).toLocaleString()}</span>
                             </div>
                         </div>
 
-                        <div className="pt-10 flex justify-center no-print">
-                            <button onClick={() => window.print()} className="w-full bg-slate-900 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:bg-black transition-all shadow-2xl flex items-center justify-center gap-4 transform hover:-translate-y-1 active:scale-95">
+                        <div className="pt-6 no-print">
+                            <button onClick={() => window.print()} className="brand-button-yellow w-full !py-6 text-xs uppercase font-black tracking-[0.3em] italic shadow-2xl flex items-center justify-center gap-4 transform active:scale-95 transition-all">
                                 <Icon name="printer" size={18} /> Commit to Paper
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div className="pt-24 text-center space-y-4">
-                    <div className="flex items-center justify-center gap-4 opacity-10">
-                        <div className="h-px w-24 bg-slate-900"></div>
-                        <Icon name="shield-check" size={24} />
-                        <div className="h-px w-24 bg-slate-900"></div>
-                    </div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Identity Graphics Houzz Enclave</p>
-                    <p className="text-[8px] text-slate-300 font-bold uppercase tracking-widest">Digital Authentication: {btoa(invoice.invoiceNo).substring(0, 16)}</p>
+                <div className="pt-24 text-center opacity-20">
+                    <p className="text-[8px] font-black text-black uppercase tracking-[1em] mb-2">Identity Graphics Houzz Enclave</p>
+                    <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">Digital Auth Vector: {btoa(invoice.invoiceNo || '').substring(0, 24)}</p>
                 </div>
             </div>
         );
@@ -1100,136 +1204,173 @@
         }, [data.inventory]);
 
         return (
-            <div className="space-y-8 animate-slide">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Stock Registry</h2>
+            <div className="space-y-12 animate-slide">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4">
+                    <div className="space-y-2">
+                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Asset Registry</h2>
+                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                            <div className="w-12 h-1 bg-brand-500"></div>
+                            {stats.totalItems} Active SKU Prototypes
                         </div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Operational Resource Management // {stats.totalItems} Active SKUs</p>
                     </div>
-                    <button onClick={() => { if (isAddingItem) { setEditingItem(null); setNewItem({ sku: '', name: '', category: 'Raw Materials', stock: 0, unit: 'pcs', minStock: 5, price: 0 }); } setIsAddingItem(!isAddingItem); }} className="btn-primary">
-                        <Icon name={isAddingItem ? 'x' : 'plus'} size={18} /> {isAddingItem ? 'Dismiss' : 'Register SKU'}
+                    <button
+                        onClick={() => {
+                            if (isAddingItem) {
+                                setEditingItem(null);
+                                setNewItem({ sku: '', name: '', category: 'Raw Materials', stock: 0, unit: 'pcs', minStock: 5, price: 0 });
+                            }
+                            setIsAddingItem(!isAddingItem);
+                        }}
+                        className="brand-button-yellow !py-5 !px-10 flex items-center gap-4 italic"
+                    >
+                        <Icon name={isAddingItem ? 'x' : 'plus'} size={18} />
+                        {isAddingItem ? 'Dismiss Specification' : 'Register New SKU'}
                     </button>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-brand-500/10 text-brand-500 rounded-xl"><Icon name="pie-chart" size={16} /></div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Asset Valuation</span>
+                {/* Performance Metrics */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="bg-black text-white p-10 border-2 border-black group hover:bg-white hover:text-black transition-all">
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-500 mb-6">Aggregate Valuation</p>
+                        <div className="flex items-end justify-between">
+                            <h3 className="text-4xl font-display tracking-tighter">KES {stats.totalValue.toLocaleString()}</h3>
+                            <div className="w-12 h-12 bg-white/10 group-hover:bg-black/5 flex items-center justify-center transition-colors">
+                                <Icon name="pie-chart" size={20} />
+                            </div>
                         </div>
-                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter font-sans">KSh {stats.totalValue.toLocaleString()}</span>
                     </div>
-                    <div className="card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl"><Icon name="box" size={16} /></div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unique SKUs Contact</span>
+                    <div className="bg-white border-2 border-black p-10 group hover:bg-black hover:text-white transition-all">
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 group-hover:text-brand-500 mb-6">SKU Population</p>
+                        <div className="flex items-end justify-between">
+                            <h3 className="text-4xl font-display tracking-tighter">{stats.totalItems} Units</h3>
+                            <div className="w-12 h-12 bg-slate-50 group-hover:bg-white/10 flex items-center justify-center transition-colors">
+                                <Icon name="box" size={20} />
+                            </div>
                         </div>
-                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter font-sans">{stats.totalItems}</span>
                     </div>
-                    <div className={`card p-8 bg-white dark:bg-white/5 border-none group hover:scale-[1.02] transition-all border-l-4 ${stats.lowStock > 0 ? 'border-rose-500/50 animate-pulse-slow' : 'border-slate-200'}`}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-rose-500/10 text-rose-500 rounded-xl"><Icon name="alert-circle" size={16} /></div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Critical Shortage</span>
+                    <div className={`p-10 border-2 border-black transition-all ${stats.lowStock > 0 ? 'bg-rose-600 text-white shadow-xl animate-pulse' : 'bg-brand-500 text-black'}`}>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-black/40 mb-6">Threshold Alerts</p>
+                        <div className="flex items-end justify-between">
+                            <h3 className="text-4xl font-display tracking-tighter">{stats.lowStock} Critical</h3>
+                            <div className="w-12 h-12 bg-black/10 flex items-center justify-center">
+                                <Icon name="alert-triangle" size={20} />
+                            </div>
                         </div>
-                        <span className={`text-3xl font-black tracking-tighter font-sans ${stats.lowStock > 0 ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>{stats.lowStock}</span>
                     </div>
                 </div>
 
+                {/* Asset Registration Form */}
                 {isAddingItem && (
-                    <div className="card border-none bg-white dark:bg-white/5 shadow-2xl animate-slide p-8">
-                        <form onSubmit={handleAddItem} className="space-y-8">
-                            <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 dark:text-white italic border-b border-white/5 pb-4">
-                                {editingItem ? `Refining SKU Specification: ${editingItem.sku}` : 'Register Fresh Asset SKU'}
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="p-10 bg-black text-white border-2 border-black animate-slide relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(255,193,7,1)]">
+                        {/* Background Visual Element */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rotate-45 translate-x-16 -translate-y-16"></div>
+
+                        <form onSubmit={handleAddItem} className="space-y-10 relative">
+                            <div className="flex items-center gap-6 border-b border-white/20 pb-6 mb-8">
+                                <Icon name="box" size={24} className="text-brand-500" />
+                                <h4 className="text-xl font-display uppercase italic tracking-[0.1em]">
+                                    {editingItem ? `Vector Refinement: ${editingItem.sku}` : 'Asset Registration Protocol'}
+                                </h4>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">SKU Identifier</label>
-                                    <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="e.g. VIN-RD-01" required value={newItem.sku} onChange={e => setNewItem({ ...newItem, sku: e.target.value })} />
+                                    <label className="brand-label !text-slate-500">SKU Identifier</label>
+                                    <input className="brand-input !bg-dark-surface !border-dark-border !text-white" placeholder="VIN-EX-001" required value={newItem.sku} onChange={e => setNewItem({ ...newItem, sku: e.target.value })} />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="brand-label !text-slate-500">Asset Nomenclature</label>
+                                    <input className="brand-input !bg-dark-surface !border-dark-border !text-white" placeholder="High-Gloss Polymetric Film" required value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Asset Nomenclature</label>
-                                    <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="Glossy Red Vinyl" required value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Category Vector</label>
-                                    <select className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
+                                    <label className="brand-label !text-slate-500">Categorization</label>
+                                    <select className="brand-input !bg-dark-surface !border-dark-border !text-white" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
                                         <option>Raw Materials</option><option>Media</option><option>Ink/Chemicals</option><option>Finished Goods</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Initial Reserve</label>
-                                    <input type="number" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) })} />
+                                    <label className="brand-label !text-slate-500">Reserve Level</label>
+                                    <input type="number" className="brand-input !bg-dark-surface !border-dark-border !text-white !font-display" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Unit Metric</label>
-                                    <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="m, L, pcs" required value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })} />
+                                    <label className="brand-label !text-slate-500">Metric Unit</label>
+                                    <input className="brand-input !bg-dark-surface !border-dark-border !text-white" placeholder="m, yd, pcs" required value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Critical Threshold</label>
-                                    <input type="number" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newItem.minStock} onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) })} />
+                                    <label className="brand-label !text-slate-500">Critical Threshold</label>
+                                    <input type="number" className="brand-input !bg-dark-surface !border-dark-border !text-white !font-display" value={newItem.minStock} onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) })} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Asset Valuation (KSh)</label>
-                                    <input type="number" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })} />
+                                    <label className="brand-label !text-slate-500">Valuation KES</label>
+                                    <input type="number" className="brand-input !bg-dark-surface !border-dark-border !text-white !font-display" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })} />
                                 </div>
                             </div>
-                            <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-6 rounded-[2rem] border border-white/5">
-                                <div className={`text-[10px] font-black text-emerald-500 uppercase tracking-widest transition-opacity duration-300 ${isSuccess ? 'opacity-100' : 'opacity-0'}`}>
-                                    <Icon name="check-circle" size={12} className="inline mr-2" />
-                                    Synchronized Successfully
+
+                            <div className="flex justify-between items-center pt-8 border-t border-white/20">
+                                <div className={`flex items-center gap-3 text-[10px] font-black text-brand-500 uppercase tracking-widest transition-opacity ${isSuccess ? 'opacity-100' : 'opacity-0'}`}>
+                                    <Icon name="check-circle" size={16} /> Registry Synchronized
                                 </div>
-                                <button type="submit" className="btn-primary py-4 px-10 font-black uppercase tracking-widest text-[10px] italic">Commit to Registry</button>
+                                <div className="flex gap-4">
+                                    <button type="button" onClick={() => setIsAddingItem(false)} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Abort</button>
+                                    <button type="submit" className="brand-button-yellow !py-4 !px-12 flex items-center gap-3">
+                                        <Icon name="server" size={16} />
+                                        Commit Protocol
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>
                 )}
 
-                {/* Inventory Table */}
-                <div className="card !p-0 overflow-hidden border-none bg-white dark:bg-white/5 shadow-2xl">
+                {/* SKU Ledger Table */}
+                <div className="border-4 border-black overflow-hidden shadow-premium bg-white">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left font-sans">
-                            <thead className="bg-[#0f172a] text-white">
+                        <table className="w-full text-left font-display">
+                            <thead className="bg-black text-white">
                                 <tr>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Asset Identity</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Classification</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center">Reserve Status</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Control</th>
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-brand-500">Vector ID / SKU</th>
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Classification</th>
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-center">Magnitude</th>
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right">Registry Operations</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                            <tbody className="divide-y-2 divide-black/5">
                                 {data.inventory.map(item => (
-                                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
-                                        <td className="px-8 py-6">
-                                            <div className="font-black text-slate-900 dark:text-white uppercase italic tracking-tight">{item.sku}</div>
-                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.name}</div>
+                                    <tr key={item.id} className="group hover:bg-slate-50 transition-all">
+                                        <td className="px-10 py-8 relative">
+                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-black group-hover:bg-brand-500 transition-colors"></div>
+                                            <div className="font-black text-lg uppercase italic tracking-tighter leading-none mb-1">{item.sku}</div>
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.name}</div>
                                         </td>
-                                        <td className="px-8 py-6">
-                                            <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-lg text-[10px] font-black uppercase text-slate-500 tracking-tighter">{item.category}</span>
+                                        <td className="px-10 py-8 text-center md:text-left">
+                                            <span className="px-4 py-1 bg-black text-white text-[9px] font-black uppercase tracking-widest italic">{item.category}</span>
                                         </td>
-                                        <td className="px-8 py-6">
+                                        <td className="px-10 py-8">
                                             <div className="flex flex-col items-center">
-                                                <div className={`text-2xl font-black font-sans tracking-tighter ${item.stock <= item.minStock ? 'text-rose-500 animate-pulse' : 'text-slate-900 dark:text-white'}`}>
-                                                    {item.stock} <small className="text-[9px] uppercase text-slate-400 tracking-widest">{item.unit}</small>
+                                                <div className={`text-3xl font-display tracking-tighter ${item.stock <= item.minStock ? 'text-rose-600 animate-pulse' : 'text-black'}`}>
+                                                    {item.stock} <small className="text-[10px] uppercase text-slate-400 tracking-widest italic">{item.unit}</small>
                                                 </div>
-                                                <div className="w-24 bg-slate-100 dark:bg-white/10 h-1 rounded-full mt-2 overflow-hidden shadow-inner">
-                                                    <div className={`h-full transition-all duration-1000 ${item.stock <= item.minStock ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, (item.stock / (item.minStock * 4)) * 100)}%` }}></div>
+                                                <div className="w-32 bg-slate-100 h-2 mt-3 p-0.5 border border-black/5">
+                                                    <div className={`h-full transition-all duration-1000 ${item.stock <= item.minStock ? 'bg-rose-500' : 'bg-brand-500'}`} style={{ width: `${Math.min(100, (item.stock / (item.minStock * 4)) * 100)}%` }}></div>
                                                 </div>
+                                                {item.stock <= item.minStock && (
+                                                    <div className="mt-2 text-[8px] font-black text-rose-600 uppercase tracking-widest">Depleted // Attention Required</div>
+                                                )}
                                             </div>
                                         </td>
-                                        <td className="px-8 py-6 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button onClick={() => setIsAdjustingStock(item.id)} className="w-10 h-10 flex items-center justify-center bg-brand-500/10 hover:bg-brand-500 hover:text-white rounded-xl transition-all text-brand-500" title="Adjust Assets">
+                                        <td className="px-10 py-8">
+                                            <div className="flex justify-end gap-3">
+                                                <button onClick={() => setIsAdjustingStock(item.id)} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-brand-500 transition-all group/btn shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Adjust Magnitude">
                                                     <Icon name="refresh-cw" size={16} />
                                                 </button>
-                                                <button onClick={() => { setEditingItem(item); setNewItem({ ...item }); setIsAddingItem(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-white/5 hover:bg-slate-900 dark:hover:bg-white rounded-xl transition-all text-slate-400" title="Modify Context">
+                                                <button onClick={() => { setEditingItem(item); setNewItem({ ...item }); setIsAddingItem(true); }} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Refine Specification">
                                                     <Icon name="edit-3" size={16} />
                                                 </button>
-                                                <button onClick={() => { if (confirm(`Purge ${item.sku} from registry?`)) { deleteItem('inventory', item.id); logActivity(`Inventory purged: ${item.sku}`, 'Archive'); } }} className="w-10 h-10 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-500" title="Purge SKU">
+                                                <button onClick={() => { if (confirm(`Purge ${item.sku} from registry?`)) { deleteItem('inventory', item.id); logActivity(`Inventory purged: ${item.sku}`, 'Archive'); } }} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-rose-500 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Purge Record">
                                                     <Icon name="trash-2" size={16} />
                                                 </button>
                                             </div>
@@ -1241,88 +1382,93 @@
                     </div>
                 </div>
 
-                {/* Adjustment Modal */}
+                {/* Operational Adjustment Protocol */}
                 <Modal isOpen={!!isAdjustingStock} onClose={() => setIsAdjustingStock(null)} title="Operational Stock Adjustment">
                     {isAdjustingStock && (() => {
                         const item = data.inventory.find(i => i.id === isAdjustingStock);
                         return (
-                            <form onSubmit={handleAdjustStock} className="space-y-8 p-2">
-                                <div className="flex items-center gap-6 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-brand-500/10 blur-3xl rounded-full"></div>
-                                    <div className="w-20 h-20 bg-brand-600 rounded-3xl flex items-center justify-center text-3xl font-black italic shadow-2xl shadow-brand-500/20 z-10">{item?.sku.charAt(0)}</div>
+                            <form onSubmit={handleAdjustStock} className="space-y-8 p-4">
+                                <div className="flex items-center gap-6 p-10 bg-black text-white border-2 border-black relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(255,193,7,1)]">
+                                    <div className="absolute -right-4 -top-4 w-32 h-32 bg-brand-500/10 rotate-45"></div>
+                                    <div className="w-24 h-24 bg-brand-500 text-black flex items-center justify-center text-4xl font-black italic shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-10">
+                                        {item?.sku.charAt(0)}
+                                    </div>
                                     <div className="z-10">
-                                        <h4 className="text-2xl font-black tracking-tighter uppercase italic">{item?.name}</h4>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Current Reserve: <span className="text-brand-500">{item?.stock} {item?.unit}</span></p>
+                                        <h4 className="text-3xl font-display uppercase italic tracking-tighter">{item?.name}</h4>
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2">
+                                            Active Reserve: <span className="text-brand-500">{item?.stock} {item?.unit}</span>
+                                        </p>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-4">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Movement Direction</label>
-                                        <div className="flex gap-4 p-1.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
-                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'In' })} className={`flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${adjustment.type === 'In' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 scale-[1.02]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'}`}>Increment (+)</button>
-                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'Out' })} className={`flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${adjustment.type === 'Out' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20 scale-[1.02]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'}`}>Decrement (-)</button>
+                                        <label className="brand-label !text-slate-400">Flow Direction</label>
+                                        <div className="flex gap-4 p-2 bg-slate-50 border-2 border-black">
+                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'In' })} className={`flex-1 py-4 font-black text-[10px] uppercase tracking-widest transition-all ${adjustment.type === 'In' ? 'bg-black text-white italic' : 'text-slate-400 hover:bg-slate-100'}`}>Increment (+)</button>
+                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'Out' })} className={`flex-1 py-4 font-black text-[10px] uppercase tracking-widest transition-all ${adjustment.type === 'Out' ? 'bg-rose-600 text-white italic' : 'text-slate-400 hover:bg-slate-100'}`}>Decrement (-)</button>
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Magnitude ({item?.unit})</label>
-                                        <input type="number" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white !py-4 focus:!border-brand-500 text-center text-3xl font-black italic tracking-tighter" required value={adjustment.qty} onChange={e => setAdjustment({ ...adjustment, qty: parseFloat(e.target.value) })} />
+                                        <label className="brand-label !text-slate-400">Magnitude ({item?.unit})</label>
+                                        <input type="number" className="brand-input !bg-white !border-black !text-black !py-6 text-center text-4xl font-display italic tracking-tighter" required value={adjustment.qty} onChange={e => setAdjustment({ ...adjustment, qty: parseFloat(e.target.value) })} />
                                     </div>
                                 </div>
 
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Context Reference (Project / Order ID)</label>
-                                        <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" placeholder="e.g. PRJ-204" value={adjustment.reference} onChange={e => setAdjustment({ ...adjustment, reference: e.target.value })} />
+                                        <label className="brand-label !text-slate-400">Context Reference</label>
+                                        <input className="brand-input !bg-white !border-black !text-black uppercase italic" placeholder="e.g. PRJ-SPEC-001" value={adjustment.reference} onChange={e => setAdjustment({ ...adjustment, reference: e.target.value })} />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Internal Justification</label>
-                                        <textarea className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white h-28 resize-none" placeholder="Specify technical reason for stock deviation..." value={adjustment.notes} onChange={e => setAdjustment({ ...adjustment, notes: e.target.value })}></textarea>
+                                        <label className="brand-label !text-slate-400">Operational Log</label>
+                                        <textarea className="brand-input !bg-white !border-black !text-black h-24 resize-none" placeholder="Reason for inventory deviation..." value={adjustment.notes} onChange={e => setAdjustment({ ...adjustment, notes: e.target.value })}></textarea>
                                     </div>
                                 </div>
 
-                                <button type="submit" className={`w-full py-5 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl transition-all italic transform hover:-translate-y-1 active:scale-95 ${adjustment.type === 'In' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>
-                                    Authorize Flow Modification
+                                <button type="submit" className={`w-full py-6 font-black uppercase tracking-[0.3em] text-[11px] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all italic hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none ${adjustment.type === 'In' ? 'bg-brand-500 text-black border-2 border-black' : 'bg-rose-600 text-white border-2 border-black'}`}>
+                                    Execute Flow Modification
                                 </button>
                             </form>
                         );
                     })()}
                 </Modal>
 
-                {/* Recent Movements */}
-                <div className="card !p-0 border-none bg-white dark:bg-white/5 shadow-2xl overflow-hidden">
-                    <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900">
-                        <div className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-ping"></div>
-                            <h5 className="text-[11px] font-black text-white uppercase tracking-[0.4em] italic">Telemetry: Stock Dynamics</h5>
+                {/* Telemetry: Stock Dynamics */}
+                <div className="border-4 border-black bg-white shadow-premium overflow-hidden">
+                    <div className="p-8 border-b-2 border-black flex justify-between items-center bg-black">
+                        <div className="flex items-center gap-4">
+                            <div className="w-2 h-2 bg-brand-500 animate-pulse"></div>
+                            <h5 className="text-[10px] font-black text-white uppercase tracking-[0.4em] italic leading-none">Telemetry: Stock Dynamics</h5>
                         </div>
-                        <Icon name="activity" size={16} className="text-brand-500 opacity-50" />
+                        <Icon name="activity" size={18} className="text-brand-500" />
                     </div>
-                    <div className="max-h-96 overflow-y-auto custom-scrollbar p-6 space-y-4">
+                    <div className="max-h-96 overflow-y-auto p-10 space-y-6">
                         {(data.stockMovements || []).length > 0 ? [...data.stockMovements].reverse().map(m => (
-                            <div key={m.id} className="flex justify-between items-center p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-transparent hover:border-brand-500/30 transition-all group">
-                                <div className="flex items-center gap-5">
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-lg ${m.type === 'In' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                        {m.type === 'In' ? <Icon name="arrow-up-right" size={20} /> : <Icon name="arrow-down-right" size={20} />}
+                            <div key={m.id} className="flex justify-between items-center p-8 bg-slate-50 border-2 border-transparent hover:border-black transition-all group relative">
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-black opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="flex items-center gap-8">
+                                    <div className={`w-16 h-16 border-2 border-black flex items-center justify-center font-black text-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${m.type === 'In' ? 'bg-brand-500 text-black' : 'bg-rose-600 text-white'}`}>
+                                        {m.type === 'In' ? <Icon name="arrow-up-right" size={24} /> : <Icon name="arrow-down-right" size={24} />}
                                     </div>
                                     <div>
-                                        <p className="text-sm font-black text-slate-900 dark:text-white leading-none uppercase italic group-hover:text-brand-500 transition-colors">{m.itemName}</p>
-                                        <div className="flex items-center gap-3 mt-2">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{m.sku}</span>
-                                            <span className="w-1 h-1 bg-slate-300 dark:bg-white/10 rounded-full"></span>
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">{m.date}</span>
+                                        <p className="text-xl font-display font-black uppercase italic italic leading-none mb-2">{m.itemName}</p>
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.sku}</span>
+                                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{m.date}</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-lg font-black text-slate-900 dark:text-white font-sans tracking-tighter">{m.type === 'In' ? '+' : '-'}{m.qty}</p>
-                                    <p className="text-[10px] font-black text-brand-600 uppercase italic tracking-widest mt-1 opacity-70">{m.reference || 'Static Adj'}</p>
+                                    <p className="text-3xl font-display tracking-tighter text-black">{m.type === 'In' ? '+' : '-'}{m.qty}</p>
+                                    <p className="text-[9px] font-black text-brand-600 uppercase italic tracking-widest mt-2">{m.reference || 'SYSTEM_ADJ'}</p>
                                 </div>
                             </div>
                         )) : (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-white/10">
-                                <Icon name="box" size={48} className="opacity-10 mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em]">Operational Silence: No recent fluctuations detected</p>
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-300 border-2 border-dashed border-slate-200">
+                                <Icon name="box" size={48} className="opacity-20 mb-6" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em]">Operational Silence: No fluctuations detected</p>
                             </div>
                         )}
                     </div>
@@ -1403,52 +1549,93 @@
         const totalRevenue = clientSales.reduce((sum, s) => sum + parseFloat(s.amount), 0);
 
         return (
-            <div className="space-y-8 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Client Relations</h2>
+            <div className="space-y-12 animate-slide">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4">
+                    <div className="space-y-2">
+                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Stakeholder Matrix</h2>
+                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                            <div className="w-12 h-1 bg-brand-500"></div>
+                            {data.clients.length} Registered Entities
                         </div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Relationship Ecosystem Management // {data.clients.length} Active Entities</p>
                     </div>
-                    <button onClick={() => setIsAddingClient(true)} className="btn-primary">
-                        <Icon name="plus-circle" size={18} /> Register Stakeholder
+                    <button
+                        onClick={() => setIsAddingClient(true)}
+                        className="brand-button-yellow !py-5 !px-10 flex items-center gap-4 italic"
+                    >
+                        <Icon name="plus-circle" size={18} />
+                        Register Stakeholder
                     </button>
                 </div>
 
+                {/* Relationship Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="bg-black text-white p-10 border-2 border-black group hover:bg-white hover:text-black transition-all">
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-500 mb-6">Aggregate Revenue</p>
+                        <div className="flex items-end justify-between">
+                            <h3 className="text-4xl font-display tracking-tighter">KES {(data.sales.reduce((sum, s) => sum + parseFloat(s.amount), 0) / 1000).toFixed(1)}K</h3>
+                            <div className="w-12 h-12 bg-white/10 group-hover:bg-black/5 flex items-center justify-center transition-colors">
+                                <Icon name="trending-up" size={20} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white border-2 border-black p-10 group hover:bg-black hover:text-white transition-all">
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 group-hover:text-brand-500 mb-6">Active Operations</p>
+                        <div className="flex items-end justify-between">
+                            <h3 className="text-4xl font-display tracking-tighter">{data.projects.filter(p => p.status === 'Active').length} Units</h3>
+                            <div className="w-12 h-12 bg-slate-50 group-hover:bg-white/10 flex items-center justify-center transition-colors">
+                                <Icon name="zap" size={20} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-brand-500 text-black border-2 border-black p-10">
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-black/40 mb-6">Engagement Velocity</p>
+                        <div className="flex items-end justify-between">
+                            <h3 className="text-4xl font-display tracking-tighter">{data.interactions.length} Logs</h3>
+                            <div className="w-12 h-12 bg-black/10 flex items-center justify-center">
+                                <Icon name="message-square" size={20} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Client Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {data.clients.map(c => (
                         <div
                             key={c.id}
                             onClick={() => setSelectedClient(c)}
-                            className="card !p-8 bg-white dark:bg-white/5 border-none shadow-xl hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6"
+                            className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-8"
                         >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 blur-3xl rounded-full group-hover:bg-brand-500/10 transition-colors"></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/5 rotate-45 translate-x-16 -translate-y-16 group-hover:bg-brand-500/10 transition-colors"></div>
 
-                            <div className="w-24 h-24 bg-slate-900 dark:bg-white/10 text-brand-500 rounded-[2rem] flex items-center justify-center text-4xl font-black shadow-2xl group-hover:scale-110 transition-transform duration-500 italic">
+                            <div className="w-28 h-28 bg-black text-brand-500 border-4 border-brand-500 flex items-center justify-center text-5xl font-display italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] group-hover:translate-y-[-4px] group-hover:translate-x-[-4px] transition-transform duration-500">
                                 {c.name.charAt(0)}
                             </div>
 
-                            <div className="space-y-2 relative z-10">
-                                <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">{c.name}</h4>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{c.company}</p>
-                            </div>
-
-                            <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-white/5 w-full justify-center">
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Revenue</p>
-                                    <p className="text-xs font-black text-slate-900 dark:text-white font-sans">KSh {(data.sales.filter(s => s.client === c.name).reduce((sum, s) => sum + parseFloat(s.amount), 0) / 1000).toFixed(1)}K</p>
-                                </div>
-                                <div className="w-px h-8 bg-slate-100 dark:bg-white/5"></div>
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ops</p>
-                                    <p className="text-xs font-black text-slate-900 dark:text-white font-sans">{data.projects.filter(p => p.client === c.name).length}</p>
+                            <div className="space-y-3 relative z-10 w-full">
+                                <h4 className="text-2xl font-display font-black uppercase italic tracking-tighter leading-none group-hover:text-brand-600 transition-colors">{c.name}</h4>
+                                <div className="flex items-center justify-center gap-3">
+                                    <div className="w-8 h-0.5 bg-black/10"></div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{c.company}</p>
+                                    <div className="w-8 h-0.5 bg-black/10"></div>
                                 </div>
                             </div>
 
-                            <div className="absolute bottom-4 right-8 opacity-0 group-hover:opacity-100 group-hover:right-4 transition-all duration-300">
-                                <Icon name="chevron-right" size={20} className="text-brand-500" />
+                            <div className="flex gap-8 pt-8 border-t-2 border-black/5 w-full justify-center relative z-10">
+                                <div className="text-center">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Commercials</p>
+                                    <p className="text-sm font-display font-black text-black">KSh {(data.sales.filter(s => s.client === c.name).reduce((sum, s) => sum + parseFloat(s.amount), 0) / 1000).toFixed(1)}K</p>
+                                </div>
+                                <div className="w-0.5 h-10 bg-black/5"></div>
+                                <div className="text-center">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Initiatives</p>
+                                    <p className="text-sm font-display font-black text-black">{data.projects.filter(p => p.client === c.name).length} OPS</p>
+                                </div>
+                            </div>
+
+                            <div className="absolute bottom-6 right-8 opacity-0 group-hover:opacity-100 group-hover:right-6 transition-all duration-300">
+                                <Icon name="arrow-right" size={24} className="text-brand-500" />
                             </div>
                         </div>
                     ))}
@@ -1460,29 +1647,30 @@
                     title="Client Intelligence Matrix"
                 >
                     {selectedClient && (
-                        <div className="space-y-12 py-2">
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-slate-900 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
-                                <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-brand-500/5 blur-[100px] rounded-full"></div>
-                                <div className="flex items-center gap-8 z-10">
-                                    <div className="w-24 h-24 bg-brand-600 rounded-[2.5rem] flex items-center justify-center text-4xl font-black italic shadow-2xl shadow-brand-500/20 text-white">
+                        <div className="space-y-12 py-4">
+                            {/* Intelligence Header */}
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-10 bg-black p-12 border-2 border-black relative overflow-hidden shadow-[12px_12px_0px_0px_rgba(250,204,21,1)]">
+                                <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-brand-500/10 rotate-45"></div>
+                                <div className="flex items-center gap-10 z-10">
+                                    <div className="w-32 h-32 bg-brand-500 text-black border-4 border-black flex items-center justify-center text-5xl font-display italic shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)]">
                                         {selectedClient.name.charAt(0)}
                                     </div>
-                                    <div className="space-y-2">
-                                        <h3 className="text-4xl font-black text-white uppercase italic tracking-tighter leading-none">{selectedClient.name}</h3>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[10px] font-black text-brand-500 uppercase tracking-[0.4em]">{selectedClient.company}</span>
-                                            <span className="w-1.5 h-1.5 bg-white/20 rounded-full"></span>
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Active Entity</span>
+                                    <div className="space-y-3">
+                                        <h3 className="text-5xl font-display font-black text-white uppercase italic tracking-tighter leading-none">{selectedClient.name}</h3>
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-[11px] font-black text-brand-500 uppercase tracking-[0.4em]">{selectedClient.company}</span>
+                                            <div className="w-2 h-2 bg-white/20 rotate-45"></div>
+                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em]">Active Entity Vector</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-4 z-10 w-full md:w-auto">
-                                    <button onClick={handleOpenEdit} className="flex-1 md:flex-none flex items-center justify-center gap-2 py-4 px-8 bg-white/10 hover:bg-white hover:text-black rounded-2xl border border-white/10 transition-all text-white font-black uppercase text-[10px] tracking-widest italic">
-                                        <Icon name="edit-3" size={16} />
+                                <div className="flex gap-6 z-10 w-full md:w-auto">
+                                    <button onClick={handleOpenEdit} className="brand-button-yellow !py-5 !px-10 italic">
+                                        <Icon name="edit-3" size={18} />
                                         <span>Update Profile</span>
                                     </button>
-                                    <button onClick={handleDelete} className="w-12 h-12 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-2xl border border-rose-500/20 transition-all">
-                                        <Icon name="archive-restore" size={20} />
+                                    <button onClick={handleDelete} className="w-16 h-16 flex items-center justify-center bg-white border-2 border-black hover:bg-rose-600 hover:text-white transition-all">
+                                        <Icon name="archive-restore" size={24} />
                                     </button>
                                 </div>
                             </div>
@@ -1514,31 +1702,29 @@
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                 <div className="space-y-8">
                                     <div className="flex justify-between items-center px-2">
-                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-900 dark:text-white italic">Engagement Chronology</h5>
-                                        <button onClick={() => setIsAddingInteraction(true)} className="w-10 h-10 flex items-center justify-center bg-brand-500/10 text-brand-500 rounded-xl hover:bg-brand-500 hover:text-white transition-all shadow-lg shadow-brand-500/10">
+                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-black italic leading-none">Engagement Chronology</h5>
+                                        <button onClick={() => setIsAddingInteraction(true)} className="w-12 h-12 flex items-center justify-center bg-black text-brand-500 border-2 border-black hover:bg-brand-500 hover:text-black transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                                             <Icon name="plus" size={20} />
                                         </button>
                                     </div>
                                     <div className="space-y-6 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
                                         {clientInteractions.length > 0 ? [...clientInteractions].reverse().map(i => (
-                                            <div key={i.id} className="p-6 bg-slate-50 dark:bg-white/5 rounded-[2rem] border border-transparent hover:border-brand-500/30 transition-all relative group">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${i.type === 'Meeting' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : i.type === 'Call' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-900 text-white'}`}>
+                                            <div key={i.id} className="p-8 bg-slate-50 border-2 border-transparent hover:border-black transition-all relative group">
+                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-black opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                                <div className="flex justify-between items-start mb-6">
+                                                    <span className={`px-4 py-1 bg-black text-white text-[9px] font-black uppercase tracking-widest italic`}>
                                                         {i.type}
                                                     </span>
-                                                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase italic">
-                                                        <Icon name="calendar" size={10} />
+                                                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase italic">
+                                                        <Icon name="calendar" size={12} />
                                                         {i.date}
                                                     </div>
                                                 </div>
-                                                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed italic border-l-2 border-brand-500/30 pl-4">"{i.notes}"</p>
-                                                <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Icon name="check-check" size={14} className="text-brand-500" />
-                                                </div>
+                                                <p className="text-sm text-black font-medium leading-relaxed italic border-l-4 border-brand-500 pl-6">"{i.notes}"</p>
                                             </div>
                                         )) : (
-                                            <div className="flex flex-col items-center justify-center py-20 bg-slate-50 dark:bg-white/5 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-white/10">
-                                                <Icon name="message-square" size={32} className="text-slate-300 dark:text-white/10 mb-4" />
+                                            <div className="flex flex-col items-center justify-center py-20 bg-slate-50 border-2 border-dashed border-slate-200">
+                                                <Icon name="message-square" size={48} className="opacity-20 mb-6" />
                                                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Archival Silence: No recorded interactions</p>
                                             </div>
                                         )}
@@ -1547,21 +1733,23 @@
 
                                 <div className="space-y-8">
                                     <div className="px-2">
-                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-900 dark:text-white italic">Commercial Velocity</h5>
+                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-black italic leading-none">Commercial Velocity</h5>
                                     </div>
-                                    <div className="space-y-4">
+                                    <div className="space-y-6">
                                         {clientSales.slice(0, 5).map(s => (
-                                            <div key={s.id} className="flex items-center justify-between p-6 bg-white dark:bg-white/5 rounded-[2rem] shadow-xl hover:shadow-2xl transition-all border border-transparent hover:border-emerald-500/30 group">
-                                                <div className="flex items-center gap-5">
-                                                    <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center">
-                                                        <Icon name="file-text" size={20} />
+                                            <div key={s.id} className="flex items-center justify-between p-8 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] hover:translate-x-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all group">
+                                                <div className="flex items-center gap-6">
+                                                    <div className="w-14 h-14 bg-black text-brand-500 flex items-center justify-center border-2 border-black">
+                                                        <Icon name="file-text" size={24} />
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter italic">{s.invoiceNo}</span>
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{s.date}</span>
+                                                        <span className="text-lg font-display font-black text-black uppercase tracking-tighter italic leading-none mb-2">{s.invoiceNo}</span>
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{s.date}</span>
                                                     </div>
                                                 </div>
-                                                <span className="text-xl font-black text-slate-900 dark:text-white font-sans tracking-tighter">KSh {parseFloat(s.amount).toLocaleString()}</span>
+                                                <div className="text-right">
+                                                    <span className="text-2xl font-display font-black text-black tracking-tighter">KES {parseFloat(s.amount).toLocaleString()}</span>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -1572,44 +1760,46 @@
                 </Modal>
 
                 <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} title="Operational Profile Refinement">
-                    <form onSubmit={handleSaveEdit} className="space-y-8 p-2">
+                    <form onSubmit={handleSaveEdit} className="space-y-10 p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Entity Nomenclature</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Corporate Alias</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required value={editData.company} onChange={e => setEditData({ ...editData, company: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Corporate Alias</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required value={editData.company} onChange={e => setEditData({ ...editData, company: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Vector (Phone)</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Communication Vector (Phone)</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">KRA Fiscal Identity</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" value={editData.kraPin} onChange={e => setEditData({ ...editData, kraPin: e.target.value })} />
+                                <label className="brand-label !text-slate-400">KRA Fiscal Identity</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black uppercase" value={editData.kraPin} onChange={e => setEditData({ ...editData, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Coordinates</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" value={editData.location} onChange={e => setEditData({ ...editData, location: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Geospatial Coordinates</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" value={editData.location} onChange={e => setEditData({ ...editData, location: e.target.value })} />
                             </div>
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">Authorize Profile Synchronization</button>
+                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
+                            Authorize Profile Synchronization
+                        </button>
                     </form>
                 </Modal>
 
                 <Modal isOpen={isAddingInteraction} onClose={() => setIsAddingInteraction(false)} title="Log Engagement Protocol">
-                    <form onSubmit={handleAddInteraction} className="space-y-8 p-2">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Engagement Vector</label>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <form onSubmit={handleAddInteraction} className="space-y-10 p-4">
+                        <div className="space-y-4">
+                            <label className="brand-label !text-slate-400">Engagement Vector</label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                                 {['Call', 'Meeting', 'Email', 'Proposal'].map(type => (
                                     <button
                                         key={type}
                                         type="button"
                                         onClick={() => setNewInteraction({ ...newInteraction, type })}
-                                        className={`py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${newInteraction.type === type ? 'bg-brand-500 text-black shadow-lg shadow-brand-500/20' : 'bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-slate-600'}`}
+                                        className={`py-4 border-2 border-black font-black text-[10px] uppercase tracking-widest transition-all italic ${newInteraction.type === type ? 'bg-black text-white shadow-[4px_4px_0px_0px_rgba(250,204,21,1)]' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
                                     >
                                         {type}
                                     </button>
@@ -1617,38 +1807,42 @@
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Interaction Intelligence</label>
-                            <textarea className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white min-h-[160px] py-6 leading-relaxed" placeholder="Document strategic outcomes..." required value={newInteraction.notes} onChange={e => setNewInteraction({ ...newInteraction, notes: e.target.value })} />
+                            <label className="brand-label !text-slate-400">Interaction Intelligence</label>
+                            <textarea className="brand-input !bg-white !border-black !text-black min-h-[160px] py-6 leading-relaxed" placeholder="Document strategic outcomes and operational decisions..." required value={newInteraction.notes} onChange={e => setNewInteraction({ ...newInteraction, notes: e.target.value })} />
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] shadow-xl italic">Commit to Historical Matrix</button>
+                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
+                            Commit to Historical Matrix
+                        </button>
                     </form>
                 </Modal>
 
                 <Modal isOpen={isAddingClient} onClose={() => setIsAddingClient(false)} title="Stakeholder Registry Initiation">
-                    <form onSubmit={handleRegisterClient} className="space-y-8 p-2">
+                    <form onSubmit={handleRegisterClient} className="space-y-10 p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required placeholder="Full Name" value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Entity Nomenclature</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="Full Name" value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Corporate Alias</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required placeholder="Company" value={newClient.company} onChange={e => setNewClient({ ...newClient, company: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Corporate Alias</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="Company" value={newClient.company} onChange={e => setNewClient({ ...newClient, company: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">KRA Fiscal Identity</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" placeholder="KRA PIN" value={newClient.kraPin} onChange={e => setNewClient({ ...newClient, kraPin: e.target.value })} />
+                                <label className="brand-label !text-slate-400">KRA Fiscal Identity</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black uppercase" placeholder="KRA PIN" value={newClient.kraPin} onChange={e => setNewClient({ ...newClient, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Coordinates</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" placeholder="Physical Location" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Geospatial Coordinates</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="Physical Location" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Vector (Phone)</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required placeholder="+254..." value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Communication Vector (Phone)</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="+254..." value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
                             </div>
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">Synchronize New Stakeholder</button>
+                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
+                            Synchronize New Stakeholder
+                        </button>
                     </form>
                 </Modal>
             </div >
@@ -1688,48 +1882,58 @@
         };
 
         return (
-            <div className="space-y-8 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Vendor Network</h2>
+            <div className="space-y-12 animate-slide">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4">
+                    <div className="space-y-2">
+                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Stakeholder Registry</h2>
+                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                            <div className="w-12 h-1 bg-brand-500"></div>
+                            {data.suppliers.length} Active Partner Entities
                         </div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Supply Chain Ecosystem // {data.suppliers.length} Active Partners</p>
                     </div>
-                    <button onClick={handleOpenAdd} className="btn-primary">
-                        <Icon name="plus-circle" size={18} /> Register Partner Entity
+                    <button
+                        onClick={handleOpenAdd}
+                        className="brand-button-yellow !py-5 !px-10 flex items-center gap-4 italic"
+                    >
+                        <Icon name="plus-circle" size={18} />
+                        Register Partner Entity
                     </button>
                 </div>
 
-                <div className="card !p-0 overflow-hidden border-none bg-white dark:bg-white/5 shadow-2xl">
+                {/* Vendor Ledger Table */}
+                <div className="border-4 border-black overflow-hidden shadow-premium bg-white">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left font-sans">
-                            <thead className="bg-[#0f172a] text-white">
+                        <table className="w-full text-left font-display">
+                            <thead className="bg-black text-white">
                                 <tr>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Partner Identity</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Primary Liaison</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Vertical Vertical</th>
-                                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Control</th>
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-brand-500">Partner Identity</th>
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Primary Liaison</th>
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Operation Classification</th>
+                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right">Registry Operations</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                            <tbody className="divide-y-2 divide-black/5">
                                 {data.suppliers.map(s => (
-                                    <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
-                                        <td className="px-8 py-6">
-                                            <div className="font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">{s.name}</div>
-                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{s.email}</div>
+                                    <tr key={s.id} className="group hover:bg-slate-50 transition-all">
+                                        <td className="px-10 py-8 relative">
+                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-black group-hover:bg-brand-500 transition-colors"></div>
+                                            <div className="font-black text-lg uppercase italic tracking-tighter leading-none mb-1">{s.name}</div>
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{s.email}</div>
                                         </td>
-                                        <td className="px-8 py-6 font-bold text-slate-600 dark:text-slate-400 italic text-sm">{s.contact}</td>
-                                        <td className="px-8 py-6">
-                                            <span className="px-3 py-1 bg-brand-500/10 text-brand-500 rounded-lg text-[10px] font-black uppercase tracking-tighter">{s.category}</span>
+                                        <td className="px-10 py-8">
+                                            <div className="font-bold text-black italic text-sm">{s.contact}</div>
+                                            <div className="text-[10px] uppercase text-slate-400 tracking-widest mt-1">{s.contactPerson}</div>
                                         </td>
-                                        <td className="px-8 py-6 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => handleOpenEdit(s)} className="w-10 h-10 flex items-center justify-center bg-brand-500/10 hover:bg-brand-500 hover:text-white rounded-xl transition-all text-brand-500">
+                                        <td className="px-10 py-8">
+                                            <span className="px-4 py-1 bg-black text-white text-[9px] font-black uppercase tracking-widest italic">{s.category}</span>
+                                        </td>
+                                        <td className="px-10 py-8 text-right">
+                                            <div className="flex items-center justify-end gap-3">
+                                                <button onClick={() => handleOpenEdit(s)} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Refine Configuration">
                                                     <Icon name="edit-3" size={16} />
                                                 </button>
-                                                <button onClick={() => { if (confirm('Archive Partner Entity?')) { deleteItem('suppliers', s.id); logActivity(`Archived vendor: ${s.name}`, 'Archive'); } }} className="w-10 h-10 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-500">
+                                                <button onClick={() => { if (confirm('Archive Partner Entity?')) { deleteItem('suppliers', s.id); logActivity(`Archived vendor: ${s.name}`, 'Archive'); } }} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-rose-500 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Purge Record">
                                                     <Icon name="trash-2" size={16} />
                                                 </button>
                                             </div>
@@ -1741,41 +1945,44 @@
                     </div>
                 </div>
 
+                {/* Stakeholder Registration Protocol */}
                 <Modal isOpen={isAdding} onClose={() => setIsAdding(false)} title={editingSupplier ? "Partner Entity Configuration" : "Stakeholder Registry Initiation"}>
-                    <form onSubmit={handleSubmit} className="space-y-8 p-2">
+                    <form onSubmit={handleSubmit} className="space-y-10 p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Entity Nomenclature</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="Identity Graphics Houzz" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Liaison Identity</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Liaison Identity</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="+254 700 000 000" required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Protocol (Email)</label>
-                                <input type="email" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white font-sans" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Communication Protocol (Email)</label>
+                                <input type="email" className="brand-input !bg-slate-50 !border-slate-200 !text-black italic" placeholder="liaison@partner.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Operation Classification</label>
-                                <select className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                <label className="brand-label !text-slate-400">Operation Classification</label>
+                                <select className="brand-input !bg-slate-50 !border-slate-200 !text-black" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                     <option>Material</option><option>Software</option><option>Infrastructure</option><option>Logistics</option><option>Marketing</option>
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Fiscal Identity (KRA PIN)</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Fiscal Identity (KRA PIN)</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black uppercase" placeholder="P051XXXXXXX" value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Key Personnel</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Key Personnel</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="Head of Operations" value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Logistics Center</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                                <label className="brand-label !text-slate-400">Geospatial Logistics Center</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="Industrial Area, Gate 4" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                             </div>
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">{editingSupplier ? "Authorize Config Update" : "Synchronize New Partner"}</button>
+                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
+                            {editingSupplier ? "Authorize Config Update" : "Synchronize New Partner"}
+                        </button>
                     </form>
                 </Modal>
             </div>
@@ -2531,7 +2738,7 @@
         const { data, user, updateData, deleteItem, logActivity, changePassword } = useContext(AppContext);
         const [isSyncing, setIsSyncing] = useState(false);
         const [syncLog, setSyncLog] = useState([]);
-        const [activeSection, setActiveSection] = useState('profile'); // 'profile', 'security', 'integration', 'users'
+        const [activeSection, setActiveSection] = useState('overview'); // 'overview', 'profile', 'security', 'integration', 'users'
 
         const [isAddingUser, setIsAddingUser] = useState(false);
         const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'reception' });
@@ -2643,178 +2850,107 @@
             }
         };
 
-        const handleProvisionUser = (e) => {
-            e.preventDefault();
-            if (editingUser) {
-                const updated = data.users.map(u => u.id === editingUser.id ? { ...newUser, id: u.id } : u);
-                updateData('users_bulk', updated);
-                logActivity(`Provisioning updated for ${newUser.username}`, 'Update');
-            } else {
-                const userObj = { ...newUser, id: Date.now() };
-                updateData('users', userObj);
-                logActivity(`Provisioned new user: ${newUser.username}`, 'Access');
-            }
-            setIsAddingUser(false);
-            setEditingUser(null);
-            setNewUser({ name: '', username: '', password: '', role: 'reception' });
-        };
-
-        const handleEditClick = (u) => {
-            setNewUser({ ...u });
-            setEditingUser(u);
-            setIsAddingUser(true);
-        };
-
-        const handlePwChange = async (e) => {
-            e.preventDefault();
-            if (pwData.new !== pwData.confirm) return alert('Passwords do not match');
-            const success = await changePassword(pwData.current, pwData.new);
-            if (success) {
-                logActivity('Password changed successfully', 'Security');
-                setPwData({ current: '', new: '', confirm: '' });
-                alert('Security coordinates updated.');
-            } else {
-                alert('Verification failed. Invalid current credentials.');
-            }
-        };
+        const renderOverview = () => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 animate-slide">
+                <div onClick={() => setActiveSection('profile')} className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-black text-brand-500 flex items-center justify-center border-2 border-brand-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:-translate-y-1 transition-transform">
+                        <Icon name="user" size={32} />
+                    </div>
+                    <div>
+                        <h4 className="text-xl font-display font-black uppercase italic tracking-tighter">Command Profile</h4>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Identity & Authority Matrix</p>
+                    </div>
+                </div>
+                <div onClick={() => setActiveSection('security')} className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-black text-rose-500 flex items-center justify-center border-2 border-rose-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:-translate-y-1 transition-transform">
+                        <Icon name="shield-check" size={32} />
+                    </div>
+                    <div>
+                        <h4 className="text-xl font-display font-black uppercase italic tracking-tighter">Security Sentinel</h4>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Credential Rotation Protocols</p>
+                    </div>
+                </div>
+                <div onClick={() => setActiveSection('integration')} className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-black text-emerald-500 flex items-center justify-center border-2 border-emerald-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:-translate-y-1 transition-transform">
+                        <Icon name="database" size={32} />
+                    </div>
+                    <div>
+                        <h4 className="text-xl font-display font-black uppercase italic tracking-tighter">Data Handshake</h4>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">G-Sheets & Cloud Reconciliation</p>
+                    </div>
+                </div>
+                <div onClick={() => setActiveSection('users')} className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-black text-indigo-500 flex items-center justify-center border-2 border-indigo-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:-translate-y-1 transition-transform">
+                        <Icon name="users" size={32} />
+                    </div>
+                    <div>
+                        <h4 className="text-xl font-display font-black uppercase italic tracking-tighter">Access Matrix</h4>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Personnel Privilege Provisions</p>
+                    </div>
+                </div>
+            </div>
+        );
 
         const renderProfile = () => (
             <div className="space-y-12 animate-slide">
-                <div className="bg-[#0f172a] p-16 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden rounded-[3rem] ring-1 ring-white/10 shadow-2xl">
+                <div className="bg-black p-16 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ring-4 ring-black shadow-premium">
                     <div className="absolute right-0 top-0 w-64 h-64 bg-brand-500/10 blur-[100px] rounded-full translate-x-24 -translate-y-24"></div>
-                    <div className="w-32 h-32 bg-brand-500 text-[#0f172a] rounded-[2.5rem] flex items-center justify-center text-5xl font-black shadow-[0_0_50px_rgba(250,204,21,0.3)] z-10 uppercase italic tracking-tighter ring-4 ring-white/10">
+                    <div className="w-32 h-32 bg-brand-500 text-black flex items-center justify-center text-5xl font-display font-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] uppercase italic tracking-tighter border-4 border-black">
                         {user?.name?.charAt(0)}
                     </div>
-                    <div className="z-10 text-center md:text-left space-y-2">
-                        <h3 className="text-5xl font-black text-white tracking-tighter uppercase italic leading-none">{user?.name}</h3>
-                        <div className="flex items-center justify-center md:justify-start gap-3 mt-4">
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                            <p className="text-brand-500 font-black uppercase text-[11px] tracking-[0.4em] leading-none">Executive Command Level</p>
+                    <div className="z-10 text-center md:text-left space-y-4">
+                        <h3 className="text-5xl font-display font-black text-white tracking-tighter uppercase italic leading-none">{user?.name}</h3>
+                        <div className="flex items-center justify-center md:justify-start gap-3">
+                            <span className="w-3 h-3 bg-brand-500 rounded-none animate-pulse"></span>
+                            <p className="text-brand-500 font-black uppercase text-[12px] tracking-[0.4em] leading-none italic">Executive Command Level</p>
                         </div>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-4">
-                    <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5 space-y-2">
-                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.4em] italic mb-2 block">Personnel Identifier</span>
-                        <span className="text-xl font-black text-slate-900 dark:text-white italic tracking-tighter uppercase">admin@ighouzz.com</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="p-10 bg-white border-4 border-black space-y-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.4em] italic block">Personnel Identifier</span>
+                        <span className="text-2xl font-display font-black text-black italic tracking-tighter uppercase">admin@ighouzz.com</span>
                     </div>
-                    <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5 space-y-2">
-                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.4em] italic mb-2 block">Auth Matrix Handle</span>
-                        <span className="text-xl font-black text-brand-600 dark:text-brand-500 italic tracking-tighter uppercase">@{user?.username}</span>
+                    <div className="p-10 bg-white border-4 border-black space-y-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.4em] italic block">Auth Matrix Handle</span>
+                        <span className="text-2xl font-display font-black text-brand-600 italic tracking-tighter uppercase">@{user?.username}</span>
                     </div>
                 </div>
             </div>
         );
-
-        const renderIntegration = () => (
-            <div className="space-y-10 animate-slide">
-                <div className="bg-slate-950 p-12 rounded-[3rem] relative overflow-hidden ring-1 ring-white/10 shadow-2xl">
-                    <div className="absolute -right-12 -top-12 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full"></div>
-                    <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
-                        <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center p-5 shadow-[0_0_40px_rgba(255,255,255,0.2)]">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg" alt="Sheets" className="w-full h-full object-contain" />
-                        </div>
-                        <div className="text-center md:text-left">
-                            <h4 className="text-3xl font-black text-white tracking-tighter uppercase italic leading-none mb-3">Distributed Data Vault</h4>
-                            <div className="flex items-center justify-center md:justify-start gap-3">
-                                <span className="px-5 py-2 bg-emerald-500 text-black rounded-full text-[10px] font-black uppercase tracking-[0.3em] shadow-lg shadow-emerald-500/20">Sync Operational</span>
-                                <span className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em] italic">G-Cloud Engine v4.0</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-8">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                        <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] italic leading-none">Reconciliation Matrix Control</h5>
-                        <button
-                            onClick={handleFullSync}
-                            disabled={isSyncing}
-                            className={`flex items-center gap-4 px-10 py-5 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl ${isSyncing ? 'bg-slate-100 dark:bg-white/5 text-slate-400' : 'bg-brand-500 text-black hover:scale-[1.02] active:scale-95 shadow-brand-500/30'}`}
-                        >
-                            <Icon name={isSyncing ? 'refresh-cw' : 'rotate-cw'} size={18} className={isSyncing ? 'animate-spin' : ''} />
-                            {isSyncing ? 'Synchronizing Intelligence...' : 'Initiate Full Handshake'}
-                        </button>
-                    </div>
-
-                    <div className="bg-slate-950 p-10 rounded-[2.5rem] font-mono text-[11px] space-y-3 h-52 overflow-y-auto custom-scrollbar border border-white/5 shadow-2xl ring-1 ring-white/10">
-                        {syncLog.map((log, i) => (
-                            <div key={i} className="flex gap-6 border-b border-white/5 pb-3 last:border-none group">
-                                <span className="text-slate-500 font-bold tracking-tighter">[{log.time}]</span>
-                                <span className="text-brand-500 font-black tracking-tight group-last:text-emerald-400 italic">{log.msg}</span>
-                            </div>
-                        ))}
-                        {syncLog.length === 0 && (
-                            <div className="flex flex-col items-center justify-center h-full space-y-4">
-                                <Icon name="database" size={32} className="text-white/5" />
-                                <p className="text-white/10 italic text-center uppercase tracking-[0.5em] font-black">Ready for data reconciliation.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-
-        const renderSecurity = () => (
-            <div className="space-y-12 animate-slide">
-                <div className="bg-rose-600 p-12 rounded-[3rem] text-white relative overflow-hidden shadow-2xl shadow-rose-600/30 ring-1 ring-white/10">
-                    <h4 className="text-4xl font-black tracking-tighter uppercase italic mb-2 leading-none">Security Sentinel</h4>
-                    <p className="text-white/60 font-black text-[11px] uppercase tracking-[0.4em] italic">Defense Matrix & Credential Rotation Protocols</p>
-                    <div className="absolute right-0 bottom-0 p-12 opacity-10 rotate-12 scale-150">
-                        <Icon name="shield-check" size={120} />
-                    </div>
-                </div>
-
-                <div className="max-w-xl mx-auto space-y-10 px-4">
-                    <div className="text-center space-y-2 mb-4">
-                        <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.5em] italic">Credential Rotation Matrix</h5>
-                        <p className="text-slate-500 text-[10px] font-medium italic">Update your primary authentication vector below.</p>
-                    </div>
-                    <form onSubmit={handlePwChange} className="space-y-8">
-                        <div className="space-y-6">
-                            <input type="password" placeholder="Root Credentials (Current)" className="input-field !bg-white/5 !border-slate-200 dark:!border-white/10 !py-5 !px-8 !rounded-2xl" required value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
-                            <input type="password" placeholder="New Auth Sequence" className="input-field !bg-white/5 !border-slate-200 dark:!border-white/10 !py-5 !px-8 !rounded-2xl" required value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
-                            <input type="password" placeholder="Confirm New Matrix" className="input-field !bg-white/5 !border-slate-200 dark:!border-white/10 !py-5 !px-8 !rounded-2xl" required value={pwData.confirm} onChange={e => setPwData({ ...pwData, confirm: e.target.value })} />
-                        </div>
-                        <button type="submit" className="w-full btn-primary py-6 text-[11px] font-black uppercase tracking-[0.4em] italic shadow-2xl shadow-brand-500/30 hover:scale-[1.02] active:scale-95 transition-all">Authorize Sequence Update</button>
-                    </form>
-                </div>
-            </div>
-        );
-
         const renderUsers = () => (
             <div className="space-y-12 animate-slide">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-8 px-4">
                     <div className="text-center md:text-left space-y-2">
-                        <h3 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Access Control Matrix</h3>
+                        <h3 className="text-4xl font-display font-black uppercase italic tracking-tighter text-black">Access Control Matrix</h3>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">{data.users.length} Identified Entities // Active Privileges</p>
                     </div>
-                    <button onClick={() => setIsAddingUser(true)} className="btn-primary py-5 px-10 text-[11px] font-black uppercase tracking-[0.3em] italic shadow-2xl flex items-center gap-3">
+                    <button onClick={() => setIsAddingUser(true)} className="brand-button-yellow !py-5 !px-10 flex items-center gap-3">
                         <Icon name="plus-circle" size={20} /> Provision New Entity
                     </button>
                 </div>
                 <div className="grid grid-cols-1 gap-6 px-4">
                     {data.users.map(u => (
-                        <div key={u.id} className="p-8 bg-slate-50 dark:bg-white/5 rounded-[2.5rem] border border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between group hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm hover:shadow-2xl">
+                        <div key={u.id} className="p-8 bg-white border-4 border-black flex flex-col sm:flex-row items-center justify-between group hover:shadow-premium transition-all">
                             <div className="flex flex-col sm:flex-row items-center gap-8 mb-6 sm:mb-0">
-                                <div className="w-20 h-20 bg-slate-950 text-brand-500 rounded-[2rem] flex items-center justify-center font-black text-3xl shadow-2xl group-hover:bg-brand-500 group-hover:text-black transition-all perspective-1000 group-hover:rotate-y-12">
+                                <div className="w-20 h-20 bg-black text-brand-500 flex items-center justify-center font-display font-black text-3xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-2 border-brand-500">
                                     {u.name.charAt(0)}
                                 </div>
                                 <div className="text-center sm:text-left space-y-1">
-                                    <p className="text-2xl font-black text-slate-900 dark:text-white uppercase italic leading-none tracking-tighter">{u.name}</p>
+                                    <p className="text-2xl font-black text-black uppercase italic leading-none tracking-tighter">{u.name}</p>
                                     <div className="flex items-center justify-center sm:justify-start gap-3 mt-2">
-                                        <p className="text-[10px] font-black text-brand-600 dark:text-brand-500 uppercase tracking-[0.3em] font-sans">@{u.username}</p>
+                                        <p className="text-[10px] font-black text-brand-600 uppercase tracking-[0.3em] font-sans">@{u.username}</p>
                                         <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] italic">{u.role}</p>
                                     </div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
-                                <button onClick={() => handleEditClick(u)} className="w-12 h-12 flex items-center justify-center bg-white dark:bg-white/5 text-slate-400 hover:text-brand-500 hover:shadow-xl hover:shadow-brand-500/20 rounded-2xl transition-all border border-slate-100 dark:border-white/5" title="Modify Privileges">
+                                <button onClick={() => handleEditClick(u)} className="w-12 h-12 flex items-center justify-center bg-black text-white hover:text-brand-500 transition-all border-2 border-black" title="Modify Privileges">
                                     <Icon name="edit-3" size={18} />
                                 </button>
                                 {u.id !== user.id && (
-                                    <button onClick={() => { if (confirm(`Decommission access for ${u.username}?`)) { deleteItem('users', u.id); logActivity(`Access revoked for ${u.username}`, 'Archive'); } }} className="w-12 h-12 flex items-center justify-center bg-white dark:bg-white/5 text-slate-400 hover:text-rose-500 hover:shadow-xl hover:shadow-rose-500/20 rounded-2xl transition-all border border-slate-100 dark:border-white/5" title="Revoke Permissions">
+                                    <button onClick={() => { if (confirm(`Decommission access for ${u.username}?`)) { deleteItem('users', u.id); logActivity(`Access revoked for ${u.username}`, 'Archive'); } }} className="w-12 h-12 flex items-center justify-center bg-black text-white hover:text-rose-500 transition-all border-2 border-black" title="Revoke Permissions">
                                         <Icon name="shield-off" size={18} />
                                     </button>
                                 )}
@@ -2822,62 +2958,67 @@
                         </div>
                     ))}
                 </div>
-
-                <Modal isOpen={isAddingUser} onClose={() => { setIsAddingUser(false); setEditingUser(null); }} title={editingUser ? "Update Access Privileges" : "Provision Fresh Access"}>
-                    <form onSubmit={handleProvisionUser} className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Full Name</label>
-                                <input className="input-field" required value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Access Username</label>
-                                <input className="input-field" required value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Primary Credentials (Password)</label>
-                                <input type="password" className="input-field" required value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Permission Role</label>
-                                <select className="input-field" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
-                                    <option>admin</option><option>designer</option><option>reception</option><option>marketer</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-sm uppercase font-black tracking-widest italic shadow-2xl">Execute Provisioning</button>
-                    </form>
-                </Modal>
             </div>
         );
 
         return (
-            <div className="max-w-6xl mx-auto space-y-16 pb-32">
-                <div className="flex flex-wrap justify-center lg:justify-start gap-6 p-4 bg-slate-100 dark:bg-white/5 rounded-[3.5rem] w-fit mx-auto lg:mx-0 shadow-inner ring-1 ring-slate-200 dark:ring-white/5">
-                    {[
-                        { id: 'profile', label: 'Identity Matrix', icon: 'user' },
-                        { id: 'integration', label: 'G-Cloud Recon', icon: 'cloud-lightning' },
-                        { id: 'security', label: 'Defense Sentinel', icon: 'shield-alert' },
-                        { id: 'users', label: 'Access Protocol', icon: 'users' }
-                    ].map(tab => (
+            <div className="space-y-12 animate-slide">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4 border-b-4 border-black">
+                    <div className="space-y-2">
+                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Administrative Command</h2>
+                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                            <div className="w-12 h-1 bg-brand-500"></div>
+                            System Configuration & Security Protocols
+                        </div>
+                    </div>
+                    {activeSection !== 'overview' && (
                         <button
-                            key={tab.id}
-                            onClick={() => setActiveSection(tab.id)}
-                            className={`flex items-center gap-4 px-12 py-5 rounded-[3rem] text-[11px] font-black uppercase tracking-[0.2em] transition-all relative overflow-hidden group ${activeSection === tab.id ? 'bg-slate-950 text-brand-500 shadow-2xl scale-105 ring-1 ring-white/10' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+                            onClick={() => setActiveSection('overview')}
+                            className="brand-button-yellow !py-4 !px-8 flex items-center gap-4 italic"
                         >
-                            <Icon name={tab.icon} size={18} className={`${activeSection === tab.id ? 'animate-pulse' : 'text-slate-400'}`} />
-                            {tab.label}
-                            {activeSection === tab.id && <span className="absolute bottom-0 left-0 w-full h-1 bg-brand-500"></span>}
+                            <Icon name="arrow-left" size={18} />
+                            Return to Matrix
                         </button>
-                    ))}
+                    )}
                 </div>
 
-                <div className="card !p-12 md:!p-20 shadow-[-50px_50px_100px_rgba(0,0,0,0.1)] border-none bg-white dark:bg-[#0f172a]/50 backdrop-blur-3xl rounded-[4rem] ring-1 ring-white/5">
+                <div className="p-4">
+                    {activeSection === 'overview' && renderOverview()}
                     {activeSection === 'profile' && renderProfile()}
                     {activeSection === 'integration' && renderIntegration()}
                     {activeSection === 'security' && renderSecurity()}
                     {activeSection === 'users' && renderUsers()}
                 </div>
+
+                <Modal isOpen={isAddingUser} onClose={() => { setIsAddingUser(false); setEditingUser(null); }} title={editingUser ? "Update Access Privileges" : "Provision Fresh Access"}>
+                    <form onSubmit={handleProvisionUser} className="space-y-10 p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-2">
+                                <label className="brand-label !text-slate-400">Full Name Identification</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="Personnel Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="brand-label !text-slate-400">Access Handle (Username)</label>
+                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="username" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="brand-label !text-slate-400">Security Sequence (Password)</label>
+                                <input type="password" className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="••••••••" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="brand-label !text-slate-400">Authority Classification</label>
+                                <select className="brand-input !bg-slate-50 !border-slate-200 !text-black" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
+                                    <option value="reception">Reception Level</option>
+                                    <option value="designer">Designer Level</option>
+                                    <option value="admin">Executive Command</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
+                            {editingUser ? "Authorize Privilege Shift" : "provision fresh access"}
+                        </button>
+                    </form>
+                </Modal>
             </div>
         );
     };

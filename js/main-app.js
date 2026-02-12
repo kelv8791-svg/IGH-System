@@ -45,11 +45,9 @@
 
     const MainLayout = () => {
         const context = useContext(window.AppContext);
-        const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+        if (!context) return <div className="p-20 text-center font-display uppercase tracking-widest animate-pulse">Initializing Core Engine...</div>;
 
-        if (!context) return <div className="p-20 text-center font-bold">Waiting for System Context...</div>;
-
-        const { user, logout, activeTab, isDarkMode, setIsDarkMode } = context;
+        const { user, logout, activeTab } = context;
 
         const renderContent = () => {
             // Dynamically grab modules from window to avoid closure/scoping issues
@@ -74,99 +72,58 @@
         };
 
         return (
-            <div className="flex min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
-                {/* C7: Mobile overlay backdrop */}
-                {isSidebarOpen && (
-                    <div className="fixed inset-0 bg-black/50 z-10 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>
-                )}
-                <aside className={`bg-[#0f172a]/95 backdrop-blur-2xl text-white transition-all duration-500 ease-in-out flex flex-col z-20 shadow-[20px_0_50px_rgba(0,0,0,0.1)] border-r border-white/5 fixed lg:sticky top-0 h-screen ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-24 -translate-x-full lg:translate-x-0'}`}>
-                    <div className="p-8 border-b border-white/5 flex items-center justify-between">
-                        <div className={`flex items-center gap-3 transition-opacity duration-300 ${!isSidebarOpen && 'opacity-0 hidden'}`}>
-                            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white font-black text-xs">IG</div>
-                            <span className="font-black tracking-tighter uppercase italic text-sm">IGH Tracker</span>
+            <div className="min-h-screen bg-[#fafafa] flex flex-col font-sans">
+                {/* Top Header: Brand & Identity */}
+                <header className="bg-black text-white px-8 py-4 flex items-center justify-between z-30 shadow-2xl">
+                    <div className="flex items-center gap-6">
+                        <div className="w-12 h-12 bg-brand-500 text-black flex items-center justify-center rounded-sm">
+                            <window.Icon name="logo-box" size={32} />
                         </div>
-                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className={`p-2 hover:bg-white/10 rounded-xl text-slate-400 transition-colors ${!isSidebarOpen && 'mx-auto'}`}>
-                            {window.Icon && <window.Icon name={isSidebarOpen ? "chevron-left" : "menu"} size={20} />}
+                        <div className="hidden sm:block text-left">
+                            <h1 className="text-lg font-display uppercase tracking-tighter leading-none">Identity Graphics Houzz</h1>
+                            <p className="text-[10px] text-brand-500 font-display uppercase tracking-[0.2em] italic mt-1">Where creativity meets excellence</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                        <div className="text-right hidden md:block">
+                            <p className="text-xs font-display uppercase tracking-widest text-slate-400 leading-none mb-1">{user?.email}</p>
+                            <p className="text-[9px] text-brand-500 uppercase font-black tracking-widest leading-none italic">System Administrator</p>
+                        </div>
+                        <button
+                            onClick={logout}
+                            className="brand-button-yellow !px-6 !py-3 !text-[10px] flex items-center gap-2"
+                        >
+                            Logout
                         </button>
                     </div>
-                    <nav className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
-                        {window.SidebarLink && (
-                            <>
-                                <window.SidebarLink id="dashboard" icon="layout-dashboard" label="Dashboard" isOpen={isSidebarOpen} />
-                                <div className={`pt-6 pb-2 px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] transition-opacity duration-300 ${!isSidebarOpen && 'opacity-0'}`}>Core Engine</div>
-                                <window.SidebarLink id="sales" icon="shopping-cart" label="Sales Console" isOpen={isSidebarOpen} />
-                                <window.SidebarLink id="expenses" icon="receipt" label="Expense Ledger" isOpen={isSidebarOpen} />
-                                <window.SidebarLink id="projects" icon="briefcase" label="Project Grid" isOpen={isSidebarOpen} />
-                                <window.SidebarLink id="inventory" icon="package" label="Asset Control" isOpen={isSidebarOpen} />
-                                <div className={`pt-6 pb-2 px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] transition-opacity duration-300 ${!isSidebarOpen && 'opacity-0'}`}>Intelligence</div>
-                                <window.SidebarLink id="reports" icon="bar-chart-3" label="Business Analytics" isOpen={isSidebarOpen} />
-                                <window.SidebarLink id="clients" icon="users" label="CRM Access" isOpen={isSidebarOpen} />
-                                <window.SidebarLink id="suppliers" icon="truck" label="Supply Chain" isOpen={isSidebarOpen} />
-                                <window.SidebarLink id="field_ops" icon="radio" label="Field Operations" isOpen={isSidebarOpen} />
-                            </>
-                        )}
-                    </nav>
-                    <div className="p-6 mt-auto border-t border-white/5 bg-black/20">
-                        {user?.role === 'admin' && window.SidebarLink && <window.SidebarLink id="settings" icon="settings" label="System Settings" isOpen={isSidebarOpen} />}
-                        <button onClick={logout} className={`w-full flex items-center gap-4 px-4 py-4 mt-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-2xl transition-all font-black text-xs uppercase tracking-widest ${!isSidebarOpen && 'justify-center'}`}>
-                            {window.Icon && <window.Icon name="log-out" size={20} />}<span className={isSidebarOpen ? 'block' : 'hidden'}>Terminate Session</span>
-                        </button>
-                    </div>
-                </aside>
-                <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-slate-50 dark:bg-[#020617]">
-                    <header className="h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-30 shadow-sm dark:bg-[#020617]/80 dark:border-white/5">
-                        <div className="flex items-center gap-4 sm:gap-8 flex-1">
-                            {/* C7: Mobile hamburger */}
-                            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl text-slate-500">
-                                {window.Icon && <window.Icon name="menu" size={24} />}
-                            </button>
-                            <div className="relative group hidden lg:block max-w-md w-full">
-                                <Icon name="search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                                <input
-                                    type="text"
-                                    placeholder="Execute search command..."
-                                    className="w-full bg-slate-100 border-none rounded-2xl py-3 pl-12 pr-4 text-xs font-bold focus:ring-2 focus:ring-brand-500/20 transition-all dark:bg-white/5 dark:text-white"
-                                />
-                            </div>
+                </header>
 
-                            <div className="flex flex-col min-w-0 border-l border-slate-200 dark:border-white/10 pl-8">
-                                <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight capitalize truncate leading-none mb-1">{activeTab ? activeTab.replace('_', ' ') : 'Dashboard'}</h2>
-                                <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] italic opacity-70">Secured Control Plane</p>
-                            </div>
-                        </div>
+                {/* Top Navigation: Module Tabs */}
+                <nav className="bg-white border-b border-slate-100 px-8 flex items-center gap-2 sticky top-0 z-20 overflow-x-auto no-scrollbar shadow-sm">
+                    <window.NavTab id="dashboard" label="Dashboard" icon="layout-dashboard" />
+                    <window.NavTab id="sales" label="Sales" icon="shopping-cart" />
+                    <window.NavTab id="expenses" label="Expenses" icon="receipt" />
+                    <window.NavTab id="projects" label="Projects" icon="briefcase" />
+                    <window.NavTab id="inventory" label="Inventory" icon="package" />
+                    <window.NavTab id="clients" label="Clients" icon="users" />
+                    <window.NavTab id="suppliers" label="Suppliers" icon="truck" />
+                    <window.NavTab id="field_ops" label="Field Ops" icon="radio" />
+                    {user?.role === 'admin' && <window.NavTab id="settings" label="Admin" icon="settings" />}
+                </nav>
 
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-white/5 rounded-2xl">
-                                <button onClick={() => setIsDarkMode(false)} className={`p-2.5 rounded-xl transition-all ${!isDarkMode ? 'bg-white text-brand-500 shadow-sm' : 'text-slate-400'}`}>
-                                    <Icon name="sun" size={18} />
-                                </button>
-                                <button onClick={() => setIsDarkMode(true)} className={`p-2.5 rounded-xl transition-all ${isDarkMode ? 'bg-slate-900 text-brand-500 shadow-sm' : 'text-slate-500'}`}>
-                                    <Icon name="moon" size={18} />
-                                </button>
-                            </div>
-
-                            <button className="p-3 text-slate-400 hover:text-brand-500 hover:bg-brand-500/5 rounded-2xl transition-all relative">
-                                <Icon name="bell" size={20} />
-                                <span className="absolute top-3 right-3 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-[#020617]"></span>
-                            </button>
-
-                            <div className="h-8 w-px bg-slate-200 dark:bg-white/10 mx-2"></div>
-
-                            <div className="flex items-center gap-4 pl-2 group cursor-pointer">
-                                <div className="text-right hidden sm:block">
-                                    <p className="text-sm font-black text-slate-900 dark:text-white leading-none mb-1">{user?.name}</p>
-                                    <p className="text-[9px] text-brand-500 uppercase font-black tracking-widest leading-none italic">{user?.role}</p>
-                                </div>
-                                <div className="w-11 h-11 bg-slate-900 dark:bg-brand-500 rounded-2xl border border-white/10 shadow-xl flex items-center justify-center font-black text-brand-500 dark:text-black text-lg group-hover:scale-105 transition-transform">
-                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="Avatar" className="w-full h-full rounded-2xl" />
-                                </div>
-                            </div>
-                        </div>
-                    </header>
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-8">
-                        <div className="max-w-7xl mx-auto">{renderContent()}</div>
+                {/* Main Content Area */}
+                <main className="flex-1 p-8 sm:p-12">
+                    <div className="max-w-[1600px] mx-auto animate-slide">
+                        {renderContent()}
                     </div>
                 </main>
+
+                <footer className="p-8 border-t border-slate-100 text-center opacity-30">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-800">
+                        Operational Intelligence System // Secure Session Active
+                    </p>
+                </footer>
             </div>
         );
     };

@@ -5,17 +5,30 @@
     const Icon = ({ name, size = 20, className = "" }) => {
         const svgRef = React.useRef(null);
         useEffect(() => {
-            if (!svgRef.current || !window.lucide || !window.lucide.icons) return;
-            const iconName = name; // e.g. "layout-dashboard"
-            const iconData = window.lucide.icons[iconName];
+            if (!svgRef.current) return;
+
+            // Custom Brand Logo
+            if (name === 'logo-box') {
+                svgRef.current.innerHTML = `
+                    <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/>
+                    <rect x="8" y="8" width="8" height="8" fill="black"/>
+                    <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                    <rect x="11.5" y="6" width="1" height="1" fill="white"/>
+                    <rect x="11.5" y="17" width="1" height="1" fill="white"/>
+                    <rect x="6" y="11.5" width="1" height="1" fill="white"/>
+                    <rect x="17" y="11.5" width="1" height="1" fill="white"/>
+                `;
+                return;
+            }
+
+            if (!window.lucide || !window.lucide.icons) return;
+            const iconData = window.lucide.icons[name];
             if (!iconData) {
                 svgRef.current.innerHTML = '';
                 return;
             }
-            // iconData = [defaultAttrs, children] where children = [[tag, attrs], ...]
             const children = iconData[1] || iconData;
             let inner = '';
-            // Handle both array formats from different Lucide CDN versions
             if (Array.isArray(children)) {
                 children.forEach(child => {
                     if (Array.isArray(child) && child.length >= 2) {
@@ -62,36 +75,49 @@
         );
     };
 
-    const StatCard = ({ icon, label, value, color, trend }) => {
-        const colors = {
-            green: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-emerald-500/10',
-            red: 'bg-rose-500/10 text-rose-500 border-rose-500/20 shadow-rose-500/10',
-            brand: 'bg-brand-500/10 text-brand-500 border-brand-500/20 shadow-brand-500/10',
-            orange: 'bg-amber-500/10 text-amber-500 border-amber-500/20 shadow-amber-500/10',
-        };
-        const trendColor = trend?.startsWith('+') ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10';
+    const NavTab = ({ id, label, icon }) => {
+        const { activeTab, setActiveTab } = useContext(AppContext);
+        const isActive = activeTab === id;
+        return (
+            <button
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-3 px-6 py-6 border-b-4 transition-all duration-300 text-[10px] font-display font-black uppercase tracking-widest ${isActive ? 'border-brand-500 text-black bg-brand-500/5' : 'border-transparent text-slate-400 hover:text-black hover:border-slate-200'}`}
+            >
+                <Icon name={icon} size={16} className={isActive ? 'text-brand-500' : 'text-slate-300'} />
+                {label}
+            </button>
+        );
+    };
+
+    const StatCard = ({ label, value, trend, trendType, icon, color = 'white' }) => {
+        const bgClass = {
+            brand: 'bg-brand-500 text-black border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]',
+            red: 'bg-rose-600 text-white border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]',
+            green: 'bg-emerald-500 text-black border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]',
+            orange: 'bg-amber-500 text-black border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]',
+            white: 'bg-white text-black border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
+        }[color] || 'bg-white text-black border-black';
+
+        const labelColor = (color === 'red' || color === 'black') ? 'text-white/60' : 'text-black/40';
 
         return (
-            <div className="card p-8 group hover:scale-[1.02] transition-all duration-500 cursor-default border-none bg-white dark:bg-white/5 relative overflow-hidden">
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-brand-500/5 blur-3xl rounded-full group-hover:bg-brand-500/10 transition-colors"></div>
-
-                <div className="flex items-start justify-between relative z-10">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-xl ${colors[color]} border shadow-lg`}>
-                                <Icon name={icon} size={20} />
-                            </div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{label}</p>
-                        </div>
-                        <h4 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">{value}</h4>
+            <div className={`p-8 border-4 ${bgClass} relative overflow-hidden group transition-all hover:translate-y-[-4px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]`}>
+                <div className="flex justify-between items-start relative z-10">
+                    <div className="space-y-2">
+                        <p className={`text-[10px] font-black uppercase tracking-[0.3em] italic ${labelColor}`}>{label}</p>
+                        <h4 className="text-3xl font-display font-black tracking-tighter italic">{value}</h4>
                         {trend && (
-                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black w-fit uppercase tracking-wider ${trendColor}`}>
-                                {trend.startsWith('+') ? <Icon name="trending-up" size={12} /> : <Icon name="trending-down" size={12} />}
-                                {trend}
+                            <div className={`flex items-center gap-1 mt-4 text-[10px] font-black italic tracking-widest ${trendType === 'up' ? 'text-emerald-900' : 'text-rose-900'} opacity-60`}>
+                                <Icon name={trendType === 'up' ? 'trending-up' : 'trending-down'} size={12} />
+                                {trend} VELOCITY
                             </div>
                         )}
                     </div>
+                    <div className={`w-14 h-14 flex items-center justify-center border-2 border-black ${color === 'white' ? 'bg-brand-500 text-black' : 'bg-white/20 text-white'} shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
+                        <Icon name={icon} size={28} />
+                    </div>
                 </div>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-[0.05] translate-x-12 -translate-y-12 rotate-45"></div>
             </div>
         );
     };
@@ -105,77 +131,91 @@
         const handleSubmit = async (e) => {
             e.preventDefault();
             const success = await login(email, password);
-            if (success) {
-                setError('');
-            } else {
-                setError('Authentication Failed: Invalid Credentials Context');
-            }
+            if (!success) setError('Incorrect email or password. Please try again.');
         };
 
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#020617] p-8 overflow-hidden relative">
-                {/* Visual Blobs */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 blur-[120px] rounded-full -mr-48 -mt-48"></div>
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/10 blur-[120px] rounded-full -ml-48 -mb-48"></div>
+            <div className="min-h-screen flex items-center justify-center bg-black p-6 overflow-hidden relative font-sans">
+                {/* Background Glows */}
+                <div className="absolute top-[10%] left-[10%] w-[600px] h-[600px] bg-brand-500/10 blur-[150px] rounded-full animate-[bg-glow_10s_infinite]"></div>
+                <div className="absolute bottom-[10%] right-[10%] w-[500px] h-[500px] bg-brand-500/10 blur-[150px] rounded-full animate-[bg-glow_10s_infinite_reverse]"></div>
 
-                <div className="max-w-md w-full relative z-10">
-                    <div className="bg-white/5 backdrop-blur-2xl p-10 rounded-[2.5rem] border border-white/10 shadow-2xl space-y-8">
-                        <div className="text-center space-y-4">
-                            <div className="w-20 h-20 bg-brand-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-brand-500/40 transform hover:scale-110 transition-transform">
-                                <span className="text-3xl font-black text-white italic">IG</span>
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-black tracking-tight text-white uppercase italic">IGH <span className="text-brand-500">Tracker</span></h1>
-                                <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Next-Gen Business Control</p>
-                            </div>
+                {/* Decorative Diamond Elements */}
+                <div className="absolute top-20 left-20 w-16 h-16 border-2 border-brand-500/20 rotate-45 hidden md:block"></div>
+                <div className="absolute bottom-40 right-20 w-12 h-12 bg-brand-500/5 rotate-45 hidden md:block"></div>
+                <div className="absolute top-1/2 right-10 w-24 h-24 border border-brand-500/10 rotate-12 hidden lg:block"></div>
+
+                <div className="w-full max-w-[450px] relative z-10 flex flex-col items-center">
+                    {/* Brand Identity */}
+                    <div className="mb-12 text-center">
+                        <div className="relative w-24 h-24 mx-auto mb-8 animate-[spin_20s_linear_infinite]">
+                            <Icon name="logo-box" size={96} className="text-brand-500" />
                         </div>
+                        <h1 className="text-white text-3xl font-display uppercase tracking-tight leading-none mb-1">
+                            Identity Graphics<br />Houzz
+                        </h1>
+                        <div className="flex items-center justify-center gap-4 mt-4">
+                            <div className="h-px w-10 bg-brand-500"></div>
+                            <p className="text-brand-500 text-[10px] font-display uppercase tracking-[0.2em] italic">Where creativity meets excellence</p>
+                            <div className="h-px w-10 bg-brand-500"></div>
+                        </div>
+                    </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Login Card */}
+                    <div className="bg-white p-12 w-full shadow-[0_30px_60px_-15px_rgba(250,204,21,0.1)]">
+                        <h2 className="text-black text-2xl text-center mb-10 font-display">Sign In</h2>
+
+                        <form onSubmit={handleSubmit} className="space-y-8">
                             {error && (
-                                <div className="bg-rose-500/10 text-rose-500 p-4 rounded-2xl text-[11px] font-black border border-rose-500/20 uppercase tracking-wider flex items-center gap-3 animate-pulse">
-                                    <Icon name="shield-alert" size={16} />
+                                <div className="bg-red-50 text-red-600 p-4 border-l-4 border-red-500 text-xs font-bold animate-shake">
                                     {error}
                                 </div>
                             )}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Operator Identity</label>
-                                <input
-                                    type="text"
-                                    className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500 text-sm"
-                                    placeholder="Username or Identifier"
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Access Code</label>
-                                <input
-                                    type="password"
-                                    className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500 text-sm"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
-                                    required
-                                />
+
+                            <div>
+                                <label className="brand-label">Email Address</label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                        <Icon name="mail" size={18} />
+                                    </div>
+                                    <input
+                                        type="email"
+                                        className="brand-input !pl-12 !border-slate-100 focus:!border-brand-500 !text-black"
+                                        placeholder="Enter your email"
+                                        value={email}
+                                        onChange={e => setEmail(e.target.value)}
+                                        required
+                                    />
+                                </div>
                             </div>
 
-                            <button type="submit" className="w-full bg-brand-600 text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-brand-500/40 hover:bg-brand-500 transition-all active:scale-95 text-xs">
-                                Authorize Session
+                            <div>
+                                <label className="brand-label">Password</label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                        <Icon name="lock" size={18} />
+                                    </div>
+                                    <input
+                                        type="password"
+                                        className="brand-input !pl-12 !border-slate-100 focus:!border-brand-500 !text-black"
+                                        placeholder="Enter your password"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <button type="submit" className="brand-button-yellow w-full !text-sm group">
+                                Sign In
+                                <Icon name="arrow-right" size={20} className="group-hover:translate-x-2 transition-transform" />
                             </button>
-
-                            <div className="text-center pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => { localStorage.clear(); window.location.reload(); }}
-                                    className="text-[9px] text-slate-500 hover:text-brand-500 transition-colors uppercase font-black tracking-[0.2em]"
-                                >
-                                    Emergency Reset Procedure
-                                </button>
-                            </div>
                         </form>
                     </div>
-                    <p className="text-center text-slate-500 text-[9px] mt-8 uppercase font-black tracking-widest opacity-50">Secure Enclave v4.0.2 // Proprietary System</p>
+
+                    <p className="mt-12 text-slate-600 text-[10px] font-bold uppercase tracking-widest text-center">
+                        © 2026 Identity Graphics Houzz. All rights reserved.
+                    </p>
                 </div>
             </div>
         );
@@ -204,7 +244,7 @@
     };
     // Attach to window for global scoping
     window.Icon = Icon;
-    window.SidebarLink = SidebarLink;
+    window.NavTab = NavTab;
     window.StatCard = StatCard;
     window.LoginScreen = LoginScreen;
     window.Modal = Modal;
