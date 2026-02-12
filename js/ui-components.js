@@ -3,25 +3,46 @@
     const AppContext = window.AppContext;
 
     const Icon = ({ name, size = 20, className = "" }) => {
-        const iconData = window.lucide?.icons[name];
-        if (!iconData) return <span style={{ width: size, height: size }} className={className} />;
+        const svgRef = React.useRef(null);
+        useEffect(() => {
+            if (!svgRef.current || !window.lucide || !window.lucide.icons) return;
+            const iconName = name; // e.g. "layout-dashboard"
+            const iconData = window.lucide.icons[iconName];
+            if (!iconData) {
+                svgRef.current.innerHTML = '';
+                return;
+            }
+            // iconData = [defaultAttrs, children] where children = [[tag, attrs], ...]
+            const children = iconData[1] || iconData;
+            let inner = '';
+            // Handle both array formats from different Lucide CDN versions
+            if (Array.isArray(children)) {
+                children.forEach(child => {
+                    if (Array.isArray(child) && child.length >= 2) {
+                        const [tag, attrs] = child;
+                        const attrStr = Object.entries(attrs || {}).map(([k, v]) => `${k}="${v}"`).join(' ');
+                        inner += `<${tag} ${attrStr}/>`;
+                    }
+                });
+            }
+            svgRef.current.innerHTML = inner;
+        }, [name]);
 
-        const renderNodes = (nodes) => nodes.map(([tag, attrs, children], i) =>
-            React.createElement(tag, { ...attrs, key: i }, (children && Array.isArray(children)) ? renderNodes(children) : null)
+        return (
+            <svg
+                ref={svgRef}
+                xmlns="http://www.w3.org/2000/svg"
+                width={size}
+                height={size}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={className}
+            />
         );
-
-        return React.createElement('svg', {
-            xmlns: "http://www.w3.org/2000/svg",
-            width: size,
-            height: size,
-            viewBox: "0 0 24 24",
-            fill: "none",
-            stroke: "currentColor",
-            strokeWidth: "2",
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            className: `lucide lucide-${name} ${className}`
-        }, renderNodes(iconData));
     };
 
     const SidebarLink = ({ id, icon, label, isOpen }) => {
@@ -101,7 +122,7 @@
                     <div className="bg-white/5 backdrop-blur-2xl p-10 rounded-[2.5rem] border border-white/10 shadow-2xl space-y-8">
                         <div className="text-center space-y-4">
                             <div className="w-20 h-20 bg-brand-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-brand-500/40 transform hover:scale-110 transition-transform">
-                                <img src="logo.jpg" alt="IGH Logo" className="w-12 h-12 object-contain" />
+                                <span className="text-3xl font-black text-white italic">IG</span>
                             </div>
                             <div>
                                 <h1 className="text-3xl font-black tracking-tight text-white uppercase italic">IGH <span className="text-brand-500">Tracker</span></h1>

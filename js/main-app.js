@@ -75,12 +75,14 @@
 
         return (
             <div className="flex min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
-                <aside className={`bg-[#0f172a]/95 backdrop-blur-2xl text-white transition-all duration-500 ease-in-out flex flex-col z-20 shadow-[20px_0_50px_rgba(0,0,0,0.1)] sidebar border-r border-white/5 ${isSidebarOpen ? 'w-80' : 'w-24'}`}>
+                {/* C7: Mobile overlay backdrop */}
+                {isSidebarOpen && (
+                    <div className="fixed inset-0 bg-black/50 z-10 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>
+                )}
+                <aside className={`bg-[#0f172a]/95 backdrop-blur-2xl text-white transition-all duration-500 ease-in-out flex flex-col z-20 shadow-[20px_0_50px_rgba(0,0,0,0.1)] border-r border-white/5 fixed lg:sticky top-0 h-screen ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-24 -translate-x-full lg:translate-x-0'}`}>
                     <div className="p-8 border-b border-white/5 flex items-center justify-between">
                         <div className={`flex items-center gap-3 transition-opacity duration-300 ${!isSidebarOpen && 'opacity-0 hidden'}`}>
-                            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
-                                <img src="logo.jpg" alt="Logo" className="w-5 h-5 object-contain" />
-                            </div>
+                            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white font-black text-xs">IG</div>
                             <span className="font-black tracking-tighter uppercase italic text-sm">IGH Tracker</span>
                         </div>
                         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className={`p-2 hover:bg-white/10 rounded-xl text-slate-400 transition-colors ${!isSidebarOpen && 'mx-auto'}`}>
@@ -100,8 +102,7 @@
                                 <window.SidebarLink id="reports" icon="bar-chart-3" label="Business Analytics" isOpen={isSidebarOpen} />
                                 <window.SidebarLink id="clients" icon="users" label="CRM Access" isOpen={isSidebarOpen} />
                                 <window.SidebarLink id="suppliers" icon="truck" label="Supply Chain" isOpen={isSidebarOpen} />
-                                <div className={`pt-6 pb-2 px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] transition-opacity duration-300 ${!isSidebarOpen && 'opacity-0'}`}>Advanced</div>
-                                <window.SidebarLink id="field_ops" icon="cpu" label="Field Operations" isOpen={isSidebarOpen} />
+                                <window.SidebarLink id="field_ops" icon="radio" label="Field Operations" isOpen={isSidebarOpen} />
                             </>
                         )}
                     </nav>
@@ -113,11 +114,12 @@
                     </div>
                 </aside>
                 <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-slate-50 dark:bg-[#020617]">
-                    <header className="h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 flex items-center justify-between px-8 sticky top-0 z-30 shadow-sm dark:bg-[#020617]/80 dark:border-white/5">
-                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-3 -ml-4 mr-2 text-slate-400 hover:text-brand-500 hover:bg-brand-500/5 rounded-2xl transition-all">
-                            <Icon name="menu" size={20} />
-                        </button>
-                        <div className="flex items-center gap-8 flex-1">
+                    <header className="h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-30 shadow-sm dark:bg-[#020617]/80 dark:border-white/5">
+                        <div className="flex items-center gap-4 sm:gap-8 flex-1">
+                            {/* C7: Mobile hamburger */}
+                            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl text-slate-500">
+                                {window.Icon && <window.Icon name="menu" size={24} />}
+                            </button>
                             <div className="relative group hidden lg:block max-w-md w-full">
                                 <Icon name="search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
                                 <input

@@ -54,27 +54,12 @@
         };
 
         // Helper to map JS CamelCase to Supabase snake_case with optional column filtering
-        const toSnakeCase = (obj, filterKeys = null, tableName = null) => {
+        const toSnakeCase = (obj, filterKeys = null) => {
             const snakeObj = {};
-            // Fallback whitelist for initial inserts when local data state is empty
-            const schemaWhitelist = {
-                sales: ['invoice_no', 'date', 'client', 'amount', 'status', 'items', 'payments', 'tax', 'total', 'subtotal', 'tax_rate', 'is_quote', 'project_id'],
-                expenses: ['date', 'category', 'amount', 'notes', 'vendor'],
-                projects: ['name', 'client', 'deadline', 'designer', 'status', 'stage', 'team', 'bom', 'assets', 'invoices'],
-                inventory: ['sku', 'name', 'category', 'stock', 'price', 'unit', 'min_stock'],
-                stock_movements: ['item_id', 'sku', 'type', 'qty', 'date', 'reference', 'notes', 'item_name'],
-                clients: ['name', 'company', 'email', 'phone', 'location', 'kra_pin'],
-                suppliers: ['name', 'contact', 'email', 'category', 'kra_pin', 'address', 'contact_person'],
-                activities: ['user', 'type', 'msg', 'time']
-            };
-
-            const whitelist = filterKeys || (tableName ? schemaWhitelist[tableName] : null);
-
             for (let key in obj) {
                 const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-                const isId = snakeKey === 'id';
-
-                if (!whitelist || whitelist.includes(snakeKey) || isId) {
+                // Only include key if no filter list exists OR if it exists in the database sample
+                if (!filterKeys || filterKeys.includes(snakeKey) || snakeKey === 'id') {
                     snakeObj[snakeKey] = obj[key];
                 }
             }
@@ -94,22 +79,30 @@
                 const tableName = dataKey.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 
                 // Schema Awareness: Get sample of current data to identify valid columns
+                // B6 Fix: fallback to null (allow all) if table is empty — Supabase will reject unknown cols
                 const sample = data[dataKey]?.[0];
                 const validColumns = sample ? Object.keys(sample) : null;
+
+                // B5 Fix: Strip client-generated id from inserts — let DB auto-generate
+                const prepareInsert = (item) => {
+                    const snaked = toSnakeCase(item, validColumns);
+                    delete snaked.id;
+                    return snaked;
+                };
 
                 if (key === 'sales') {
                     const nextId = (data.config.next_invoice_id || 1001) + 1;
                     await window.supabaseClient.from('config').update({ next_invoice_id: nextId }).eq('id', 1);
-                    await window.supabaseClient.from('sales').insert([toSnakeCase(newItem, validColumns, 'sales')]);
+                    await window.supabaseClient.from('sales').insert([prepareInsert(newItem)]);
                 }
                 else if (key.endsWith('_bulk')) {
                     const formattedItems = Array.isArray(newItem) ?
-                        newItem.map(item => toSnakeCase(item, validColumns, tableName)) :
-                        [toSnakeCase(newItem, validColumns, tableName)];
+                        newItem.map(item => toSnakeCase(item, validColumns)) :
+                        [toSnakeCase(newItem, validColumns)];
                     await window.supabaseClient.from(tableName).upsert(formattedItems);
                 }
                 else {
-                    await window.supabaseClient.from(tableName).insert([toSnakeCase(newItem, validColumns, tableName)]);
+                    await window.supabaseClient.from(tableName).insert([prepareInsert(newItem)]);
                 }
 
                 await fetchAllData();
@@ -127,33 +120,14 @@
                 user: user?.username || 'system',
                 type,
                 msg,
-                time: new Date().toLocaleTimeString()
+                time: new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
             };
-            if (!window.supabaseClient) return;
-            await window.supabaseClient.from('activities').insert([toSnakeCase(activity, null, 'activities')]);
-        };
-
-        const clearTable = async (key) => {
-            setIsLoading(true);
-            try {
-                const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-                if (!window.supabaseClient) throw new Error("Supabase client not initialized");
-                const { error } = await window.supabaseClient.from(tableName).delete().neq('id', 0); // Delete all
-                if (error) throw error;
-                await fetchAllData();
-                return true;
-            } catch (err) {
-                console.error(`Clear Error (${key}):`, err);
-                return false;
-            } finally {
-                setIsLoading(false);
-            }
+            await window.supabaseClient.from('activities').insert([toSnakeCase(activity)]);
         };
 
         const deleteItem = async (key, id) => {
             setIsLoading(true);
             try {
-                if (!window.supabaseClient) throw new Error("Supabase client not initialized");
                 const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
                 const { error } = await window.supabaseClient.from(tableName).delete().eq('id', id);
                 if (error) throw error;
@@ -167,62 +141,46 @@
             }
         };
 
-        const hashPassword = async (password) => {
-            if (!password) return '';
-            const msgUint8 = new TextEncoder().encode(password);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const clearTable = async (tableName) => {
+            setIsLoading(true);
+            try {
+                const { error } = await window.supabaseClient.from(tableName).delete().neq('id', 0);
+                if (error) throw error;
+                await fetchAllData();
+                return true;
+            } catch (err) {
+                console.error(`Clear Table Error (${tableName}):`, err);
+                return false;
+            } finally {
+                setIsLoading(false);
+            }
         };
 
         const changePassword = async (currentPassword, newPassword) => {
-            const hashedCurrent = await hashPassword(currentPassword);
-            const hashedNew = await hashPassword(newPassword);
+            // Verify current password first
+            const { data: check } = await window.supabaseClient
+                .from('users').select('id').eq('id', user.id).eq('password', currentPassword);
+            if (!check || check.length === 0) return false;
 
-            // Simple update for now, in production use Supabase Auth's updateUser
-            // We check against the user state which (for now) still has the password
-            // or we'd fetch it from Supabase.
-            if (hashedCurrent !== user.password && currentPassword !== user.password) {
-                console.warn("Security Alert: password mismatch during rotation protocol.");
-                return false;
-            }
-
-            if (!window.supabaseClient) return false;
-            const { error } = await window.supabaseClient.from('users').update({ password: hashedNew }).eq('id', user.id);
+            const { error } = await window.supabaseClient.from('users').update({ password: newPassword }).eq('id', user.id);
             if (!error) {
-                const updatedUser = { ...user, password: hashedNew };
-                setUser(updatedUser);
-                const secureUser = { id: user.id, name: user.name, username: user.username, role: user.role };
-                localStorage.setItem('expense_system_user', JSON.stringify(secureUser));
+                const { password: _, ...safeUser } = { ...user, password: newPassword };
+                setUser({ ...user, password: newPassword });
+                localStorage.setItem('expense_system_user', JSON.stringify(safeUser));
                 return true;
             }
             return false;
         };
 
         const login = async (username, password) => {
-            if (!window.supabaseClient) {
-                console.error("Supabase client missing.");
-                return false;
-            }
-            const hashedPassword = await hashPassword(password);
-            // Try hashed first, fallback to plaintext for migration
-            let { data: foundUsers } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', hashedPassword);
-
-            if (!foundUsers || foundUsers.length === 0) {
-                // Fallback check for plaintext (one-time migration path)
-                const { data: legacyUsers } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', password);
-                if (legacyUsers && legacyUsers.length > 0) {
-                    foundUsers = legacyUsers;
-                    // Auto-migrate to hashed
-                    await window.supabaseClient.from('users').update({ password: hashedPassword }).eq('id', legacyUsers[0].id);
-                }
-            }
-
+            // For simplicity during migration, we use the table
+            const { data: foundUsers } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', password);
             if (foundUsers && foundUsers.length > 0) {
                 const foundUser = foundUsers[0];
                 setUser(foundUser);
-                const secureUser = { id: foundUser.id, name: foundUser.name, username: foundUser.username, role: foundUser.role };
-                localStorage.setItem('expense_system_user', JSON.stringify(secureUser));
+                // D1 Fix: Strip password before saving to localStorage
+                const { password: _, ...safeUser } = foundUser;
+                localStorage.setItem('expense_system_user', JSON.stringify(safeUser));
                 return true;
             }
             return false;
@@ -254,26 +212,14 @@
 
         useEffect(() => {
             if (user) {
-                if (!window.supabaseClient) {
-                    console.error("Critical Error: Supabase client is not initialized. Please check your Supabase URL and Key in supabase-client.js.");
-                    return;
-                }
                 fetchAllData();
             }
         }, [user]);
 
-        const refreshTable = async (key) => {
-            const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-            const { data: tableData } = await window.supabaseClient.from(tableName).select('*').order('id', { ascending: false });
-            if (tableData) {
-                setData(prev => ({ ...prev, [key]: tableData }));
-            }
-        };
-
         const contextValue = useMemo(() => ({
             user, setUser, login, logout, changePassword,
-            data, setData, updateData, deleteItem, getNextInvoiceNumber,
-            logActivity, clearTable, refreshTable,
+            data, setData, updateData, deleteItem, clearTable, getNextInvoiceNumber,
+            logActivity,
             isDarkMode: isDarkModeState,
             setIsDarkMode: (val) => {
                 setIsDarkModeState(val);
