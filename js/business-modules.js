@@ -2735,7 +2735,7 @@
     };
 
     const SettingsModule = () => {
-        const { data, user, updateData, deleteItem, logActivity, changePassword } = useContext(AppContext);
+        const { data, user, updateData, updateItem, deleteItem, logActivity, changePassword } = useContext(AppContext);
         const [isSyncing, setIsSyncing] = useState(false);
         const [syncLog, setSyncLog] = useState([]);
         const [activeSection, setActiveSection] = useState('overview'); // 'overview', 'profile', 'security', 'integration', 'users'
@@ -2857,23 +2857,19 @@
 
         const handleProvisionUser = async (e) => {
             e.preventDefault();
-            setIsLoading(true);
             try {
                 if (editingUser) {
-                    await window.supabaseClient.from('users').update(toSnakeCase(newUser)).eq('id', editingUser.id);
+                    await updateItem('users', editingUser.id, newUser);
                     logActivity(`User privileges updated: ${newUser.username}`, 'Update');
                 } else {
-                    await window.supabaseClient.from('users').insert([toSnakeCase(newUser)]);
+                    await updateData('users', newUser);
                     logActivity(`New user provisioned: ${newUser.username}`, 'Access');
                 }
-                await fetchAllData();
                 setIsAddingUser(false);
                 setEditingUser(null);
                 setNewUser({ name: '', username: '', password: '', role: 'reception' });
             } catch (err) {
                 console.error('Provision Error:', err);
-            } finally {
-                setIsLoading(false);
             }
         };
 

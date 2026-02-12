@@ -71,6 +71,20 @@
             return `INV-${num}`;
         };
 
+        const updateItem = async (tableName, id, item) => {
+            setIsLoading(true);
+            try {
+                const { error } = await window.supabaseClient.from(tableName).update(toSnakeCase(item)).eq('id', id);
+                if (error) throw error;
+                await fetchAllData();
+                return true;
+            } catch (err) {
+                console.error(`Update Error (${tableName}):`, err);
+                return false;
+            } finally {
+                setIsLoading(false);
+            }
+        };
         const updateData = async (key, newItem) => {
             setIsLoading(true);
             try {
@@ -172,33 +186,49 @@
             return false;
         };
 
-        const login = async (username, password) => {
-            console.log('IGH Auth: Attempting login sequence for handle:', username);
+        const login = async (handle, password) => {
+            console.log('IGH Auth: Handshake sequence initiated for handle:', handle);
             try {
-                // For simplicity during migration, we use the table
-                const { data: foundUsers, error } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', password);
+                if (!window.supabaseClient) {
+                    console.error('IGH Auth: Engine offline. Supabase client missing.');
+                    return false;
+                }
+
+                // E3 Fix: Robust multi-column lookup
+                const { data: foundUsers, error } = await window.supabaseClient
+                    .from('users')
+                    .select('*')
+                    .eq('password', password)
+                    .or(`username.eq."${handle}",email.eq."${handle}"`);
 
                 if (error) {
-                    console.error('IGH Auth: Database rejection:', error);
+                    console.error('IGH Auth: Matrix rejection:', error);
                     return false;
                 }
 
                 if (foundUsers && foundUsers.length > 0) {
                     const foundUser = foundUsers[0];
-                    console.log('IGH Auth: Sequence authorized. Welcome,', foundUser.name);
+                    console.log('IGH Auth: Credentials verified. Access granted to:', foundUser.name);
                     setUser(foundUser);
-                    const { password: _, ...safeUser } = foundUser;
-                    localStorage.setItem('expense_system_user', JSON.stringify(safeUser));
+
+                    try {
+                        const { password: _, ...safeUser } = foundUser;
+                        localStorage.setItem('expense_system_user', JSON.stringify(safeUser));
+                    } catch (e) { console.warn('IGH Auth: Storage failure:', e); }
+
                     return true;
                 }
 
-                console.warn('IGH Auth: Identity mismatch. No valid entity found for provided cipher.');
+                console.warn('IGH Auth: Credentials invalid or entity not found in matrix.');
                 return false;
             } catch (err) {
-                console.error('IGH Auth: Critical system error during handshake:', err);
+                console.error('IGH Auth: Critical system fracture:', err);
                 return false;
             }
         };
+
+        // Attach helpers to window for console debugging
+        window.authHelp = { login, setUser, fetchAllData };
 
         const logout = () => {
             setUser(null);
@@ -213,15 +243,25 @@
         };
 
         useEffect(() => {
-            const savedUser = localStorage.getItem('expense_system_user');
-            if (savedUser) setUser(JSON.parse(savedUser));
-
-            const savedDarkMode = localStorage.getItem('igh_dark_mode');
-            if (savedDarkMode) {
-                const isDark = JSON.parse(savedDarkMode);
-                setIsDarkModeState(isDark);
-                if (isDark) document.documentElement.classList.add('dark');
+            try {
+                const savedUser = localStorage.getItem('expense_system_user');
+                if (savedUser) {
+                    const parsed = JSON.parse(savedUser);
+                    if (parsed && parsed.id) setUser(parsed);
+                }
+            } catch (e) {
+                console.error('Core Engine: Restore failure, clearing corrupted node:', e);
+                localStorage.removeItem('expense_system_user');
             }
+
+            try {
+                const savedDarkMode = localStorage.getItem('igh_dark_mode');
+                if (savedDarkMode) {
+                    const isDark = JSON.parse(savedDarkMode);
+                    setIsDarkModeState(isDark);
+                    if (isDark) document.documentElement.classList.add('dark');
+                }
+            } catch (e) { console.warn('UI Protocol: Mode restore failure:', e); }
         }, []);
 
         useEffect(() => {
@@ -232,7 +272,7 @@
 
         const contextValue = useMemo(() => ({
             user, setUser, login, logout, changePassword,
-            data, setData, updateData, deleteItem, clearTable, getNextInvoiceNumber,
+            data, setData, updateData, updateItem, deleteItem, clearTable, getNextInvoiceNumber,
             logActivity,
             isDarkMode: isDarkModeState,
             setIsDarkMode: (val) => {
