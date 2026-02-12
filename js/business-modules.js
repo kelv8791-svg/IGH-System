@@ -100,6 +100,7 @@
                 if (existingChart) existingChart.destroy();
 
                 const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+                const accentColor = '#6366f1';
 
                 new Chart(ctx, {
                     type: 'line',
