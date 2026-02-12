@@ -130,7 +130,10 @@
 
         const handleSubmit = async (e) => {
             e.preventDefault();
+            console.log('Login Screen: Form submission triggered for handle:', username);
+            setError('');
             const success = await login(username, password);
+            console.log('Login Screen: Auth result =>', success);
             if (!success) setError('Authentication failed. Check credentials.');
         };
 

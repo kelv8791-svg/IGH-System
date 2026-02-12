@@ -173,17 +173,31 @@
         };
 
         const login = async (username, password) => {
-            // For simplicity during migration, we use the table
-            const { data: foundUsers } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', password);
-            if (foundUsers && foundUsers.length > 0) {
-                const foundUser = foundUsers[0];
-                setUser(foundUser);
-                // D1 Fix: Strip password before saving to localStorage
-                const { password: _, ...safeUser } = foundUser;
-                localStorage.setItem('expense_system_user', JSON.stringify(safeUser));
-                return true;
+            console.log('IGH Auth: Attempting login sequence for handle:', username);
+            try {
+                // For simplicity during migration, we use the table
+                const { data: foundUsers, error } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', password);
+
+                if (error) {
+                    console.error('IGH Auth: Database rejection:', error);
+                    return false;
+                }
+
+                if (foundUsers && foundUsers.length > 0) {
+                    const foundUser = foundUsers[0];
+                    console.log('IGH Auth: Sequence authorized. Welcome,', foundUser.name);
+                    setUser(foundUser);
+                    const { password: _, ...safeUser } = foundUser;
+                    localStorage.setItem('expense_system_user', JSON.stringify(safeUser));
+                    return true;
+                }
+
+                console.warn('IGH Auth: Identity mismatch. No valid entity found for provided cipher.');
+                return false;
+            } catch (err) {
+                console.error('IGH Auth: Critical system error during handshake:', err);
+                return false;
             }
-            return false;
         };
 
         const logout = () => {
