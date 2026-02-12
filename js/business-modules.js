@@ -35,8 +35,7 @@
                 </button>
                 {isOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden animate-slide">
-                        <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="file-text" size={14} /> CSV Spreadsheet</button>
-                        <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="table" size={14} /> Excel Matrix</button>
+                        <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="table" size={14} /> CSV (Excel Compatible)</button>
                         <button onClick={() => { window.print(); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="file-type-pdf" size={14} /> PDF Document</button>
                     </div>
                 )}
@@ -45,21 +44,32 @@
     };
 
     const Dashboard = () => {
-        const { data, updateData, setActiveTab } = useContext(AppContext);
+        const { data, updateData, setActiveTab, isDarkMode } = useContext(AppContext);
+        const [timeFilter, setTimeFilter] = useState('1M');
 
         const stats = useMemo(() => {
-            const totalSales = data.sales.reduce((sum, s) => {
+            const now = new Date();
+            const filterDate = new Date();
+            if (timeFilter === '7D') filterDate.setDate(now.getDate() - 7);
+            else if (timeFilter === '1M') filterDate.setMonth(now.getMonth() - 1);
+            else if (timeFilter === '3M') filterDate.setMonth(now.getMonth() - 3);
+            else if (timeFilter === '1Y') filterDate.setFullYear(now.getFullYear() - 1);
+
+            const filteredSales = data.sales.filter(s => new Date(s.date) >= filterDate);
+            const filteredExpenses = data.expenses.filter(e => new Date(e.date) >= filterDate);
+
+            const totalSales = filteredSales.reduce((sum, s) => {
                 const val = parseFloat(s.amount?.toString().replace(/[^\d.]/g, '') || 0);
                 return sum + (isNaN(val) ? 0 : val);
             }, 0);
-            const totalExpenses = data.expenses.reduce((sum, e) => {
+            const totalExpenses = filteredExpenses.reduce((sum, e) => {
                 const val = parseFloat(e.amount?.toString().replace(/[^\d.]/g, '') || 0);
                 return sum + (isNaN(val) ? 0 : val);
             }, 0);
-            const pendingSales = data.sales.filter(s => s.status === 'Pending').length;
+            const pendingSales = filteredSales.filter(s => s.status === 'Pending').length;
             const activeProjects = data.projects.length;
 
-            const catMap = data.expenses.reduce((acc, exp) => {
+            const catMap = filteredExpenses.reduce((acc, exp) => {
                 const cat = exp.category || 'Other';
                 acc[cat] = (acc[cat] || 0) + parseFloat(exp.amount || 0);
                 return acc;
@@ -83,7 +93,7 @@
                 pending: pendingSales,
                 topExpenses: topExpensesWithPct
             };
-        }, [data]);
+        }, [data, timeFilter]);
 
         const lowStockItems = useMemo(() => {
             return data.inventory
@@ -141,7 +151,7 @@
                                 padding: 12,
                                 displayColors: false,
                                 callbacks: {
-                                    label: (context) => `KES ${context.raw.toLocaleString()}`
+                                    label: (context) => `KSh ${context.raw.toLocaleString()}`
                                 }
                             }
                         },
@@ -163,7 +173,7 @@
                     }
                 });
             }
-        }, [stats]);
+        }, [stats, isDarkMode]);
 
         return (
             <div className="space-y-8 animate-slide">
@@ -192,8 +202,8 @@
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard icon="zap" label="Aggregate Revenue" value={`KES ${stats.revenue.toLocaleString()}`} color="brand" trend="+12.5%" />
-                    <StatCard icon="pie-chart" label="Total Burn Rate" value={`KES ${stats.expenses.toLocaleString()}`} color="red" trend="-2.4%" />
+                    <StatCard icon="zap" label="Aggregate Revenue" value={`KSh ${stats.revenue.toLocaleString()}`} color="brand" trend="+12.5%" />
+                    <StatCard icon="pie-chart" label="Total Burn Rate" value={`KSh ${stats.expenses.toLocaleString()}`} color="red" trend="-2.4%" />
                     <StatCard icon="activity" label="Active Projects" value={stats.projects} color="green" />
                     <StatCard icon="shield-alert" label="Pending Settlement" value={stats.pending} color="orange" />
                 </div>
@@ -209,7 +219,13 @@
                             </div>
                             <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-xl">
                                 {['7D', '1M', '3M', '1Y'].map(t => (
-                                    <button key={t} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${t === '1M' ? 'bg-brand-500 text-black shadow-lg shadow-brand-500/20' : 'text-slate-500 hover:text-brand-500'}`}>{t}</button>
+                                    <button
+                                        key={t}
+                                        onClick={() => setTimeFilter(t)}
+                                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${timeFilter === t ? 'bg-brand-500 text-black shadow-lg shadow-brand-500/20' : 'text-slate-500 hover:text-brand-500 hover:bg-white/10'}`}
+                                    >
+                                        {t}
+                                    </button>
                                 ))}
                             </div>
                         </div>
@@ -238,7 +254,7 @@
                                                 <div className="w-1.5 h-1.5 rounded-full bg-brand-500 shadow-lg shadow-brand-500/50"></div>
                                                 <span className="font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">{ex.name}</span>
                                             </div>
-                                            <span className="text-slate-400 dark:text-slate-500 font-black font-sans text-[10px]">KES {ex.amount.toLocaleString()}</span>
+                                            <span className="text-slate-400 dark:text-slate-500 font-black font-sans text-[10px]">KSh {ex.amount.toLocaleString()}</span>
                                         </div>
                                         <div className="w-full bg-slate-100 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
                                             <div
@@ -301,7 +317,7 @@
                                 <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Live Transaction Stream</p>
                             </div>
                             <button
-                                onClick={() => { if (confirm('Purge telemetry logs?')) updateData('activities_bulk', []); }}
+                                onClick={() => { if (confirm('Purge telemetry logs?')) clearTable('activities'); }}
                                 className="px-4 py-2 border border-white/5 rounded-xl text-[9px] font-black text-slate-500 hover:text-white hover:bg-white/5 transition-all uppercase tracking-[0.3em]"
                             >
                                 Purge Logs
@@ -337,13 +353,13 @@
     };
 
     const ExpenseModule = () => {
-        const { data, updateData } = useContext(AppContext);
+        const { data, updateData, deleteItem, logActivity } = useContext(AppContext);
         const [isAdding, setIsAdding] = useState(false);
         const [newExp, setNewExp] = useState({ date: new Date().toISOString().split('T')[0], amount: '', category: 'Raw Materials', notes: '' });
 
         const addExpense = (e) => {
             e.preventDefault();
-            const expense = { ...newExp, id: Date.now() };
+            const expense = { ...newExp };
             updateData('expenses', expense);
             setIsAdding(false);
             setNewExp({ date: new Date().toISOString().split('T')[0], amount: '', category: 'Raw Materials', notes: '' });
@@ -370,22 +386,22 @@
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Temporal Stamp</label>
-                                    <input type="date" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" required value={newExp.date} onChange={e => setNewExp({ ...newExp, date: e.target.value })} />
+                                    <input type="date" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" required value={newExp.date} onChange={e => setNewExp({ ...newExp, date: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Magnitude (KSh)</label>
-                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="0.00" required value={newExp.amount} onChange={e => setNewExp({ ...newExp, amount: e.target.value })} />
+                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="0.00" required value={newExp.amount} onChange={e => setNewExp({ ...newExp, amount: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Category Vector</label>
-                                    <select className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newExp.category} onChange={e => setNewExp({ ...newExp, category: e.target.value })}>
+                                    <select className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newExp.category} onChange={e => setNewExp({ ...newExp, category: e.target.value })}>
                                         <option>Office Supplies</option><option>Software</option><option>Marketing</option><option>Travel</option><option>Raw Materials</option><option>Human Resource</option>
                                     </select>
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Description / Operational Notes</label>
-                                <input type="text" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="Specify expenditure intent..." value={newExp.notes} onChange={e => setNewExp({ ...newExp, notes: e.target.value })} />
+                                <input type="text" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="Specify expenditure intent..." value={newExp.notes} onChange={e => setNewExp({ ...newExp, notes: e.target.value })} />
                             </div>
                             <div className="flex justify-end pt-4 border-t border-white/5">
                                 <button type="submit" className="btn-primary py-4 px-10 uppercase tracking-widest text-[10px] font-black italic">Commit to Ledger</button>
@@ -502,7 +518,6 @@
             if (e) e.preventDefault();
             const sale = {
                 ...newSale,
-                id: Date.now(),
                 invoiceNo: isQuote ? `QUO-${Date.now()}` : getNextInvoiceNumber(),
                 isQuote,
                 amount: totals.total,
@@ -602,7 +617,7 @@
                             <input
                                 type="text"
                                 placeholder="Locate Transaction..."
-                                className="input-field !pl-10 !py-3 !bg-white/5 !border-white/10 !text-white focus:!border-brand-500 w-48 sm:w-64 text-[10px] font-black uppercase tracking-widest"
+                                className="input-field !pl-10 !py-3 !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500 w-48 sm:w-64 text-[10px] font-black uppercase tracking-widest"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
@@ -898,8 +913,8 @@
     };
 
     const InvoicePreview = ({ invoice }) => {
-        if (!invoice) return null;
         const { data } = useContext(AppContext);
+        if (!invoice) return null;
 
         return (
             <div className="space-y-12 py-8 px-4 sm:px-12 bg-white text-slate-900 rounded-[2rem] shadow-2xl border border-slate-100" id="invoice-content">
@@ -1046,7 +1061,7 @@
                 updateData('inventory_bulk', updated);
                 logActivity(`SKU updated: ${newItem.sku}`, 'Update');
             } else {
-                const item = { ...newItem, id: Date.now() };
+                const item = { ...newItem };
                 updateData('inventory', item);
                 logActivity(`New SKU registered: ${newItem.sku}`, 'Success');
             }
@@ -1060,7 +1075,7 @@
             }, 1500);
         };
 
-        const handleAdjustStock = (e) => {
+        const handleAdjustStock = async (e) => {
             e.preventDefault();
             const item = data.inventory.find(i => i.id === isAdjustingStock);
             if (!item) return;
@@ -1074,7 +1089,6 @@
 
             // Push record to movements (using direct setState since we don't have a specific movement helper yet)
             const movement = {
-                id: Date.now(),
                 itemId: isAdjustingStock,
                 itemName: item.name,
                 sku: item.sku,
@@ -1086,8 +1100,8 @@
             };
 
             // Batch update
-            updateData('inventory_bulk', updatedInventory); // I need to add support for bulk or direct setData
-            updateData('stockMovements', movement);
+            await updateData('inventory_bulk', updatedInventory); // I need to add support for bulk or direct setData
+            await updateData('stockMovements', movement);
 
             setIsAdjustingStock(null);
             setAdjustment({ type: 'In', qty: 0, reference: '', notes: '' });
@@ -1150,33 +1164,33 @@
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">SKU Identifier</label>
-                                    <input className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="e.g. VIN-RD-01" required value={newItem.sku} onChange={e => setNewItem({ ...newItem, sku: e.target.value })} />
+                                    <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="e.g. VIN-RD-01" required value={newItem.sku} onChange={e => setNewItem({ ...newItem, sku: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Asset Nomenclature</label>
-                                    <input className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="Glossy Red Vinyl" required value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
+                                    <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="Glossy Red Vinyl" required value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Category Vector</label>
-                                    <select className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
+                                    <select className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
                                         <option>Raw Materials</option><option>Media</option><option>Ink/Chemicals</option><option>Finished Goods</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Initial Reserve</label>
-                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) })} />
+                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Unit Metric</label>
-                                    <input className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" placeholder="m, L, pcs" required value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })} />
+                                    <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" placeholder="m, L, pcs" required value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Critical Threshold</label>
-                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newItem.minStock} onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) })} />
+                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newItem.minStock} onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Asset Valuation (KSh)</label>
-                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white focus:!border-brand-500" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })} />
+                                    <input type="number" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white focus:!border-brand-500" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })} />
                                 </div>
                             </div>
                             <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-6 rounded-[2rem] border border-white/5">
@@ -1267,18 +1281,18 @@
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Magnitude ({item?.unit})</label>
-                                        <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white !py-4 focus:!border-brand-500 text-center text-3xl font-black italic tracking-tighter" required value={adjustment.qty} onChange={e => setAdjustment({ ...adjustment, qty: parseFloat(e.target.value) })} />
+                                        <input type="number" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white !py-4 focus:!border-brand-500 text-center text-3xl font-black italic tracking-tighter" required value={adjustment.qty} onChange={e => setAdjustment({ ...adjustment, qty: parseFloat(e.target.value) })} />
                                     </div>
                                 </div>
 
                                 <div className="space-y-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Context Reference (Project / Order ID)</label>
-                                        <input className="input-field !bg-white/5 !border-white/10 !text-white" placeholder="e.g. PRJ-204" value={adjustment.reference} onChange={e => setAdjustment({ ...adjustment, reference: e.target.value })} />
+                                        <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" placeholder="e.g. PRJ-204" value={adjustment.reference} onChange={e => setAdjustment({ ...adjustment, reference: e.target.value })} />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Internal Justification</label>
-                                        <textarea className="input-field !bg-white/5 !border-white/10 !text-white h-28 resize-none" placeholder="Specify technical reason for stock deviation..." value={adjustment.notes} onChange={e => setAdjustment({ ...adjustment, notes: e.target.value })}></textarea>
+                                        <textarea className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white h-28 resize-none" placeholder="Specify technical reason for stock deviation..." value={adjustment.notes} onChange={e => setAdjustment({ ...adjustment, notes: e.target.value })}></textarea>
                                     </div>
                                 </div>
 
@@ -1344,7 +1358,7 @@
 
         const handleRegisterClient = (e) => {
             e.preventDefault();
-            const client = { ...newClient, id: Date.now() };
+            const client = { ...newClient };
             updateData('clients', client);
             logActivity(`New client registered: ${client.name}`, 'Success');
             setIsAddingClient(false);
@@ -1376,7 +1390,6 @@
         const handleAddInteraction = (e) => {
             e.preventDefault();
             const interaction = {
-                id: Date.now(),
                 clientId: selectedClient.id,
                 type: newInteraction.type,
                 notes: newInteraction.notes,
@@ -1577,23 +1590,23 @@
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Corporate Alias</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={editData.company} onChange={e => setEditData({ ...editData, company: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required value={editData.company} onChange={e => setEditData({ ...editData, company: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Vector (Phone)</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">KRA Fiscal Identity</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={editData.kraPin} onChange={e => setEditData({ ...editData, kraPin: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" value={editData.kraPin} onChange={e => setEditData({ ...editData, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Coordinates</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={editData.location} onChange={e => setEditData({ ...editData, location: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" value={editData.location} onChange={e => setEditData({ ...editData, location: e.target.value })} />
                             </div>
                         </div>
                         <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">Authorize Profile Synchronization</button>
@@ -1619,7 +1632,7 @@
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Interaction Intelligence</label>
-                            <textarea className="input-field !bg-white/5 !border-white/10 !text-white min-h-[160px] py-6 leading-relaxed" placeholder="Document strategic outcomes..." required value={newInteraction.notes} onChange={e => setNewInteraction({ ...newInteraction, notes: e.target.value })} />
+                            <textarea className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white min-h-[160px] py-6 leading-relaxed" placeholder="Document strategic outcomes..." required value={newInteraction.notes} onChange={e => setNewInteraction({ ...newInteraction, notes: e.target.value })} />
                         </div>
                         <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] shadow-xl italic">Commit to Historical Matrix</button>
                     </form>
@@ -1630,23 +1643,23 @@
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required placeholder="Full Name" value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required placeholder="Full Name" value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Corporate Alias</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required placeholder="Company" value={newClient.company} onChange={e => setNewClient({ ...newClient, company: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required placeholder="Company" value={newClient.company} onChange={e => setNewClient({ ...newClient, company: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">KRA Fiscal Identity</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" placeholder="KRA PIN" value={newClient.kraPin} onChange={e => setNewClient({ ...newClient, kraPin: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" placeholder="KRA PIN" value={newClient.kraPin} onChange={e => setNewClient({ ...newClient, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Coordinates</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" placeholder="Physical Location" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" placeholder="Physical Location" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Vector (Phone)</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required placeholder="+254..." value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required placeholder="+254..." value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
                             </div>
                         </div>
                         <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">Synchronize New Stakeholder</button>
@@ -1681,7 +1694,7 @@
                 updateData('suppliers_bulk', updated);
                 logActivity(`Updated vendor: ${formData.name}`, 'Update');
             } else {
-                const vendor = { ...formData, id: Date.now() };
+                const vendor = { ...formData };
                 updateData('suppliers', vendor);
                 logActivity(`Added new vendor: ${formData.name}`, 'Success');
             }
@@ -1747,33 +1760,33 @@
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Entity Nomenclature</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Liaison Identity</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Communication Protocol (Email)</label>
-                                <input type="email" className="input-field !bg-white/5 !border-white/10 !text-white font-sans" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                <input type="email" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white font-sans" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Operation Classification</label>
-                                <select className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                <select className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                     <option>Material</option><option>Software</option><option>Infrastructure</option><option>Logistics</option><option>Marketing</option>
                                 </select>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Fiscal Identity (KRA PIN)</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Key Personnel</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
                             </div>
                             <div className="space-y-2 lg:col-span-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1">Geospatial Logistics Center</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                             </div>
                         </div>
                         <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">{editingSupplier ? "Authorize Config Update" : "Synchronize New Partner"}</button>
@@ -1815,7 +1828,7 @@
                 await updateData('projects_bulk', updated);
                 logActivity(`Updated project: ${formData.name}`, 'Update');
             } else {
-                const project = { ...formData, id: Date.now(), team: [], bom: [], assets: [] };
+                const project = { ...formData, team: [], bom: [], assets: [] };
                 await updateData('projects', project);
                 logActivity(`Launched new project: ${formData.name}`, 'Success');
             }
@@ -1828,22 +1841,22 @@
             const project = data.projects.find(p => p.id === selectedProject);
             if (!project) return;
             const inventoryItem = data.inventory.find(i => i.id === parseInt(newBOMItem.itemId));
-            const bomItem = { id: Date.now(), itemId: parseInt(newBOMItem.itemId), sku: inventoryItem?.sku, name: inventoryItem?.name, qty: parseFloat(newBOMItem.qty), status: 'Reserved' };
+            const bomItem = { itemId: parseInt(newBOMItem.itemId), sku: inventoryItem?.sku, name: inventoryItem?.name, qty: parseFloat(newBOMItem.qty), status: 'Reserved' };
             updateData('projects_bulk', data.projects.map(p => p.id === selectedProject ? { ...p, bom: [...(p.bom || []), bomItem] } : p));
             logActivity(`BOM item added to ${project.name}`, 'Sync');
             setIsAddingBOM(false);
         };
 
-        const consumeBOM = (projectId, bomId) => {
+        const consumeBOM = async (projectId, bomId) => {
             const project = data.projects.find(p => p.id === projectId);
             const bomItem = project.bom.find(b => b.id === bomId);
             if (!bomItem || bomItem.status === 'Consumed') return;
             const inventoryItem = data.inventory.find(i => i.id === bomItem.itemId);
             if (inventoryItem) {
-                updateData('inventory_bulk', data.inventory.map(i => i.id === bomItem.itemId ? { ...i, stock: Math.max(0, i.stock - bomItem.qty) } : i));
-                updateData('stockMovements', { id: Date.now(), itemId: bomItem.itemId, sku: bomItem.sku, type: 'Out', qty: bomItem.qty, date: new Date().toISOString().split('T')[0], reference: `PRJ-${projectId}`, notes: `Consumed for project: ${project.name}` });
+                await updateData('inventory_bulk', data.inventory.map(i => i.id === bomItem.itemId ? { ...i, stock: Math.max(0, i.stock - bomItem.qty) } : i));
+                await updateData('stockMovements', { itemId: bomItem.itemId, sku: bomItem.sku, type: 'Out', qty: bomItem.qty, date: new Date().toISOString().split('T')[0], reference: `PRJ-${projectId}`, notes: `Consumed for project: ${project.name}` });
             }
-            updateData('projects_bulk', data.projects.map(p => p.id === projectId ? { ...p, bom: p.bom.map(b => b.id === bomId ? { ...b, status: 'Consumed' } : b) } : p));
+            await updateData('projects_bulk', data.projects.map(p => p.id === projectId ? { ...p, bom: p.bom.map(b => b.id === bomId ? { ...b, status: 'Consumed' } : b) } : p));
             logActivity(`Material consumed for ${project.name}`, 'Action');
         };
 
@@ -1942,22 +1955,22 @@
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Initiative Title</label>
-                                <input className="input-field !bg-white/5 !border-white/10 !text-white" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                <input className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Stakeholder Liaison</label>
-                                <select className="input-field !bg-white/5 !border-white/10 !text-white" required value={formData.client} onChange={e => setFormData({ ...formData, client: e.target.value })}>
+                                <select className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required value={formData.client} onChange={e => setFormData({ ...formData, client: e.target.value })}>
                                     <option value="">Select Liaison...</option>
                                     {data.clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Temporal Deadline</label>
-                                <input type="date" className="input-field !bg-white/5 !border-white/10 !text-white font-sans" required value={formData.deadline} onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+                                <input type="date" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white font-sans" required value={formData.deadline} onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Lead Strategist</label>
-                                <select className="input-field !bg-white/5 !border-white/10 !text-white" value={formData.designer} onChange={e => setFormData({ ...formData, designer: e.target.value })}>
+                                <select className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" value={formData.designer} onChange={e => setFormData({ ...formData, designer: e.target.value })}>
                                     <option value="">Unassigned</option>
                                     {data.users.filter(u => u.role === 'designer' || u.role === 'admin').map(u => (
                                         <option key={u.id} value={u.username}>{u.name} (@{u.username})</option>
@@ -1973,14 +1986,14 @@
                     <form onSubmit={handleAddBOM} className="space-y-8 p-2">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Asset SKU Selection</label>
-                            <select className="input-field !bg-white/5 !border-white/10 !text-white" required value={newBOMItem.itemId} onChange={e => setNewBOMItem({ ...newBOMItem, itemId: e.target.value })}>
+                            <select className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white" required value={newBOMItem.itemId} onChange={e => setNewBOMItem({ ...newBOMItem, itemId: e.target.value })}>
                                 <option value="">Identify Asset...</option>
                                 {data.inventory.map(i => <option key={i.id} value={i.id}>{i.sku} - {i.name} (Stock: {i.stock})</option>)}
                             </select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Operational Magnitude (Qty)</label>
-                            <input type="number" className="input-field !bg-white/5 !border-white/10 !text-white font-sans" required value={newBOMItem.qty} onChange={e => setNewBOMItem({ ...newBOMItem, qty: parseFloat(e.target.value) })} />
+                            <input type="number" className="input-field !bg-white/5 !border-white/10 !text-slate-900 dark:!text-white font-sans" required value={newBOMItem.qty} onChange={e => setNewBOMItem({ ...newBOMItem, qty: parseFloat(e.target.value) })} />
                         </div>
                         <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] shadow-xl italic">Authorize Material Allocation</button>
                     </form>
@@ -1991,7 +2004,7 @@
     };
 
     const ReportModule = () => {
-        const { data } = useContext(AppContext);
+        const { data, deleteItem, logActivity } = useContext(AppContext);
         const [reportView, setReportView] = useState('overview'); // 'overview', 'pl', 'bs'
         const [selectedCategory, setSelectedCategory] = useState(null);
 
@@ -2393,6 +2406,7 @@
                             <h4 className="text-2xl font-black uppercase tracking-tighter italic flex items-center gap-4 z-10 relative">
                                 <Icon name="scan-barcode" size={28} className="text-brand-500" />
                                 Inventory Scanner
+                                <span className="text-[10px] font-black bg-brand-500/20 text-brand-500 px-3 py-1 rounded-lg ml-4 tracking-[0.2em]">DEMO MODE</span>
                             </h4>
                         </div>
                         <div className="p-10 space-y-10">
@@ -2444,6 +2458,7 @@
                             <h4 className="text-2xl font-black uppercase tracking-tighter italic flex items-center gap-4 z-10 relative">
                                 <Icon name="receipt" size={28} className="text-brand-500" />
                                 Receipt Intelligence
+                                <span className="text-[10px] font-black bg-brand-500/20 text-brand-500 px-3 py-1 rounded-lg ml-4 tracking-[0.2em]">DEMO MODE</span>
                             </h4>
                         </div>
                         <div className="p-10 space-y-10">
@@ -2487,7 +2502,7 @@
                                             </div>
                                             <button
                                                 onClick={() => {
-                                                    updateData('expenses', { id: Date.now(), ...ocrResult, notes: `Scanned from mobile at ${new Date().toLocaleTimeString()}` });
+                                                    updateData('expenses', { ...ocrResult, notes: `Scanned from mobile at ${new Date().toLocaleTimeString()}` });
                                                     setOcrResult(null);
                                                     setReceiptFile(null);
                                                 }}
@@ -2618,7 +2633,7 @@
                 updateData('users_bulk', updated);
                 logActivity(`Provisioning updated for ${newUser.username}`, 'Update');
             } else {
-                const userObj = { ...newUser, id: Date.now() };
+                const userObj = { ...newUser };
                 updateData('users', userObj);
                 logActivity(`Provisioned new user: ${newUser.username}`, 'Access');
             }
@@ -2633,10 +2648,10 @@
             setIsAddingUser(true);
         };
 
-        const handlePwChange = (e) => {
+        const handlePwChange = async (e) => {
             e.preventDefault();
             if (pwData.new !== pwData.confirm) return alert('Passwords do not match');
-            if (changePassword(pwData.current, pwData.new)) {
+            if (await changePassword(pwData.current, pwData.new)) {
                 logActivity('Password changed successfully', 'Security');
                 setPwData({ current: '', new: '', confirm: '' });
                 alert('Security coordinates updated.');

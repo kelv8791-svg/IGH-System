@@ -100,6 +100,8 @@
                                 <window.SidebarLink id="reports" icon="bar-chart-3" label="Business Analytics" isOpen={isSidebarOpen} />
                                 <window.SidebarLink id="clients" icon="users" label="CRM Access" isOpen={isSidebarOpen} />
                                 <window.SidebarLink id="suppliers" icon="truck" label="Supply Chain" isOpen={isSidebarOpen} />
+                                <div className={`pt-6 pb-2 px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] transition-opacity duration-300 ${!isSidebarOpen && 'opacity-0'}`}>Advanced</div>
+                                <window.SidebarLink id="field_ops" icon="cpu" label="Field Operations" isOpen={isSidebarOpen} />
                             </>
                         )}
                     </nav>
@@ -112,6 +114,9 @@
                 </aside>
                 <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-slate-50 dark:bg-[#020617]">
                     <header className="h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 flex items-center justify-between px-8 sticky top-0 z-30 shadow-sm dark:bg-[#020617]/80 dark:border-white/5">
+                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-3 -ml-4 mr-2 text-slate-400 hover:text-brand-500 hover:bg-brand-500/5 rounded-2xl transition-all">
+                            <Icon name="menu" size={20} />
+                        </button>
                         <div className="flex items-center gap-8 flex-1">
                             <div className="relative group hidden lg:block max-w-md w-full">
                                 <Icon name="search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" />

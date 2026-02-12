@@ -54,12 +54,27 @@
         };
 
         // Helper to map JS CamelCase to Supabase snake_case with optional column filtering
-        const toSnakeCase = (obj, filterKeys = null) => {
+        const toSnakeCase = (obj, filterKeys = null, tableName = null) => {
             const snakeObj = {};
+            // Fallback whitelist for initial inserts when local data state is empty
+            const schemaWhitelist = {
+                sales: ['invoice_no', 'date', 'client', 'amount', 'status', 'items', 'payments', 'tax', 'total', 'subtotal', 'tax_rate', 'is_quote', 'project_id'],
+                expenses: ['date', 'category', 'amount', 'notes', 'vendor'],
+                projects: ['name', 'client', 'deadline', 'designer', 'status', 'stage', 'team', 'bom', 'assets', 'invoices'],
+                inventory: ['sku', 'name', 'category', 'stock', 'price', 'unit', 'min_stock'],
+                stock_movements: ['item_id', 'sku', 'type', 'qty', 'date', 'reference', 'notes', 'item_name'],
+                clients: ['name', 'company', 'email', 'phone', 'location', 'kra_pin'],
+                suppliers: ['name', 'contact', 'email', 'category', 'kra_pin', 'address', 'contact_person'],
+                activities: ['user', 'type', 'msg', 'time']
+            };
+
+            const whitelist = filterKeys || (tableName ? schemaWhitelist[tableName] : null);
+
             for (let key in obj) {
                 const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-                // Only include key if no filter list exists OR if it exists in the database sample
-                if (!filterKeys || filterKeys.includes(snakeKey) || snakeKey === 'id') {
+                const isId = snakeKey === 'id';
+
+                if (!whitelist || whitelist.includes(snakeKey) || isId) {
                     snakeObj[snakeKey] = obj[key];
                 }
             }
@@ -85,16 +100,16 @@
                 if (key === 'sales') {
                     const nextId = (data.config.next_invoice_id || 1001) + 1;
                     await window.supabaseClient.from('config').update({ next_invoice_id: nextId }).eq('id', 1);
-                    await window.supabaseClient.from('sales').insert([toSnakeCase(newItem, validColumns)]);
+                    await window.supabaseClient.from('sales').insert([toSnakeCase(newItem, validColumns, 'sales')]);
                 }
                 else if (key.endsWith('_bulk')) {
                     const formattedItems = Array.isArray(newItem) ?
-                        newItem.map(item => toSnakeCase(item, validColumns)) :
-                        [toSnakeCase(newItem, validColumns)];
+                        newItem.map(item => toSnakeCase(item, validColumns, tableName)) :
+                        [toSnakeCase(newItem, validColumns, tableName)];
                     await window.supabaseClient.from(tableName).upsert(formattedItems);
                 }
                 else {
-                    await window.supabaseClient.from(tableName).insert([toSnakeCase(newItem, validColumns)]);
+                    await window.supabaseClient.from(tableName).insert([toSnakeCase(newItem, validColumns, tableName)]);
                 }
 
                 await fetchAllData();
@@ -109,12 +124,28 @@
 
         const logActivity = async (msg, type = 'Action') => {
             const activity = {
-                id: Date.now(),
                 user: user?.username || 'system',
                 type,
-                msg
+                msg,
+                time: new Date().toLocaleTimeString()
             };
-            await window.supabaseClient.from('activities').insert([toSnakeCase(activity)]);
+            await window.supabaseClient.from('activities').insert([toSnakeCase(activity, null, 'activities')]);
+        };
+
+        const clearTable = async (key) => {
+            setIsLoading(true);
+            try {
+                const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+                const { error } = await window.supabaseClient.from(tableName).delete().neq('id', 0); // Delete all
+                if (error) throw error;
+                await fetchAllData();
+                return true;
+            } catch (err) {
+                console.error(`Clear Error (${key}):`, err);
+                return false;
+            } finally {
+                setIsLoading(false);
+            }
         };
 
         const deleteItem = async (key, id) => {
@@ -133,25 +164,57 @@
             }
         };
 
-        const changePassword = async (newPassword) => {
+        const hashPassword = async (password) => {
+            if (!password) return '';
+            const msgUint8 = new TextEncoder().encode(password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        };
+
+        const changePassword = async (currentPassword, newPassword) => {
+            const hashedCurrent = await hashPassword(currentPassword);
+            const hashedNew = await hashPassword(newPassword);
+
             // Simple update for now, in production use Supabase Auth's updateUser
-            const { error } = await window.supabaseClient.from('users').update({ password: newPassword }).eq('id', user.id);
+            // We check against the user state which (for now) still has the password
+            // or we'd fetch it from Supabase.
+            if (hashedCurrent !== user.password && currentPassword !== user.password) {
+                console.warn("Security Alert: password mismatch during rotation protocol.");
+                return false;
+            }
+
+            const { error } = await window.supabaseClient.from('users').update({ password: hashedNew }).eq('id', user.id);
             if (!error) {
-                const updatedUser = { ...user, password: newPassword };
+                const updatedUser = { ...user, password: hashedNew };
                 setUser(updatedUser);
-                localStorage.setItem('expense_system_user', JSON.stringify(updatedUser));
+                const secureUser = { id: user.id, name: user.name, username: user.username, role: user.role };
+                localStorage.setItem('expense_system_user', JSON.stringify(secureUser));
                 return true;
             }
             return false;
         };
 
         const login = async (username, password) => {
-            // For simplicity during migration, we use the table
-            const { data: foundUsers } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', password);
+            const hashedPassword = await hashPassword(password);
+            // Try hashed first, fallback to plaintext for migration
+            let { data: foundUsers } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', hashedPassword);
+
+            if (!foundUsers || foundUsers.length === 0) {
+                // Fallback check for plaintext (one-time migration path)
+                const { data: legacyUsers } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', password);
+                if (legacyUsers && legacyUsers.length > 0) {
+                    foundUsers = legacyUsers;
+                    // Auto-migrate to hashed
+                    await window.supabaseClient.from('users').update({ password: hashedPassword }).eq('id', legacyUsers[0].id);
+                }
+            }
+
             if (foundUsers && foundUsers.length > 0) {
                 const foundUser = foundUsers[0];
                 setUser(foundUser);
-                localStorage.setItem('expense_system_user', JSON.stringify(foundUser));
+                const secureUser = { id: foundUser.id, name: foundUser.name, username: foundUser.username, role: foundUser.role };
+                localStorage.setItem('expense_system_user', JSON.stringify(secureUser));
                 return true;
             }
             return false;
@@ -187,10 +250,18 @@
             }
         }, [user]);
 
+        const refreshTable = async (key) => {
+            const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            const { data: tableData } = await window.supabaseClient.from(tableName).select('*').order('id', { ascending: false });
+            if (tableData) {
+                setData(prev => ({ ...prev, [key]: tableData }));
+            }
+        };
+
         const contextValue = useMemo(() => ({
             user, setUser, login, logout, changePassword,
             data, setData, updateData, deleteItem, getNextInvoiceNumber,
-            logActivity,
+            logActivity, clearTable, refreshTable,
             isDarkMode: isDarkModeState,
             setIsDarkMode: (val) => {
                 setIsDarkModeState(val);

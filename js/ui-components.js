@@ -3,12 +3,25 @@
     const AppContext = window.AppContext;
 
     const Icon = ({ name, size = 20, className = "" }) => {
-        useEffect(() => {
-            if (window.lucide) {
-                window.lucide.createIcons();
-            }
-        }, [name]);
-        return <i data-lucide={name} className={`${className}`} style={{ width: size, height: size }}></i>;
+        const iconData = window.lucide?.icons[name];
+        if (!iconData) return <span style={{ width: size, height: size }} className={className} />;
+
+        const renderNodes = (nodes) => nodes.map(([tag, attrs, children], i) =>
+            React.createElement(tag, { ...attrs, key: i }, (children && Array.isArray(children)) ? renderNodes(children) : null)
+        );
+
+        return React.createElement('svg', {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: size,
+            height: size,
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            strokeWidth: "2",
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            className: `lucide lucide-${name} ${className}`
+        }, renderNodes(iconData));
     };
 
     const SidebarLink = ({ id, icon, label, isOpen }) => {
