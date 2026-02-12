@@ -129,6 +129,7 @@
                 msg,
                 time: new Date().toLocaleTimeString()
             };
+            if (!window.supabaseClient) return;
             await window.supabaseClient.from('activities').insert([toSnakeCase(activity, null, 'activities')]);
         };
 
@@ -136,6 +137,7 @@
             setIsLoading(true);
             try {
                 const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+                if (!window.supabaseClient) throw new Error("Supabase client not initialized");
                 const { error } = await window.supabaseClient.from(tableName).delete().neq('id', 0); // Delete all
                 if (error) throw error;
                 await fetchAllData();
@@ -151,6 +153,7 @@
         const deleteItem = async (key, id) => {
             setIsLoading(true);
             try {
+                if (!window.supabaseClient) throw new Error("Supabase client not initialized");
                 const tableName = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
                 const { error } = await window.supabaseClient.from(tableName).delete().eq('id', id);
                 if (error) throw error;
@@ -184,6 +187,7 @@
                 return false;
             }
 
+            if (!window.supabaseClient) return false;
             const { error } = await window.supabaseClient.from('users').update({ password: hashedNew }).eq('id', user.id);
             if (!error) {
                 const updatedUser = { ...user, password: hashedNew };
@@ -196,6 +200,10 @@
         };
 
         const login = async (username, password) => {
+            if (!window.supabaseClient) {
+                console.error("Supabase client missing.");
+                return false;
+            }
             const hashedPassword = await hashPassword(password);
             // Try hashed first, fallback to plaintext for migration
             let { data: foundUsers } = await window.supabaseClient.from('users').select('*').eq('username', username).eq('password', hashedPassword);
@@ -246,6 +254,10 @@
 
         useEffect(() => {
             if (user) {
+                if (!window.supabaseClient) {
+                    console.error("Critical Error: Supabase client is not initialized. Please check your Supabase URL and Key in supabase-client.js.");
+                    return;
+                }
                 fetchAllData();
             }
         }, [user]);
