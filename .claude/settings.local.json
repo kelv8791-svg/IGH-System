@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File:*)",
+      "Bash(del \"c:\\\\Users\\\\Admin\\\\Documents\\\\IGH-System\\\\remove_fieldops.ps1\")",
+      "Bash(powershell -NoProfile -Command:*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File - << 'PSEOF'\n$file = 'c:\\\\Users\\\\Admin\\\\Documents\\\\IGH-System\\\\js\\\\business-modules.js'\n$lines = [System.IO.File]::ReadAllLines\\($file, [System.Text.Encoding]::UTF8\\)\n$totalLines = $lines.Length\n\n$lineStart = -1\nfor \\($i = 0; $i -lt $totalLines; $i++\\) {\n    if \\($lines[$i] -match [regex]::Escape\\('// end of ReportModule'\\)\\) {\n        $lineStart = $i + 1\n        break\n    }\n}\n\nWrite-Host \"LINE_START = $lineStart\"\nif \\($lineStart -gt 0\\) {\n    Write-Host \"Content: $\\($lines[$lineStart - 1]\\)\"\n}\nPSEOF)",
+      "Bash(/tmp/splice_file.ps1 << 'PSEOF'\n$file = 'c:\\\\Users\\\\Admin\\\\Documents\\\\IGH-System\\\\js\\\\business-modules.js'\n$lines = [System.IO.File]::ReadAllLines\\($file, [System.Text.Encoding]::UTF8\\)\n$totalLines = $lines.Length\n\n# Confirmed values\n$lineStart = 3343   # 1-based\n$lineEnd   = 3652   # 1-based\n\n# Build new content:\n# lines 1..\\(lineStart-1\\)  =>  indices 0..\\(lineStart-2\\)\n# one blank line\n# lines lineEnd..totalLines  =>  indices \\(lineEnd-1\\)..\\(totalLines-1\\)\n\n$before = $lines[0..\\($lineStart - 2\\)]\n$after  = $lines[\\($lineEnd - 1\\)..\\($totalLines - 1\\)]\n\n$newLines = $before + @\\(''\\) + $after\n\n# Write back as UTF-8 without BOM\n$enc = New-Object System.Text.UTF8Encoding\\($false\\)\n[System.IO.File]::WriteAllLines\\($file, $newLines, $enc\\)\n\nWrite-Host \"Done. Original lines: $totalLines. New lines: $\\($newLines.Length\\)\"\nWrite-Host \"Deleted lines $lineStart through $\\($lineEnd - 1\\) \\($\\($lineEnd - $lineStart\\) lines\\), replaced with 1 blank line.\"\nPSEOF)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File /tmp/splice_file.ps1)"
+    ]
+  }
+}

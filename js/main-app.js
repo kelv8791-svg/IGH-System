@@ -1,5 +1,5 @@
 {
-    const { useState, useEffect, useMemo, useContext } = React;
+    const { useState, useContext } = React;
 
     // --- Error Boundary for production safety ---
     class ErrorBoundary extends React.Component {
@@ -45,16 +45,16 @@
 
     const MainLayout = () => {
         const context = useContext(window.AppContext);
-        if (!context) return <div className="p-20 text-center font-display uppercase tracking-widest animate-pulse">Initializing Core Engine...</div>;
+        if (!context) return <div className="p-20 text-center animate-pulse font-heading" style={{color:'#888'}}>INITIALIZING ENGINE...</div>;
 
-        const { user, logout, activeTab } = context;
+        const { user, logout, activeTab, setActiveTab } = context;
+        const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
         const renderContent = () => {
-            // Dynamically grab modules from window to avoid closure/scoping issues
             const {
                 Dashboard, SalesModule, ExpenseModule, InventoryModule,
                 ClientModule, SupplierModule, ProjectModule, ReportModule,
-                FieldOpsModule, SettingsModule
+                SettingsModule
             } = window;
 
             switch (activeTab) {
@@ -65,70 +65,109 @@
                 case 'suppliers': return SupplierModule ? <SupplierModule /> : null;
                 case 'projects': return ProjectModule ? <ProjectModule /> : null;
                 case 'reports': return ReportModule ? <ReportModule /> : null;
-                case 'field_ops': return FieldOpsModule ? <FieldOpsModule /> : null;
                 case 'settings': return SettingsModule ? <SettingsModule /> : null;
                 default: return Dashboard ? <Dashboard /> : null;
             }
         };
 
-        return (
-            <div className="min-h-screen bg-[#fafafa] flex flex-col font-sans">
-                {/* Top Header: Brand & Identity */}
-                <header className="bg-black text-white px-8 py-4 flex items-center justify-between z-30 shadow-2xl">
-                    <div className="flex items-center gap-6">
-                        <div className="w-12 h-12 bg-brand-500 text-black flex items-center justify-center rounded-sm">
-                            <window.Icon name="logo-box" size={32} />
-                        </div>
-                        <div className="hidden sm:block text-left">
-                            <h1 className="text-lg font-display uppercase tracking-tighter leading-none">Identity Graphics Houzz</h1>
-                            <p className="text-[10px] text-brand-500 font-display uppercase tracking-[0.2em] italic mt-1">Where creativity meets excellence</p>
-                        </div>
-                    </div>
+        const navItems = [
+            { id: 'dashboard', label: 'Dashboard' },
+            { id: 'sales', label: 'Sales' },
+            { id: 'expenses', label: 'Expenses' },
+            { id: 'suppliers', label: 'Suppliers' },
+            { id: 'clients', label: 'Clients' },
+            { id: 'inventory', label: 'Inventory' },
+            { id: 'projects', label: 'Projects' },
+            ...(user?.role === 'admin' ? [{ id: 'reports', label: 'Reports' }, { id: 'settings', label: 'Admin' }] : []),
+        ];
 
-                    <div className="flex items-center gap-6">
-                        <div className="text-right hidden md:block">
-                            <p className="text-xs font-display uppercase tracking-widest text-slate-400 leading-none mb-1">{user?.email}</p>
-                            <p className="text-[9px] text-brand-500 uppercase font-black tracking-widest leading-none italic">System Administrator</p>
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col text-foreground font-sans selection:bg-primary selection:text-black">
+                {/* Fixed Top Header */}
+                <header className="fixed top-0 left-0 right-0 z-50 bg-black border-b border-zinc-800 h-16">
+                    <div className="h-full flex items-center justify-between px-6 gap-4">
+                        {/* Logo + Brand */}
+                        <div className="flex items-center gap-3 shrink-0">
+                            <svg width="34" height="34" viewBox="0 0 24 24" className="shrink-0">
+                                <polygon points="12,1 23,12 12,23 1,12" fill="#FACC15" />
+                                <polygon points="12,5 19,12 12,19 5,12" fill="#0a0a0a" />
+                                <circle cx="12" cy="12" r="2.5" fill="#FACC15" />
+                            </svg>
+                            <div className="hidden sm:block">
+                                <p className="text-white font-black text-[11px] tracking-widest leading-none uppercase">IDENTITY GRAPHICS HOUZZ</p>
+                                <p className="text-yellow-400 text-[8px] font-bold uppercase tracking-widest leading-none mt-0.5">WHERE CREATIVITY MEETS EXCELLENCE</p>
+                            </div>
                         </div>
-                        <button
-                            onClick={logout}
-                            className="brand-button-yellow !px-6 !py-3 !text-[10px] flex items-center gap-2"
-                        >
-                            Logout
-                        </button>
+
+                        {/* Desktop Navigation Tabs */}
+                        <nav className="hidden md:flex items-center gap-0.5 overflow-x-auto no-scrollbar flex-1 justify-center">
+                            {navItems.map(item => (
+                                <window.NavTab key={item.id} id={item.id} label={item.label} />
+                            ))}
+                        </nav>
+
+                        {/* Right side: User Info + Logout + Hamburger */}
+                        <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right hidden lg:block">
+                                <p className="text-xs text-zinc-300 font-bold leading-none">{user?.username}</p>
+                                <p className="text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5">{user?.role === 'admin' ? 'Administrator' : (user?.display_name || user?.role || 'Operator')}</p>
+                            </div>
+                            <button
+                                onClick={logout}
+                                className="bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest px-4 py-2 rounded-lg hover:opacity-90 transition-all shrink-0"
+                            >
+                                LOGOUT
+                            </button>
+                            {/* Hamburger — mobile only */}
+                            <button
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                className="md:hidden flex flex-col gap-[5px] p-2 rounded-lg hover:bg-zinc-800 transition-all"
+                                aria-label="Toggle menu"
+                            >
+                                <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${mobileMenuOpen ? 'rotate-45 translate-y-[7px]' : ''}`}></span>
+                                <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${mobileMenuOpen ? 'opacity-0' : ''}`}></span>
+                                <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-[7px]' : ''}`}></span>
+                            </button>
+                        </div>
                     </div>
                 </header>
 
-                {/* Top Navigation: Module Tabs */}
-                <nav className="bg-white border-b border-slate-100 px-8 flex items-center gap-2 sticky top-0 z-20 overflow-x-auto no-scrollbar shadow-sm">
-                    <window.NavTab id="dashboard" label="Dashboard" icon="layout-dashboard" />
-                    <window.NavTab id="sales" label="Sales" icon="shopping-cart" />
-                    <window.NavTab id="expenses" label="Expenses" icon="receipt" />
-                    <window.NavTab id="projects" label="Projects" icon="briefcase" />
-                    <window.NavTab id="inventory" label="Inventory" icon="package" />
-                    <window.NavTab id="clients" label="Clients" icon="users" />
-                    <window.NavTab id="suppliers" label="Suppliers" icon="truck" />
-                    <window.NavTab id="field_ops" label="Field Ops" icon="radio" />
-                    {user?.role === 'admin' && <window.NavTab id="settings" label="Admin" icon="settings" />}
-                </nav>
+                {/* Mobile Dropdown Menu */}
+                {mobileMenuOpen && (
+                    <div className="fixed top-16 left-0 right-0 z-40 bg-black border-b border-zinc-800 flex flex-col p-3 gap-1 md:hidden shadow-2xl">
+                        {navItems.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
+                                className={`w-full text-left px-4 py-3 text-xs font-black uppercase tracking-widest rounded-md transition-all ${activeTab === item.id ? 'bg-primary text-primary-foreground' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                            >
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
-                {/* Main Content Area */}
-                <main className="flex-1 p-8 sm:p-12">
-                    <div className="max-w-[1600px] mx-auto animate-slide">
+                {/* Main Content */}
+                <main className="flex-1 mt-16 overflow-y-auto custom-scrollbar">
+                    <div className="max-w-[1400px] mx-auto p-4 md:p-8 animate-slide">
                         {renderContent()}
                     </div>
                 </main>
 
-                <footer className="p-8 border-t border-slate-100 text-center opacity-30">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-800">
-                        Operational Intelligence System // Secure Session Active
-                    </p>
+                {/* Footer */}
+                <footer className="p-4 text-center border-t border-gray-200 bg-white">
+                    <p className="text-[10px] font-heading font-black uppercase tracking-[0.4em] text-gray-300">IDENTITY GRAPHICS HOUZZ // SECURE SESSION ACTIVE</p>
                 </footer>
             </div>
         );
     };
 
     const App = () => {
+        if (!window.AppContext || !window.AppProvider || !window.LoginScreen) {
+            return <div style={{ padding: '2rem', fontFamily: 'monospace', color: '#666' }}>
+                [BOOT] INITIALIZING SYSTEM INFRASTRUCTURE...
+            </div>;
+        }
         const context = useContext(window.AppContext);
         const user = context ? context.user : null;
         return (

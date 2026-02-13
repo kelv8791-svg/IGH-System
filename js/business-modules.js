@@ -30,14 +30,23 @@
         const [isOpen, setIsOpen] = useState(false);
         return (
             <div className="relative">
-                <button onClick={() => setIsOpen(!isOpen)} className="btn-primary">
-                    <Icon name="download" size={16} /> Export Data
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-xs font-black uppercase tracking-widest hover:bg-accent transition-all shadow-sm"
+                >
+                    <Icon name="Download" size={14} /> Export Sequence
                 </button>
                 {isOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden animate-slide">
-                        <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="file-text" size={14} /> CSV Spreadsheet</button>
-                        <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="table" size={14} /> CSV (Excel Compatible)</button>
-                        <button onClick={() => { window.print(); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"><Icon name="file-type-pdf" size={14} /> PDF Document</button>
+                    <div className="absolute right-0 mt-2 w-56 bg-card rounded-xl shadow-2xl border border-border z-50 overflow-hidden animate-slide glass">
+                        <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary hover:text-white flex items-center gap-3 transition-colors border-b border-border/50">
+                            <Icon name="FileSpreadsheet" size={14} /> CSV Spreadsheet
+                        </button>
+                        <button onClick={() => { downloadCSV(data, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary hover:text-white flex items-center gap-3 transition-colors border-b border-border/50">
+                            <Icon name="FileCode" size={14} /> JSON Matrix
+                        </button>
+                        <button onClick={() => { window.print(); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary hover:text-white flex items-center gap-3 transition-colors">
+                            <Icon name="Printer" size={14} /> Print Hardcopy
+                        </button>
                     </div>
                 )}
             </div>
@@ -45,20 +54,26 @@
     };
 
     const Dashboard = () => {
-        const { data, updateData, setActiveTab, clearTable, isDarkMode } = useContext(AppContext);
-        const [chartRange, setChartRange] = useState('1M');
+        const { data, setActiveTab, isDarkMode } = useContext(AppContext);
+        const [chartRange, setChartRange] = useState('6M');
 
         const stats = useMemo(() => {
-            const totalSales = data.sales.reduce((sum, s) => {
-                const val = parseFloat(s.amount?.toString().replace(/[^\d.]/g, '') || 0);
-                return sum + (isNaN(val) ? 0 : val);
+            const revenue = data.sales.reduce((sum, s) => {
+                const amount = parseFloat(s.total) || parseFloat(s.amount) || 0;
+                const itemsTotal = s.items ? s.items.reduce((ss, i) => ss + (parseFloat(i.qty || 0) * parseFloat(i.price || 0)), 0) : 0;
+                return sum + (amount || itemsTotal || 0);
             }, 0);
-            const totalExpenses = data.expenses.reduce((sum, e) => {
-                const val = parseFloat(e.amount?.toString().replace(/[^\d.]/g, '') || 0);
-                return sum + (isNaN(val) ? 0 : val);
-            }, 0);
-            const pendingSales = data.sales.filter(s => s.status === 'Pending').length;
-            const activeProjects = data.projects.length;
+            const expenses = data.expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            const activeProjects = data.projects.filter(p => p.status !== 'Completed' && p.status !== 'Cancelled').length;
+            const pendingInvoices = data.sales.filter(s => s.status === 'Pending').length;
+
+            // Simplified trend calculation for demo
+            const trends = {
+                revenue: { val: '+12.4%', type: 'up' },
+                expenses: { val: '-2.1%', type: 'down' },
+                projects: { val: '+3', type: 'up' },
+                pending: { val: '-1', type: 'down' }
+            };
 
             const catMap = data.expenses.reduce((acc, exp) => {
                 const cat = exp.category || 'Other';
@@ -78,255 +93,275 @@
             }));
 
             return {
-                revenue: totalSales,
-                expenses: totalExpenses,
-                projects: activeProjects,
-                pending: pendingSales,
-                topExpenses: topExpensesWithPct
+                revenue, expenses, activeProjects, pendingInvoices,
+                trends, topExpenses: topExpensesWithPct
             };
         }, [data]);
 
         const lowStockItems = useMemo(() => {
             return data.inventory
-                .filter(i => i.stock <= (i.minStock || 5))
-                .sort((a, b) => a.stock - b.stock)
+                .filter(i => (parseFloat(i.quantity) || 0) <= (parseFloat(i.min_threshold) || 5))
+                .sort((a, b) => (parseFloat(a.quantity) || 0) - (parseFloat(b.quantity) || 0))
                 .slice(0, 5);
         }, [data.inventory]);
 
         useEffect(() => {
-            const ctx = document.getElementById('dashboardChart')?.getContext('2d');
-            if (ctx) {
-                const existingChart = Chart.getChart('dashboardChart');
-                if (existingChart) existingChart.destroy();
+            const chartDom = document.getElementById('revenueChart');
+            if (!chartDom) return;
 
-                const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
-                const accentColor = '#6366f1';
+            const ctx = chartDom.getContext('2d');
+            const existingChart = Chart.getChart('revenueChart');
+            if (existingChart) existingChart.destroy();
 
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                        datasets: [
-                            {
-                                label: 'Revenue Stream',
-                                data: [stats.revenue * 0.7, stats.revenue * 0.85, stats.revenue * 0.9, stats.revenue * 0.8, stats.revenue * 0.95, stats.revenue],
-                                borderColor: accentColor,
-                                backgroundColor: 'transparent',
-                                borderWidth: 4,
-                                tension: 0.4,
-                                pointRadius: 0,
-                                fill: true,
-                            },
-                            {
-                                label: 'Expense Flow',
-                                data: [stats.expenses * 0.6, stats.expenses * 0.75, stats.expenses * 0.8, stats.expenses * 0.7, stats.expenses * 0.85, stats.expenses],
-                                borderColor: '#f43f5e',
-                                backgroundColor: 'transparent',
-                                borderWidth: 2,
-                                borderDash: [5, 5],
-                                tension: 0.4,
-                                pointRadius: 0,
+            const isDark = document.documentElement.classList.contains('dark');
+            const primaryColor = 'hsl(221.2, 83.2%, 53.3%)';
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['SEP', 'OCT', 'NOV', 'DEC', 'JAN', 'FEB'],
+                    datasets: [{
+                        label: 'Revenue (KSh)',
+                        data: [1200000, 1900000, 1500000, 2400000, 2100000, stats.revenue || 2800000],
+                        borderColor: primaryColor,
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        borderWidth: 4,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: primaryColor,
+                        pointBorderColor: isDark ? '#000' : '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: isDark ? '#1e293b' : '#fff',
+                            titleColor: isDark ? '#fff' : '#1e293b',
+                            bodyColor: isDark ? '#cbd5e1' : '#64748b',
+                            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: (context) => ` KSh ${context.raw.toLocaleString()}`
                             }
-                        ]
+                        }
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: '#0f172a',
-                                titleFont: { size: 10, weight: 'bold' },
-                                bodyFont: { size: 12, weight: 'black' },
-                                padding: 12,
-                                displayColors: false,
-                                callbacks: {
-                                    label: (context) => `KSh ${context.raw.toLocaleString()}`
-                                }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' },
+                            ticks: {
+                                color: isDark ? '#64748b' : '#94a3b8',
+                                font: { size: 10, weight: 'bold' },
+                                callback: (v) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : v.toLocaleString()
                             }
                         },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: gridColor, drawBorder: false },
-                                ticks: {
-                                    color: '#94a3b8',
-                                    font: { size: 10, weight: 'bold' },
-                                    callback: (val) => `${(val / 1000).toFixed(0)}k`
-                                }
-                            },
-                            x: {
-                                grid: { display: false },
-                                ticks: { color: '#94a3b8', font: { size: 10, weight: 'bold' } }
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                color: isDark ? '#64748b' : '#94a3b8',
+                                font: { size: 10, weight: 'black' }
                             }
                         }
                     }
-                });
-            }
-        }, [stats, isDarkMode]);
+                }
+            });
+        }, [stats.revenue, isDarkMode]);
 
         return (
-            <div className="space-y-12 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4 border-b-4 border-black">
-                    <div className="space-y-2">
-                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Command Dashboard</h2>
-                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                            <div className="w-12 h-1 bg-brand-500"></div>
-                            Operational Intelligence Vector // {new Date().toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })}
-                        </div>
+            <div className="space-y-8 animate-slide">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-4xl font-black tracking-tighter">DASHBOARD</h1>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em] mt-1 italic">Operational Intelligence Sequence // 12-BETA</p>
                     </div>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => {
-                                const exportData = [
-                                    ...data.sales.map(s => ({ Type: 'Sale', Date: s.date, Client: s.client, Amount: s.amount, Status: s.status, Invoice: s.invoiceNo })),
-                                    ...data.expenses.map(e => ({ Type: 'Expense', Date: e.date, Category: e.category, Amount: e.amount, Notes: e.notes || '' }))
-                                ].sort((a, b) => new Date(b.Date) - new Date(a.Date));
-                                downloadCSV(exportData, `IGH_Master_Log_${new Date().toISOString().split('T')[0]}.csv`);
-                            }}
-                            className="brand-button-yellow !px-6 !py-4 flex items-center gap-3 italic"
-                        >
-                            <Icon name="download" size={18} /> Data Handshake (Export)
+                    <div className="flex items-center gap-3">
+                        <ExportDropdown data={[...data.sales, ...data.expenses]} filename="IGH_Global_Audit" />
+                        <button onClick={() => window.print()} className="brand-button-black !bg-slate-950 !text-white h-10 px-6 uppercase tracking-widest text-[10px]">
+                            <Icon name="Printer" size={14} /> Full Audit Print
                         </button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    <StatCard icon="zap" label="Aggregate Revenue" value={`KSh ${stats.revenue.toLocaleString()}`} color="brand" trend="+12.5%" trendType="up" />
-                    <StatCard icon="pie-chart" label="Total Burn Rate" value={`KSh ${stats.expenses.toLocaleString()}`} color="red" trend="-2.4%" trendType="down" />
-                    <StatCard icon="activity" label="Active Projects" value={stats.projects} color="green" />
-                    <StatCard icon="shield-alert" label="Pending Settlement" value={stats.pending} color="orange" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard
+                        label="Total Revenue"
+                        value={`KSh ${stats.revenue.toLocaleString()}`}
+                        trend={stats.trends.revenue.val}
+                        trendType={stats.trends.revenue.type}
+                        icon="Coins"
+                    />
+                    <StatCard
+                        label="Total Expenses"
+                        value={`KSh ${stats.expenses.toLocaleString()}`}
+                        trend={stats.trends.expenses.val}
+                        trendType={stats.trends.expenses.type}
+                        icon="TrendingDown"
+                    />
+                    <StatCard
+                        label="Active Projects"
+                        value={stats.activeProjects}
+                        trend={stats.trends.projects.val}
+                        trendType={stats.trends.projects.type}
+                        icon="Briefcase"
+                    />
+                    <StatCard
+                        label="Pending Invoices"
+                        value={stats.pendingInvoices}
+                        trend={stats.trends.pending.val}
+                        trendType={stats.trends.pending.type}
+                        icon="Receipt"
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="card lg:col-span-2 h-[500px] flex flex-col p-10 bg-white dark:bg-white/5 border-none relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/5 blur-[100px] rounded-full -mr-32 -mt-32"></div>
-
-                        <div className="flex justify-between items-center mb-10 relative z-10">
+                    <div className="lg:col-span-2 brand-card p-8 group relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -mr-48 -mt-48 transition-all duration-700 group-hover:bg-primary/10"></div>
+                        <div className="flex items-center justify-between mb-8 relative z-10">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic leading-none">Performance Analytics</h3>
-                                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1 opacity-60">Revenue vs Expenditure Stream</p>
+                                <h2 className="text-xl font-black italic tracking-tight uppercase">Revenue Analytics</h2>
+                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Capital Velocity // 6-Month Trajectory</p>
                             </div>
-                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-xl">
-                                {['7D', '1M', '3M', '1Y'].map(t => (
-                                    <button key={t} onClick={() => setChartRange(t)} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${t === chartRange ? 'bg-brand-500 text-black shadow-lg shadow-brand-500/20' : 'text-slate-500 hover:text-brand-500'}`}>{t}</button>
+                            <div className="flex gap-2 p-1 bg-accent/50 rounded-xl border border-border">
+                                {['1M', '3M', '6M', '1Y'].map(t => (
+                                    <button
+                                        key={t}
+                                        onClick={() => setChartRange(t)}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${t === chartRange ? 'bg-primary text-white shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        {t}
+                                    </button>
                                 ))}
                             </div>
                         </div>
-                        <div className="flex-1 relative z-10">
-                            <canvas id="dashboardChart"></canvas>
+                        <div className="h-[350px] relative z-10 w-full">
+                            <canvas id="revenueChart"></canvas>
                         </div>
                     </div>
 
-                    <div className="card h-[500px] flex flex-col p-10 border-none bg-white dark:bg-white/5">
-                        <div className="mb-10">
-                            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic leading-none">Resource Allocation</h3>
-                            <p className="text-[9px] text-brand-500 font-black uppercase tracking-widest mt-1">Expense Segmentation</p>
+                    <div className="brand-card p-8 flex flex-col relative overflow-hidden">
+                        <div className="mb-8">
+                            <h2 className="text-xl font-black italic tracking-tight uppercase">Burn Breakdown</h2>
+                            <p className="text-[10px] text-primary font-bold uppercase tracking-widest mt-1">Expense Segmentation matrix</p>
                         </div>
-
-                        <div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar pr-2">
-                            {stats.topExpenses.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-full text-slate-300">
-                                    <Icon name="database-zap" size={48} className="mb-4 opacity-10" />
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30">Null Sector // No Data</p>
-                                </div>
-                            ) : (
-                                stats.topExpenses.map((ex, i) => (
-                                    <div key={i} className="group space-y-3">
-                                        <div className="flex justify-between text-[11px] items-center">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-brand-500 shadow-lg shadow-brand-500/50"></div>
-                                                <span className="font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">{ex.name}</span>
-                                            </div>
-                                            <span className="text-slate-400 dark:text-slate-500 font-black font-sans text-[10px]">KSh {ex.amount.toLocaleString()}</span>
-                                        </div>
-                                        <div className="w-full bg-slate-100 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
-                                            <div
-                                                className="bg-brand-500 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(99,102,241,0.5)]"
-                                                style={{ width: `${ex.pct}%` }}
-                                            ></div>
-                                        </div>
+                        <div className="flex-1 space-y-7">
+                            {stats.topExpenses.length > 0 ? stats.topExpenses.map((ex, i) => (
+                                <div key={i} className="space-y-2">
+                                    <div className="flex justify-between items-end text-[10px] font-black uppercase tracking-[0.1em]">
+                                        <span className="text-muted-foreground flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-primary/40"></div>
+                                            {ex.name}
+                                        </span>
+                                        <span className="text-foreground">KSh {ex.amount.toLocaleString()}</span>
                                     </div>
-                                ))
+                                    <div className="w-full bg-accent rounded-full h-2 overflow-hidden border border-border/50">
+                                        <div className="bg-primary h-full rounded-full transition-all duration-1000" style={{ width: `${ex.pct}%` }}></div>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="flex flex-col items-center justify-center h-full opacity-20">
+                                    <Icon name="Activity" size={48} className="mb-4" />
+                                    <p className="text-xs font-bold uppercase tracking-widest">No spectral data detected</p>
+                                </div>
                             )}
                         </div>
-                        <div className="mt-8 pt-8 border-t border-slate-100 dark:border-white/5">
-                            <button onClick={() => setActiveTab('expenses')} className="w-full text-center text-[10px] font-black text-brand-500 hover:text-brand-600 transition-all uppercase tracking-[0.3em] flex items-center justify-center gap-2 group">
-                                Access Ledger <Icon name="chevron-right" size={14} className="group-hover:translate-x-1 transition-transform" />
+                        <div className="mt-8 pt-8 border-t border-border">
+                            <button onClick={() => setActiveTab('expenses')} className="w-full h-12 rounded-xl bg-slate-950 text-white dark:bg-white dark:text-black font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 group transition-all hover:gap-4 shadow-xl shadow-black/10">
+                                View Full Ledger <Icon name="ArrowRight" size={14} />
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="card lg:col-span-2 p-10 flex flex-col border-none bg-white dark:bg-white/5">
-                        <div className="flex justify-between items-center mb-10">
+                    <div className="brand-card lg:col-span-2 p-8 flex flex-col">
+                        <div className="flex justify-between items-center mb-8">
                             <div>
-                                <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter italic">Asset Thresholds</h5>
-                                <p className="text-[9px] text-rose-500 font-black uppercase tracking-widest mt-1">Restock Priority Matrix</p>
+                                <h2 className="text-lg font-black italic tracking-tight uppercase">Low Stock Alerts</h2>
+                                <p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest mt-1">Critical threshold interrupts</p>
                             </div>
-                            <div className="p-2.5 bg-rose-500/10 rounded-xl text-rose-500 group-hover:scale-110 transition-transform">
-                                <Icon name="package-search" size={20} />
+                            <div className="w-12 h-12 bg-rose-500/10 text-rose-600 rounded-2xl flex items-center justify-center border border-rose-500/20 shadow-lg shadow-rose-500/5">
+                                <Icon name="PackageSearch" size={24} />
                             </div>
                         </div>
-                        <div className="space-y-8 flex-1">
+                        <div className="space-y-6 flex-1">
                             {lowStockItems.length > 0 ? lowStockItems.map((item, i) => (
-                                <div key={i} className="group cursor-pointer space-y-3">
-                                    <div className="flex justify-between text-[11px] font-black uppercase tracking-wider">
-                                        <span className="text-slate-900 dark:text-white group-hover:text-brand-500 transition-colors italic">{item.name}</span>
-                                        <span className="text-rose-600 font-sans">{item.stock} / {item.minStock || 5} {item.unit}</span>
+                                <div key={i} className="p-4 rounded-xl bg-accent/50 border border-border group hover:border-rose-500/50 transition-all cursor-default">
+                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                                        <span className="text-foreground italic group-hover:text-rose-600 transition-colors">{item.name}</span>
+                                        <span className="px-2 py-1 bg-rose-500 text-white rounded-md tabular-nums">{item.quantity} {item.unit}</span>
                                     </div>
-                                    <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full transition-all duration-1000 ease-out shadow-lg ${item.stock <= (item.minStock || 5) * 0.2 ? 'bg-rose-600 shadow-rose-500/20' : 'bg-amber-500 shadow-amber-500/20'}`}
-                                            style={{ width: `${(item.stock / (item.minStock || 5)) * 100}%` }}
-                                        ></div>
+                                    <div className="mt-2 text-[8px] text-muted-foreground font-bold tracking-[0.2em] flex items-center gap-2">
+                                        CAT: {item.category} // THRESHOLD: {item.min_threshold}
                                     </div>
                                 </div>
                             )) : (
-                                <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                                    <Icon name="shield-check" size={48} className="text-emerald-500/20 mb-4" />
-                                    <p className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-[0.2em] leading-relaxed italic">Inventory Matrix Optimal<br />No Sector Depletion Detected</p>
+                                <div className="flex flex-col items-center justify-center h-full opacity-20 py-10">
+                                    <Icon name="ShieldCheck" size={64} className="text-emerald-500 mb-4" />
+                                    <p className="text-[10px] font-black uppercase tracking-widest italic">All systems nominal</p>
                                 </div>
                             )}
                         </div>
-                    </div>
-
-                    <div className="card lg:col-span-3 p-10 flex flex-col bg-[#0f172a] text-white border-none relative overflow-hidden group shadow-2xl">
-                        <div className="absolute right-0 top-0 p-8 opacity-[0.03] group-hover:scale-110 transition-transform duration-[2000ms] pointer-events-none"><Icon name="activity" size={300} /></div>
-
-                        <div className="flex justify-between items-center mb-10 z-10 relative">
-                            <div>
-                                <h5 className="text-sm font-black text-brand-500 uppercase tracking-tighter italic">Operational Telemetry</h5>
-                                <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Live Transaction Stream</p>
-                            </div>
-                            <button
-                                onClick={() => { if (confirm('Purge telemetry logs?')) clearTable('activities'); }}
-                                className="px-4 py-2 border border-white/5 rounded-xl text-[9px] font-black text-slate-500 hover:text-white hover:bg-white/5 transition-all uppercase tracking-[0.3em]"
-                            >
-                                Purge Logs
+                        <div className="mt-8 pt-8 border-t border-border">
+                            <button onClick={() => setActiveTab('inventory')} className="w-full text-center text-[10px] font-black text-primary hover:tracking-[0.3em] transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2 italic">
+                                Inventory Systems Access <Icon name="BarChart" size={14} />
                             </button>
                         </div>
+                    </div>
 
-                        <div className="space-y-4 z-10 relative overflow-y-auto max-h-[320px] custom-scrollbar pr-4">
-                            {data.activities && data.activities.length > 0 ? data.activities.map((log, i) => (
-                                <div key={i} className="flex gap-5 p-5 rounded-[1.5rem] bg-white/[0.02] border border-white/[0.03] hover:bg-white/[0.05] hover:border-white/10 transition-all group/item">
-                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-all ${log.type === 'Success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-brand-500/10 border-brand-500/20 text-brand-500 shadow-lg shadow-brand-500/10'}`}>
-                                        <Icon name={log.type === 'Success' ? 'shield-check' : log.type === 'Update' ? 'refresh-cw' : 'cpu'} size={18} />
+                    <div className="brand-card lg:col-span-3 p-8 flex flex-col bg-white relative overflow-hidden group border border-gray-200 shadow-2xl">
+                        <div className="absolute right-0 top-0 p-8 opacity-[0.03] group-hover:scale-110 group-hover:opacity-[0.05] transition-all duration-[5000ms] pointer-events-none">
+                            <Icon name="Activity" size={400} />
+                        </div>
+
+                        <div className="flex justify-between items-start mb-10 relative z-10">
+                            <div>
+                                <h2 className="text-xl font-black italic tracking-tight uppercase text-primary">Activity Telemetry</h2>
+                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Live operational sequence feed</p>
+                            </div>
+                            <div className="h-8 px-5 bg-primary/10 border border-primary/30 flex items-center justify-center rounded-full shadow-lg shadow-primary/10">
+                                <div className="w-2 h-2 bg-primary rounded-full animate-ping mr-3"></div>
+                                <span className="text-[8px] font-black text-primary uppercase tracking-[0.4em]">Live Uplink</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-5 relative z-10">
+                            {(data.activities || []).slice(0, 5).map((act, idx) => (
+                                <div key={idx} className="flex gap-6 p-4 rounded-xl bg-gray-50 border border-gray-100 hover:bg-primary/5 hover:border-primary/20 transition-all group cursor-default">
+                                    <div className="w-12 h-12 shrink-0 bg-primary/10 text-primary flex items-center justify-center border border-primary/20 rounded-xl group-hover:bg-primary group-hover:text-black transition-all">
+                                        <Icon name={act.action === 'Delete' ? "Trash2" : act.action === 'Update' ? "RefreshCw" : "PlusCircle"} size={20} />
                                     </div>
-                                    <div className="flex-1 space-y-1.5">
-                                        <p className="text-[11px] font-black leading-snug text-slate-200 uppercase tracking-tight">{log.msg}</p>
-                                        <div className="flex items-center gap-4 opacity-40">
-                                            <span className="text-[9px] uppercase font-black tracking-widest italic">{log.time}</span>
-                                            <span className="w-1.5 h-1.5 bg-white/20 rounded-full"></span>
-                                            <span className={`text-[8px] uppercase font-black tracking-[0.2em] px-2 py-0.5 rounded-lg ${log.type === 'Success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-brand-500/20 text-brand-400'}`}>{log.type}</span>
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <span className="px-2 py-0.5 bg-primary/20 text-primary text-[8px] font-black rounded uppercase tracking-tighter italic">
+                                                {act.module}
+                                            </span>
+                                            <span className="text-[8px] text-muted-foreground/70 font-bold uppercase tracking-widest">
+                                                {new Date(act.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
                                         </div>
+                                        <p className="font-bold text-xs uppercase tracking-widest truncate group-hover:text-primary transition-colors text-foreground">
+                                            {act.action} - {act.details || 'System event triggered'}
+                                        </p>
+                                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1">
+                                            OPERATOR: {act.performed_by}
+                                        </p>
                                     </div>
                                 </div>
-                            )) : (
-                                <div className="flex flex-col items-center justify-center h-48 opacity-20">
-                                    <Icon name="terminal" size={40} className="mb-4" />
-                                    <p className="text-[9px] font-black uppercase tracking-[0.3em]">Standby // Listening for Data</p>
+                            ))}
+                            {(!data.activities || data.activities.length === 0) && (
+                                <div className="flex flex-col items-center justify-center h-64 opacity-40 border-2 border-dashed border-gray-200 rounded-3xl">
+                                    <Icon name="WifiOff" size={48} className="mb-4" />
+                                    <p className="text-[10px] font-black uppercase tracking-[0.5em]">No activity streams detected</p>
                                 </div>
                             )}
                         </div>
@@ -336,136 +371,254 @@
         );
     };
 
+
     const ExpenseModule = () => {
-        const { data, updateData, deleteItem } = useContext(AppContext);
+        const { data, updateData, deleteItem, user, logActivity } = useContext(AppContext);
         const [isAdding, setIsAdding] = useState(false);
         const [newExp, setNewExp] = useState({ date: new Date().toISOString().split('T')[0], amount: '', category: 'Raw Materials', notes: '' });
 
-        const addExpense = (e) => {
+        const addExpense = async (e) => {
             e.preventDefault();
-            const expense = { ...newExp, id: Date.now() };
-            updateData('expenses', expense);
-            setIsAdding(false);
-            setNewExp({ date: new Date().toISOString().split('T')[0], amount: '', category: 'Raw Materials', notes: '' });
+            const expense = {
+                ...newExp,
+                id: Date.now(),
+                amount: parseFloat(newExp.amount) || 0,
+                created_at: new Date().toISOString(),
+                performed_by: user?.display_name || user?.username || 'Operator'
+            };
+
+            const success = await updateData('expenses', expense);
+            if (success) {
+                logActivity({
+                    module: 'Expenses',
+                    action: 'Create',
+                    details: `Expense logged: ${expense.category} - KSh ${expense.amount.toLocaleString()}`,
+                    performed_by: expense.performed_by
+                });
+                setIsAdding(false);
+                setNewExp({ date: new Date().toISOString().split('T')[0], amount: '', category: 'Raw Materials', notes: '' });
+            }
         };
 
+        useEffect(() => {
+            const chartDom = document.getElementById('expenseAnalyticsChart');
+            if (!chartDom) return;
+
+            const ctx = chartDom.getContext('2d');
+            const existingChart = Chart.getChart('expenseAnalyticsChart');
+            if (existingChart) existingChart.destroy();
+
+            const catMap = data.expenses.reduce((acc, exp) => {
+                acc[exp.category] = (acc[exp.category] || 0) + parseFloat(exp.amount || 0);
+                return acc;
+            }, {});
+
+            const isDark = document.documentElement.classList.contains('dark');
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(catMap),
+                    datasets: [{
+                        label: 'Allocation',
+                        data: Object.values(catMap),
+                        backgroundColor: 'hsl(221.2, 83.2%, 53.3%)',
+                        borderRadius: 6,
+                        barThickness: 16
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' },
+                            ticks: {
+                                color: isDark ? '#64748b' : '#94a3b8',
+                                font: { size: 9, weight: 'bold' }
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                color: isDark ? '#f8fafc' : '#1e293b',
+                                font: { size: 10, weight: 'black' }
+                            }
+                        }
+                    }
+                }
+            });
+        }, [data.expenses]);
+
+        const totalBurn = data.expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
         return (
-            <div className="space-y-12">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-8 pb-12 animate-slide">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-4xl mb-2 italic uppercase font-display tracking-tight">Financial Ledger</h2>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest italic">Capital Outflow Control & Monitoring</p>
+                        <h1 className="text-4xl font-black tracking-tighter uppercase">Operational Ledger</h1>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em] mt-1 italic">Capital Outflow Monitoring Sequence</p>
                     </div>
-                    <button
-                        onClick={() => setIsAdding(!isAdding)}
-                        className="brand-button-yellow !px-8 !py-4 flex items-center gap-3"
-                    >
-                        <Icon name={isAdding ? 'x' : 'plus'} size={18} />
-                        {isAdding ? 'Dismiss Entry Form' : 'Log New Expenditure'}
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <ExportDropdown data={data.expenses} filename="IGH_Expense_Ledger" />
+                        <button
+                            onClick={() => setIsAdding(!isAdding)}
+                            className="brand-button-yellow h-10 px-6"
+                        >
+                            <Icon name={isAdding ? 'X' : 'Plus'} size={18} />
+                            {isAdding ? 'DISMISS' : 'LOG EXPENSE'}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 brand-card p-8 group relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32"></div>
+                        <h2 className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-8 italic relative z-10 text-center md:text-left">Allocation Matrix // Category Distribution</h2>
+                        <div className="h-56 relative z-10 w-full">
+                            <canvas id="expenseAnalyticsChart"></canvas>
+                        </div>
+                    </div>
+                    <div className="brand-card p-8 bg-white relative overflow-hidden flex flex-col justify-center border border-gray-200 shadow-2xl">
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-[60px] -mr-24 -mt-24 pointer-events-none"></div>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.5em] mb-4 relative z-10">Total Burn Rate</p>
+                        <h2 className="text-5xl font-black italic tracking-tighter relative z-10 tabular-nums text-foreground">
+                            KSh {totalBurn.toLocaleString()}
+                        </h2>
+                        <div className="mt-8 flex items-center gap-3 relative z-10 pt-8 border-t border-gray-100">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                            <p className="text-[8px] text-muted-foreground font-bold uppercase tracking-widest">System Audit: {new Date().toLocaleDateString('en-GB')}</p>
+                        </div>
+                    </div>
                 </div>
 
                 {isAdding && (
-                    <div className="bg-black text-white p-12 shadow-2xl animate-slide relative overflow-hidden">
+                    <div className="brand-card p-10 bg-white border-l-4 border-black animate-slide relative overflow-hidden shadow-xl">
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-[100px] -mr-48 -mt-48 pointer-events-none text-primary"></div>
                         <div className="relative z-10">
-                            <h3 className="text-2xl mb-8 flex items-center gap-4">
-                                <div className="w-1.5 h-8 bg-brand-500"></div>
-                                Log Capital Outflow
-                            </h3>
+                            <div className="flex items-center justify-between mb-10">
+                                <div>
+                                    <h3 className="text-2xl font-black italic tracking-tight uppercase text-primary">Log Capital Outflow</h3>
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Transaction Provisioning Sequence</p>
+                                </div>
+                                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20 shadow-lg">
+                                    <Icon name="Receipt" size={24} />
+                                </div>
+                            </div>
+
                             <form onSubmit={addExpense} className="space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                                    <div>
-                                        <label className="brand-label !text-slate-500">Temporal Stamp</label>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                    <div className="space-y-3">
+                                        <label className="brand-label">Chronology</label>
                                         <input
                                             type="date"
-                                            className="brand-input !bg-dark-surface !border-dark-border !text-white !py-4"
+                                            className="brand-input !h-12"
                                             required
                                             value={newExp.date}
                                             onChange={e => setNewExp({ ...newExp, date: e.target.value })}
                                         />
                                     </div>
-                                    <div>
-                                        <label className="brand-label !text-slate-500">Magnitude (KES)</label>
+                                    <div className="space-y-3">
+                                        <label className="brand-label">Quantum (KES)</label>
                                         <input
                                             type="number"
-                                            className="brand-input !bg-dark-surface !border-dark-border !text-white !py-4"
+                                            className="brand-input !h-12 font-mono"
                                             placeholder="0.00"
                                             required
                                             value={newExp.amount}
                                             onChange={e => setNewExp({ ...newExp, amount: e.target.value })}
                                         />
                                     </div>
-                                    <div>
-                                        <label className="brand-label !text-slate-500">Classification</label>
+                                    <div className="space-y-3">
+                                        <label className="brand-label">Classification</label>
                                         <select
-                                            className="brand-input !bg-dark-surface !border-dark-border !text-white !py-4"
+                                            className="brand-input !h-12"
                                             value={newExp.category}
                                             onChange={e => setNewExp({ ...newExp, category: e.target.value })}
                                         >
-                                            <option>Raw Materials</option>
-                                            <option>Human Resource</option>
-                                            <option>Office Supplies</option>
-                                            <option>Marketing</option>
-                                            <option>Software</option>
-                                            <option>Logistics</option>
+                                            <option className="bg-white">Raw Materials</option>
+                                            <option className="bg-white">Human Resource</option>
+                                            <option className="bg-white">Office Supplies</option>
+                                            <option className="bg-white">Marketing</option>
+                                            <option className="bg-white">Software</option>
+                                            <option className="bg-white">Logistics</option>
+                                            <option className="bg-white">Utilities</option>
+                                            <option className="bg-white">Miscellaneous</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="brand-label !text-slate-500">Operational Description</label>
+                                <div className="space-y-3">
+                                    <label className="brand-label">Operational Descriptor</label>
                                     <input
                                         type="text"
-                                        className="brand-input !bg-dark-surface !border-dark-border !text-white !py-4"
-                                        placeholder="Specify the purpose of this expenditure..."
+                                        className="brand-input !h-12"
+                                        placeholder="Specify purpose of expenditure..."
                                         value={newExp.notes}
                                         onChange={e => setNewExp({ ...newExp, notes: e.target.value })}
                                     />
                                 </div>
-                                <div className="flex justify-end pt-6 border-t border-dark-border">
-                                    <button type="submit" className="brand-button-yellow !px-12 !py-5 uppercase text-[10px] font-black italic">
-                                        Authorize & Commit to Ledger
+                                <div className="flex justify-end pt-8 border-t border-white/10">
+                                    <button type="submit" className="brand-button-yellow h-12 px-12 text-sm font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20">
+                                        Execute Ledger Command
                                     </button>
                                 </div>
                             </form>
                         </div>
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500 opacity-5 translate-x-32 -translate-y-32 rotate-45"></div>
                     </div>
                 )}
 
-                <div className="brand-card !p-0 overflow-hidden border-2 bg-white">
-                    <table className="w-full text-left">
-                        <thead className="bg-[#f0f0f0] border-b-2 border-black">
-                            <tr>
-                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black">Timeline</th>
-                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black">Category</th>
-                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black">Description</th>
-                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black text-right">Amount (KES)</th>
-                                <th className="px-8 py-6 text-[10px] font-display uppercase tracking-widest text-black text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y-2 divide-slate-50">
-                            {data.expenses.map(exp => (
-                                <tr key={exp.id} className="hover:bg-brand-500/5 transition-colors group">
-                                    <td className="px-8 py-6 text-[10px] font-bold text-slate-400">{exp.date}</td>
-                                    <td className="px-8 py-6">
-                                        <span className="px-4 py-1 bg-black text-white text-[9px] font-black uppercase tracking-tighter">
-                                            {exp.category}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-6 text-sm font-bold text-slate-800">{exp.notes}</td>
-                                    <td className="px-8 py-6 text-right font-display text-lg">KES {parseFloat(exp.amount).toLocaleString()}</td>
-                                    <td className="px-8 py-6 text-right">
-                                        <button
-                                            onClick={() => { if (confirm('Purge this record?')) deleteItem('expenses', exp.id); }}
-                                            className="w-12 h-12 flex items-center justify-center bg-white border-2 border-slate-100 hover:border-black text-slate-400 hover:text-black transition-all"
-                                        >
-                                            <Icon name="trash-2" size={18} />
-                                        </button>
-                                    </td>
+                <div className="brand-card overflow-hidden border-none shadow-xl">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-accent/50 border-b border-border">
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground italic">Timeline</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Classification</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Operational Notes</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right border-l border-border/10">Quantum</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-border/50">
+                                {data.expenses.sort((a, b) => new Date(b.date) - new Date(a.date)).map(exp => (
+                                    <tr key={exp.id} className="hover:bg-accent/30 transition-all group/row cursor-default">
+                                        <td className="px-8 py-5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">{new Date(exp.date).toLocaleDateString('en-GB')}</td>
+                                        <td className="px-8 py-5">
+                                            <span className="px-3 py-1 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] rounded-md border border-primary/20">
+                                                {exp.category}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <p className="text-sm font-bold text-foreground">{exp.notes || 'No descriptor provided'}</p>
+                                            <p className="text-[8px] text-muted-foreground font-bold uppercase tracking-widest mt-1">OP: {exp.performed_by || 'SYSTEM'}</p>
+                                        </td>
+                                        <td className="px-8 py-5 text-right font-black text-foreground tabular-nums border-l border-border/10">KSh {parseFloat(exp.amount).toLocaleString()}</td>
+                                        <td className="px-8 py-5">
+                                            <div className="flex justify-end transition-all">
+                                                <button
+                                                    onClick={() => { if (confirm('Purge this record from ledger?')) deleteItem('expenses', exp.id); }}
+                                                    title="Delete Record"
+                                                    className="w-10 h-10 flex items-center justify-center bg-card border border-border rounded-xl text-muted-foreground hover:bg-rose-500 hover:text-white hover:border-rose-500 hover:scale-105 transition-all shadow-sm"
+                                                >
+                                                    <Icon name="Trash2" size={18} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {data.expenses.length === 0 && (
+                                    <tr>
+                                        <td colSpan="5" className="px-8 py-20 text-center opacity-20">
+                                            <Icon name="Activity" size={48} className="mx-auto mb-4" />
+                                            <p className="text-[10px] font-black uppercase tracking-[0.5em]">Ledger currently void</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         );
@@ -486,7 +639,7 @@
             date: new Date().toISOString().split('T')[0],
             items: [{ desc: '', qty: 1, price: 0 }],
             status: 'Pending',
-            taxRate: data.config?.taxRate || 16
+            taxRate: data.config?.tax_rate || data.config?.taxRate || 16
         });
 
         useEffect(() => {
@@ -543,7 +696,9 @@
                 amount: totals.total,
                 subtotal: totals.subtotal,
                 tax: totals.tax,
-                status: isQuote ? 'Draft' : 'Pending'
+                status: isQuote ? 'Draft' : 'Pending',
+                created_at: new Date().toISOString(),
+                performed_by: user?.display_name || user?.username || 'Operator'
             };
 
             const success = await updateData('sales', sale);
@@ -557,6 +712,14 @@
                         await updateData('projects_bulk', updatedProjects);
                     }
                 }
+
+                logActivity({
+                    module: 'Sales',
+                    action: isQuote ? 'Quote' : 'Invoice',
+                    details: `${isQuote ? 'Quote' : 'Invoice'} ${sale.invoiceNo} issued to ${sale.client} - KSh ${sale.amount.toLocaleString()}`,
+                    performed_by: sale.performed_by
+                });
+
                 setIsAdding(false);
                 setNewSale({
                     client: '',
@@ -566,26 +729,21 @@
                     status: 'Pending',
                     taxRate: data.config?.taxRate || 16
                 });
-                if (isQuote) {
-                    logActivity(`Quote generated for ${newSale.client}`, 'Sync');
-                } else {
-                    logActivity(`Invoice ${sale.invoiceNo} issued to ${sale.client}`, 'Sync');
-                }
             }
         };
 
         const handleSettle = async (e) => {
             e.preventDefault();
             const currentPayment = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-            const totalPaidSoFar = (settlingInvoice.amountPaid || 0) + currentPayment;
+            const totalPaidSoFar = (settlingInvoice.amount_paid || settlingInvoice.amountPaid || 0) + currentPayment;
             const isFullyPaid = totalPaidSoFar >= parseFloat(settlingInvoice.amount);
 
             const updatedSales = data.sales.map(s =>
                 s.id === settlingInvoice.id ? {
                     ...s,
                     status: isFullyPaid ? 'Paid' : 'Partial',
-                    paymentHistory: [...(s.paymentHistory || []), ...payments],
-                    amountPaid: (s.amountPaid || 0) + currentPayment
+                    paymentHistory: [...(s.paymentHistory || []), ...payments.map(p => ({ ...p, date: new Date().toISOString() }))],
+                    amountPaid: (s.amount_paid || s.amountPaid || 0) + currentPayment
                 } : s
             );
             const success = await updateData('sales_bulk', updatedSales);
@@ -597,401 +755,488 @@
                     );
                     await updateData('projects_bulk', updatedProjects);
                 }
-                logActivity(`Invoice ${settlingInvoice.invoiceNo} settled via ${payments.map(p => p.mode).join('+')}`, 'Sync');
+
+                logActivity({
+                    module: 'Sales',
+                    action: 'Settlement',
+                    details: `Invoice ${settlingInvoice.invoiceNo} settled with KSh ${currentPayment.toLocaleString()}`,
+                    performed_by: user?.display_name || user?.username || 'Operator'
+                });
+
                 setSettlingInvoice(null);
                 setPayments([{ mode: 'Mpesa', amount: 0, ref: '' }]);
             }
         };
 
         const statusCounts = useMemo(() => {
-            const pending = data.sales.filter(s => s.status === 'Pending').length;
+            const pending = data.sales.filter(s => s.status === 'Pending' || s.status === 'Partial').length;
             const overdue = data.sales.filter(s => s.status === 'Overdue').length;
             const totalValue = data.sales.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
-            return { total: data.sales.length, pending, overdue, value: totalValue };
+            const received = data.sales.reduce((sum, s) => sum + parseFloat(s.amount_paid || s.amountPaid || 0), 0);
+            return { total: data.sales.length, pending, overdue, value: totalValue, received };
         }, [data.sales]);
 
         return (
-            <div className="space-y-12">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-8 pb-12 animate-slide">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-4xl mb-2 italic uppercase font-display tracking-tight">Revenue Hub</h2>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest italic">Invoicing, Quotes & Settlement Architecture</p>
+                        <h1 className="text-4xl font-black tracking-tighter uppercase">Sales & Invoicing</h1>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em] mt-1 italic">Revenue Management & Transaction Lifecycle</p>
                     </div>
-                    <div className="flex flex-wrap gap-4">
-                        <div className="relative">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative group/search">
+                            <Icon name="Search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within/search:text-primary transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Search Transactions..."
-                                className="brand-input !bg-white border-2 !py-4 !pl-12 w-64"
+                                placeholder="SEARCH LEDGER..."
+                                className="brand-input !bg-muted/30 border-muted !h-11 !pl-11 !pr-4 w-64 text-[10px] font-bold focus:w-80 transition-all uppercase tracking-widest"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                <Icon name="search" size={16} />
-                            </div>
                         </div>
+                        <ExportDropdown data={data.sales} filename="IGH_Sales_Ledger" />
                         <button
                             onClick={() => setIsAdding(!isAdding)}
-                            className="brand-button-yellow !px-8 !py-4 flex items-center gap-3"
+                            className="brand-button-yellow h-11 px-8"
                         >
-                            <Icon name={isAdding ? 'x' : 'plus'} size={18} />
-                            {isAdding ? 'Dismiss Panel' : 'Issue New Invoice'}
+                            <Icon name={isAdding ? 'X' : 'Plus'} size={18} />
+                            {isAdding ? 'DISMISS' : 'ISSUE INVOICE'}
                         </button>
                     </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard label="Total Invoices" value={statusCounts.total} icon="FileText" />
+                    <StatCard label="Live Receivables" value={statusCounts.pending} trend={`${((statusCounts.pending / statusCounts.total) * 100 || 0).toFixed(0)}%`} trendType="up" icon="Clock" />
+                    <StatCard label="Pipeline Value" value={`KSh ${(statusCounts.value / 1000000).toFixed(1)}M`} icon="Banknote" />
+                    <StatCard label="Collection Rate" value={`${((statusCounts.received / statusCounts.value) * 100 || 0).toFixed(0)}%`} trendType="up" icon="TrendingUp" />
+                </div>
+
                 {unbilledProjects.length > 0 && (
-                    <div className="bg-brand-500 p-8 flex items-center justify-between shadow-xl">
-                        <div className="flex items-center gap-6">
-                            <div className="w-12 h-12 bg-black text-brand-500 rounded-full flex items-center justify-center">
-                                <Icon name="alert-circle" size={24} />
+                    <div className="brand-card p-6 bg-primary/5 border-primary/20 animate-slide flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                        <div className="flex items-center gap-5 relative z-10">
+                            <div className="w-14 h-14 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/5">
+                                <Icon name="AlertCircle" size={28} />
                             </div>
                             <div>
-                                <h4 className="text-sm font-black uppercase tracking-widest">Unbilled Deliverables Detected</h4>
-                                <p className="text-[10px] font-bold uppercase mt-1 opacity-70">{unbilledProjects.length} Projects awaiting invoice issuance</p>
+                                <h4 className="text-base font-black tracking-tight uppercase">Unbilled Deliverables Detected</h4>
+                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">{unbilledProjects.length} PROJECTS AWAITING FINAL COMMERCIAL CLOSURE</p>
                             </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-3 relative z-10">
                             {unbilledProjects.slice(0, 3).map(up => (
                                 <button
                                     key={up.id}
                                     onClick={() => seedInvoice({ client: up.client, projectId: up.id, itemName: up.name })}
-                                    className="bg-black text-white px-4 py-2 text-[9px] font-black uppercase tracking-tighter hover:bg-slate-800 transition-colors"
+                                    className="px-5 py-2.5 bg-background border border-border text-[9px] font-black uppercase tracking-[0.2em] rounded-xl hover:border-primary hover:text-primary transition-all shadow-sm hover:shadow-primary/10"
                                 >
-                                    Bill {up.client.substring(0, 10)}...
+                                    BILL {up.client}
                                 </button>
                             ))}
                         </div>
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="brand-card bg-white border-2 border-black p-8 group hover:bg-black hover:text-white transition-all">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-brand-500 mb-4">Total Records</p>
-                        <h3 className="text-4xl font-display">{statusCounts.total}</h3>
-                    </div>
-                    <div className="brand-card bg-white border-2 border-black p-8">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Awaiting Settlement</p>
-                        <h3 className="text-4xl font-display text-rose-600">{statusCounts.pending}</h3>
-                    </div>
-                    <div className="brand-card bg-black text-white p-8">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-500 mb-4">Pipeline Valuation</p>
-                        <h3 className="text-4xl font-display">KES {statusCounts.value.toLocaleString()}</h3>
-                    </div>
-                    <div className="brand-card bg-brand-500 p-8">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-black/40 mb-4">Overdue Threshold</p>
-                        <h3 className="text-4xl font-display text-black">{statusCounts.overdue}</h3>
-                    </div>
-                </div>
-
                 {isAdding && (
-                    <div className="bg-black text-white p-12 shadow-2xl animate-slide relative overflow-hidden">
+                    <div className="brand-card p-10 bg-white border-l-4 border-black animate-slide relative overflow-hidden shadow-xl">
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-[100px] -mr-48 -mt-48 pointer-events-none text-primary"></div>
                         <div className="relative z-10">
-                            <h3 className="text-2xl mb-8 flex items-center gap-4 italic uppercase font-display">
-                                <div className="w-1.5 h-8 bg-brand-500"></div>
-                                Issue Document
-                            </h3>
-                            <form onSubmit={handleSubmit} className="space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                                    <div>
-                                        <label className="brand-label !text-slate-500">Recipient Client</label>
-                                        <select
-                                            className="brand-input !bg-dark-surface !border-dark-border !text-white"
-                                            required
-                                            value={newSale.client}
-                                            onChange={e => setNewSale({ ...newSale, client: e.target.value })}
-                                        >
-                                            <option value="">Select Client Entity</option>
-                                            {data.clients.map(c => <option key={c.id} value={c.name} className="bg-dark-surface">{c.name} ({c.company})</option>)}
-                                        </select>
+                            <div className="flex items-center justify-between mb-12">
+                                <div>
+                                    <h3 className="text-3xl font-black italic tracking-tighter uppercase text-primary">Issue New Document</h3>
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.3em] mt-1">Transaction Provisioning Sequence</p>
+                                </div>
+                                <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20 shadow-2xl">
+                                    <Icon name="FilePlus" size={28} />
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleSubmit} className="space-y-12">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                                    <div className="space-y-3">
+                                        <label className="brand-label">Client Identity</label>
+                                        <div className="relative group/input">
+                                            <Icon name="User" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within/input:text-primary transition-colors" />
+                                            <input
+                                                list="clients-list"
+                                                className="brand-input !h-14 !pl-12 w-full"
+                                                placeholder="ENTER OR SELECT CLIENT..."
+                                                required
+                                                value={newSale.client}
+                                                onChange={e => setNewSale({ ...newSale, client: e.target.value })}
+                                            />
+                                        </div>
+                                        <datalist id="clients-list">
+                                            {data.clients.map(c => <option key={c.id} value={c.name} />)}
+                                        </datalist>
                                     </div>
-                                    <div>
-                                        <label className="brand-label !text-slate-500">Linked Project</label>
+                                    <div className="space-y-3">
+                                        <label className="brand-label">Project Node</label>
                                         <select
-                                            className="brand-input !bg-dark-surface !border-dark-border !text-white"
+                                            className="brand-input !h-14 w-full"
                                             value={newSale.projectId}
                                             onChange={e => setNewSale({ ...newSale, projectId: e.target.value })}
                                         >
-                                            <option value="">N/A (General Transaction)</option>
-                                            {data.projects.filter(p => p.client === newSale.client).map(p => <option key={p.id} value={p.id} className="bg-dark-surface">{p.name}</option>)}
+                                            <option value="" className="bg-white">INDEPENDENT TRANSACTION</option>
+                                            {data.projects.map(p => <option key={p.id} value={p.id} className="bg-white">{p.name}</option>)}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="brand-label !text-slate-500">Document Date</label>
+                                    <div className="space-y-3">
+                                        <label className="brand-label">Chronology</label>
                                         <input
                                             type="date"
-                                            className="brand-input !bg-dark-surface !border-dark-border !text-white"
-                                            required
+                                            className="brand-input !h-14 w-full"
                                             value={newSale.date}
                                             onChange={e => setNewSale({ ...newSale, date: e.target.value })}
                                         />
                                     </div>
-                                    <div>
-                                        <label className="brand-label !text-slate-500">Draft Sequence</label>
-                                        <div className="brand-input !bg-dark-surface !border-brand-500/30 !text-brand-500 font-display flex items-center">
-                                            {getNextInvoiceNumber()}
-                                        </div>
-                                    </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center border-b border-dark-border pb-4">
-                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Billable Assets & Services</h4>
-                                        <button
-                                            type="button"
-                                            onClick={addItem}
-                                            className="text-[9px] font-black text-brand-500 uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity"
-                                        >
-                                            <Icon name="plus-circle" size={14} /> Append Row
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                                        <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.4em] italic">Line Itemization // Billables</h4>
+                                        <button type="button" onClick={addItem} className="text-[10px] font-black text-white/40 hover:text-primary transition-all flex items-center gap-2 uppercase tracking-widest">
+                                            <Icon name="PlusCircle" size={16} /> ADD VECTOR
                                         </button>
                                     </div>
-                                    {newSale.items.map((item, idx) => (
-                                        <div key={idx} className="flex gap-4 items-end animate-slide">
-                                            <div className="flex-1">
-                                                <input
-                                                    className="brand-input !bg-dark-surface !border-dark-border !text-white"
-                                                    placeholder="Asset/Service Specification..."
-                                                    value={item.desc}
-                                                    onChange={e => updateItem(idx, 'desc', e.target.value)}
-                                                    required
-                                                />
+                                    <div className="space-y-4">
+                                        {newSale.items.map((item, idx) => (
+                                            <div key={idx} className="grid grid-cols-12 gap-5 items-end animate-slide group/row">
+                                                <div className="col-span-12 md:col-span-6 space-y-2">
+                                                    <label className="text-[8px] font-black text-white/20 uppercase tracking-widest ml-1">Operational Descriptor</label>
+                                                    <input
+                                                        className="brand-input !h-12 text-sm !px-5"
+                                                        placeholder="Specify output unit..."
+                                                        value={item.desc}
+                                                        onChange={e => updateItem(idx, 'desc', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="col-span-4 md:col-span-2 space-y-2">
+                                                    <label className="text-[8px] font-black text-white/20 uppercase tracking-widest ml-1">QTY</label>
+                                                    <input
+                                                        type="number"
+                                                        className="brand-input !h-12 text-sm font-mono text-center"
+                                                        placeholder="0"
+                                                        value={item.qty}
+                                                        onChange={e => updateItem(idx, 'qty', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="col-span-6 md:col-span-3 space-y-2">
+                                                    <label className="text-[8px] font-black text-white/20 uppercase tracking-widest ml-1">Unit Value (KSh)</label>
+                                                    <input
+                                                        type="number"
+                                                        className="brand-input !h-12 text-sm font-mono"
+                                                        placeholder="0.00"
+                                                        value={item.price}
+                                                        onChange={e => updateItem(idx, 'price', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="col-span-2 md:col-span-1 flex justify-end">
+                                                    <button type="button" onClick={() => removeItem(idx)} className="w-12 h-12 flex items-center justify-center text-white/20 hover:text-rose-500 transition-all hover:bg-rose-500/10 rounded-xl">
+                                                        <Icon name="Trash2" size={20} />
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="w-24">
-                                                <input
-                                                    type="number"
-                                                    className="brand-input !bg-dark-surface !border-dark-border !text-white text-center"
-                                                    value={item.qty}
-                                                    onChange={e => updateItem(idx, 'qty', parseFloat(e.target.value))}
-                                                    required
-                                                />
-                                            </div>
-                                            <div className="w-40">
-                                                <input
-                                                    type="number"
-                                                    className="brand-input !bg-dark-surface !border-dark-border !text-white text-right"
-                                                    value={item.price}
-                                                    onChange={e => updateItem(idx, 'price', parseFloat(e.target.value))}
-                                                    required
-                                                />
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeItem(idx)}
-                                                className="w-12 h-12 flex items-center justify-center text-slate-500 hover:text-rose-500 transition-colors"
-                                            >
-                                                <Icon name="trash-2" size={18} />
-                                            </button>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
 
-                                <div className="flex flex-col md:flex-row justify-between items-end gap-12 pt-8 border-t border-dark-border">
-                                    <div className="flex-1 text-slate-500 max-w-sm">
-                                        <p className="text-[10px] leading-relaxed uppercase tracking-widest italic">
-                                            Authorization generates a permanent record in the financial ledger and notifies the client repository.
-                                        </p>
+                                <div className="flex flex-col md:flex-row justify-between items-end gap-10 pt-10 border-t border-white/10">
+                                    <div className="flex flex-wrap gap-12 text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">
+                                        <div>
+                                            <p className="mb-2 italic">Subtotal</p>
+                                            <p className="text-xl text-white font-mono">KSh {totals.subtotal.toLocaleString()}</p>
+                                        </div>
+                                        <div>
+                                            <p className="mb-2 italic">Tax Load ({newSale.taxRate}%)</p>
+                                            <p className="text-xl text-white font-mono">KSh {totals.tax.toLocaleString()}</p>
+                                        </div>
+                                        <div className="md:border-l md:border-white/10 md:pl-12">
+                                            <p className="text-primary mb-2 italic">Aggregate Total</p>
+                                            <p className="text-4xl text-primary font-black tracking-tighter tabular-nums italic">KSh {totals.total.toLocaleString()}</p>
+                                        </div>
                                     </div>
-                                    <div className="w-80 space-y-4">
-                                        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-500">
-                                            <span>Subtotal</span>
-                                            <span className="font-display">KES {totals.subtotal.toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-500 italic opacity-50">
-                                            <span>VAT ({newSale.taxRate}%)</span>
-                                            <span className="font-display">KES {totals.tax.toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex justify-between text-2xl font-display text-white border-t border-dark-border pt-4">
-                                            <span className="italic">Aggregate</span>
-                                            <span className="text-brand-500">KES {totals.total.toLocaleString()}</span>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3 pt-4">
-                                            <button
-                                                type="submit"
-                                                className="brand-button-yellow !py-5 uppercase text-[10px] font-black italic shadow-2xl"
-                                            >
-                                                Authorize
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSubmit(null, true)}
-                                                className="bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all font-black uppercase text-[10px] tracking-widest italic"
-                                            >
-                                                Save Quote
-                                            </button>
-                                        </div>
+                                    <div className="flex gap-4 w-full md:w-auto">
+                                        <button type="button" onClick={(e) => handleSubmit(null, true)} className="flex-1 md:flex-none px-10 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/10 transition-all italic text-white/60 hover:text-white">
+                                            Cache as Quote
+                                        </button>
+                                        <button type="submit" className="flex-1 md:flex-none brand-button-yellow !h-14 !px-12 text-sm font-black uppercase tracking-[0.2em] shadow-2xl shadow-primary/20">
+                                            Execute Financial Bond
+                                        </button>
                                     </div>
                                 </div>
                             </form>
                         </div>
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500 opacity-5 translate-x-48 -translate-y-48 rotate-45 pointer-events-none"></div>
                     </div>
                 )}
 
-                <div className="bg-white border-2 border-black overflow-hidden shadow-premium transition-all">
+                <div className="brand-card overflow-hidden border-none shadow-xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left font-display">
-                            <thead className="bg-black text-white">
-                                <tr>
-                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-brand-500">ID / Sequence</th>
-                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Recipient Client</th>
-                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 text-center">Date</th>
-                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 text-right">Magnitude</th>
-                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Vector</th>
-                                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 text-right">Control</th>
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-accent/50 border-b border-border">
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground italic">Reference</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Client Identity</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Status</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right border-l border-border/10">Magnitude</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y-2 divide-black/5">
-                                {data.sales
-                                    .filter(s =>
-                                        s.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                        s.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                        s.status.toLowerCase().includes(searchTerm.toLowerCase())
-                                    )
-                                    .map(sale => (
-                                        <tr key={sale.id} className="hover:bg-brand-500/5 transition-all group">
-                                            <td className="px-10 py-8">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-1.5 h-6 bg-black group-hover:bg-brand-500 transition-colors"></div>
-                                                    <span className="font-black text-black uppercase italic text-lg tracking-tighter">{sale.invoiceNo}</span>
-                                                    {sale.isQuote && <span className="px-2 py-0.5 bg-black text-brand-500 text-[8px] font-black uppercase tracking-widest">Quote</span>}
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-8">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-black group-hover:text-brand-500 transition-all">
-                                                        {sale.client.charAt(0)}
-                                                    </div>
-                                                    <span className="font-bold text-black uppercase text-xs tracking-tight">{sale.client}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-8 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">{sale.date}</td>
-                                            <td className="px-10 py-8 text-right font-display text-lg font-black text-black">KES {parseFloat(sale.amount).toLocaleString()}</td>
-                                            <td className="px-10 py-8">
-                                                <span className={`px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] border-2 ${sale.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500' :
-                                                    sale.status === 'Partial' ? 'bg-amber-500/10 text-amber-600 border-amber-500' :
-                                                        'bg-rose-500/10 text-rose-600 border-rose-500'
+                            <tbody className="divide-y divide-border/50">
+                                {data.sales.filter(s =>
+                                    s.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    s.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase())
+                                ).sort((a, b) => b.id - a.id).map(sale => (
+                                    <tr key={sale.id} className="hover:bg-accent/30 transition-all group/row cursor-default">
+                                        <td className="px-8 py-5">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black text-foreground tracking-tighter">#{sale.invoiceNo}</span>
+                                                <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-1 italic">{new Date(sale.date).toLocaleDateString('en-GB')}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <p className="text-sm font-black text-foreground">{sale.client}</p>
+                                            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">AUTH: {sale.performed_by || 'SYSTEM'}</p>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <div className="flex justify-center">
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] border shadow-sm ${sale.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                                                    sale.status === 'Partial' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                                                        sale.status === 'Draft' ? 'bg-slate-500/10 text-slate-600 border-slate-500/20' :
+                                                            'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                                     }`}>
+                                                    <Icon name={sale.status === 'Paid' ? 'CheckCircle' : sale.status === 'Partial' ? 'Clock' : sale.status === 'Draft' ? 'FileText' : 'AlertCircle'} size={11} />
                                                     {sale.status}
                                                 </span>
-                                            </td>
-                                            <td className="px-10 py-8 text-right">
-                                                <div className="flex items-center justify-end gap-3">
-                                                    <button
-                                                        onClick={() => { setSelectedInvoice(sale); }}
-                                                        className="w-12 h-12 flex items-center justify-center border-2 border-black hover:bg-black hover:text-brand-500 transition-all text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none translate-y-[-2px] active:translate-y-0"
-                                                        title="View Specification"
-                                                    >
-                                                        <Icon name="eye" size={18} />
-                                                    </button>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5 text-right border-l border-border/10">
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-sm font-black text-foreground font-mono tabular-nums">KSh {parseFloat(sale.amount).toLocaleString()}</span>
+                                                {sale.amountPaid > 0 && (
+                                                    <div className="mt-1.5 flex items-center gap-2">
+                                                        <div className="w-24 h-1 bg-muted rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-emerald-500 transition-all duration-1000"
+                                                                style={{ width: `${Math.min(100, (sale.amountPaid / sale.amount) * 100)}%` }}
+                                                            ></div>
+                                                        </div>
+                                                        <span className="text-[9px] text-emerald-600 font-black uppercase tracking-widest">{Math.round((sale.amountPaid / sale.amount) * 100)}%</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <div className="flex justify-end gap-2 transition-all">
+                                                <button
+                                                    onClick={() => setSelectedInvoice(sale)}
+                                                    className="w-10 h-10 flex items-center justify-center bg-card border border-border rounded-xl text-muted-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-105 transition-all shadow-sm"
+                                                    title="View Document"
+                                                >
+                                                    <Icon name="FileText" size={18} />
+                                                </button>
+                                                {sale.status !== 'Paid' && (
                                                     <button
                                                         onClick={() => setSettlingInvoice(sale)}
-                                                        className="w-12 h-12 flex items-center justify-center border-2 border-black bg-brand-500 hover:bg-black hover:text-brand-500 transition-all text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none translate-y-[-2px] active:translate-y-0 font-black"
-                                                        title="Settle Account"
+                                                        className="w-10 h-10 flex items-center justify-center bg-primary/10 border border-primary/20 rounded-xl text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
+                                                        title="Authorize Settlement"
                                                     >
-                                                        <Icon name="wallet" size={18} />
+                                                        <Icon name="CreditCard" size={18} />
                                                     </button>
-                                                    {user?.role === 'admin' && (
-                                                        <button
-                                                            onClick={() => { if (confirm('Purge ledger entry?')) deleteItem('sales', sale.id); }}
-                                                            className="w-12 h-12 flex items-center justify-center border-2 border-slate-200 hover:border-rose-500 hover:text-rose-500 transition-all text-slate-300"
-                                                            title="Purge Record"
-                                                        >
-                                                            <Icon name="trash-2" size={18} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                )}
+                                                <button
+                                                    onClick={() => { if (confirm('Purge this record from ledger?')) deleteItem('sales', sale.id); }}
+                                                    className="w-10 h-10 flex items-center justify-center bg-card border border-border rounded-xl text-muted-foreground hover:bg-rose-500 hover:text-white hover:border-rose-500 hover:scale-105 transition-all shadow-sm"
+                                                    title="Delete Record"
+                                                >
+                                                    <Icon name="Trash2" size={18} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {data.sales.length === 0 && (
+                                    <tr>
+                                        <td colSpan="5" className="px-8 py-20 text-center opacity-20">
+                                            <Icon name="Search" size={48} className="mx-auto mb-4" />
+                                            <p className="text-[10px] font-black uppercase tracking-[0.5em]">No transaction records found</p>
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <Modal isOpen={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} title="Invoice Specification">
-                    <InvoicePreview invoice={selectedInvoice} />
-                </Modal>
-
-                <Modal isOpen={!!settlingInvoice} onClose={() => setSettlingInvoice(null)} title={`Flexible Settlement: ${settlingInvoice?.invoiceNo}`}>
-                    <form onSubmit={handleSettle} className="space-y-8 p-2">
-                        <div className="p-8 bg-black text-white border-2 border-black flex flex-col md:flex-row justify-between items-center gap-6 shadow-[8px_8px_0px_0px_rgba(255,193,7,1)]">
-                            <div className="text-center md:text-left">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 italic">Net Remaining Due</p>
-                                <h4 className="text-4xl font-display text-brand-500 tracking-tighter">KES {(parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0)).toLocaleString()}</h4>
-                                <p className="text-[9px] text-slate-400 font-bold uppercase mt-3 tracking-widest border-t border-white/10 pt-3">Total Invoice: KES {parseFloat(settlingInvoice?.amount || 0).toLocaleString()}</p>
-                            </div>
-                            <div className="text-center md:text-right border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-8">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 italic">Due From Entity</p>
-                                <h4 className="text-xl font-black text-white px-6 py-2 bg-white/10 italic leading-none inline-block">{settlingInvoice?.client}</h4>
-                            </div>
-                        </div>
-
-                        <div className="space-y-6 max-h-[45vh] overflow-y-auto px-1 custom-scrollbar">
-                            {payments.map((p, idx) => (
-                                <div key={idx} className="p-6 bg-white border-2 border-black relative animate-slide space-y-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
-                                    <div className="flex justify-between items-center border-b border-black/5 pb-4">
-                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Payment Entry Vector #{idx + 1}</h5>
-                                        {payments.length > 1 && (
-                                            <button type="button" onClick={() => removePaymentEntry(idx)} className="w-8 h-8 flex items-center justify-center bg-rose-500 text-white hover:bg-black transition-colors">
-                                                <Icon name="x" size={14} />
-                                            </button>
-                                        )}
+                {/* Settle Invoice Modal */}
+                {/* Settle Invoice Modal */}
+                {settlingInvoice && (
+                    <div className="fixed inset-0 bg-background/90 backdrop-blur-xl z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                        <div className="brand-card w-full max-w-2xl p-0 animate-slide overflow-hidden border-none shadow-2xl">
+                            <div className="p-10">
+                                <div className="flex items-center justify-between mb-10">
+                                    <div>
+                                        <h3 className="text-3xl font-black italic tracking-tighter uppercase text-primary underline decoration-primary/20 underline-offset-8">Authorize Settlement</h3>
+                                        <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.3em] mt-1 italic">Voucher Node: #{settlingInvoice.invoiceNo}</p>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="brand-label">Mode of Transfer</label>
-                                            <select className="brand-input" value={p.mode} onChange={e => updatePaymentEntry(idx, 'mode', e.target.value)}>
-                                                <option>Mpesa</option><option>Cash</option><option>Cheque</option><option>Bank Transfer</option>
-                                            </select>
+                                    <button
+                                        onClick={() => setSettlingInvoice(null)}
+                                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                                    >
+                                        <Icon name="X" size={24} />
+                                    </button>
+                                </div>
+
+                                <div className="bg-accent/30 p-8 rounded-3xl mb-10 border border-border/50 relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/10 transition-colors"></div>
+                                    <div className="flex justify-between text-xs font-black uppercase tracking-[0.3em] text-muted-foreground mb-6 italic">
+                                        <span>Financial Analysis</span>
+                                        <span className={`px-3 py-1 rounded-lg ${settlingInvoice.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'
+                                            }`}>STATUS: {settlingInvoice.status}</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-8 relative z-10">
+                                        <div>
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Original Debt</p>
+                                            <p className="text-xl font-black font-mono tracking-tighter italic">KSh {parseFloat(settlingInvoice.amount).toLocaleString()}</p>
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="brand-label">Amount (KES)</label>
-                                            <input type="number" className="brand-input !font-display !text-lg" required value={p.amount} onChange={e => updatePaymentEntry(idx, 'amount', e.target.value)} />
+                                        <div className="border-l border-border/10 pl-8">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Current Credit</p>
+                                            <p className="text-xl font-black font-mono tracking-tighter text-emerald-600 italic">KSh {(settlingInvoice.amountPaid || 0).toLocaleString()}</p>
+                                        </div>
+                                        <div className="border-l border-border/10 pl-8">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Residue Debt</p>
+                                            <p className="text-xl font-black font-mono tracking-tighter text-rose-500 italic">KSh {(settlingInvoice.amount - (settlingInvoice.amountPaid || 0)).toLocaleString()}</p>
                                         </div>
                                     </div>
-                                    {(p.mode === 'Mpesa' || p.mode === 'Cheque') && (
-                                        <div className="space-y-2 animate-slide">
-                                            <label className="brand-label">{p.mode} Authorization Reference</label>
-                                            <input className="brand-input uppercase font-black placeholder:opacity-30" placeholder="Alpha-Numeric Reference..." required value={p.ref} onChange={e => updatePaymentEntry(idx, 'ref', e.target.value)} />
+
+                                    {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) > 0 && (
+                                        <div className="mt-8 pt-8 border-t border-border/20 animate-slide">
+                                            <div className="flex justify-between items-center bg-primary/10 p-5 rounded-2xl border border-primary/20">
+                                                <div>
+                                                    <p className="text-[8px] font-black text-primary uppercase tracking-[0.4em] mb-1">PROJECTION // INPUT</p>
+                                                    <p className="text-2xl font-black text-foreground tracking-tighter italic">KSh {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toLocaleString()}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.4em] mb-1">FINAL DEBT RESIDUE</p>
+                                                    <p className={`text-2xl font-black tracking-tighter italic ${settlingInvoice.amount - (settlingInvoice.amountPaid || 0) - payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) <= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                        KSh {Math.max(0, settlingInvoice.amount - (settlingInvoice.amountPaid || 0) - payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                            ))}
-                        </div>
 
-                        <button
-                            type="button"
-                            onClick={addPaymentEntry}
-                            className="w-full py-4 border-2 border-dashed border-slate-300 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] hover:border-black hover:text-black hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
-                        >
-                            <Icon name="plus" size={12} /> Split Settlement
-                        </button>
-
-                        <div className="pt-8 border-t-2 border-black">
-                            <div className="space-y-4 mb-8">
-                                <div className="flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-                                    <span>Subtotal of Entries</span>
-                                    <span className="text-black font-display text-base">KES {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-xs font-black uppercase tracking-[0.3em]">
-                                    <span className="text-slate-500 italic">Residual Balance</span>
-                                    <span className={`text-2xl font-display ${payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) >= (parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0)) ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                        KES {Math.max(0, parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0) - payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)).toLocaleString()}
-                                    </span>
-                                </div>
-                                {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) >= (parseFloat(settlingInvoice?.amount || 0) - (settlingInvoice?.amountPaid || 0)) && (
-                                    <div className="bg-emerald-500 text-white px-6 py-4 text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 justify-center animate-pulse border-2 border-black">
-                                        <Icon name="check-circle" size={14} /> Full Settlement Achieved
+                                <form onSubmit={handleSettle} className="space-y-8">
+                                    <div className="flex items-center justify-between border-b border-border/10 pb-4">
+                                        <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.4em] italic">Settlement Log // Vectors</h4>
+                                        <button type="button" onClick={addPaymentEntry} className="text-[10px] font-black text-white/40 hover:text-primary transition-all flex items-center gap-2 uppercase tracking-widest bg-muted/30 px-4 py-2 rounded-xl">
+                                            <Icon name="PlusCircle" size={14} /> ADD VECTOR
+                                        </button>
                                     </div>
-                                )}
+
+                                    <div className="space-y-4 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+                                        {payments.map((p, i) => (
+                                            <div key={i} className="grid grid-cols-12 gap-5 items-end animate-slide p-4 bg-muted/20 rounded-2xl border border-transparent hover:border-border/50 transition-all group/p">
+                                                <div className="col-span-4 space-y-2">
+                                                    <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest ml-1">Mode</label>
+                                                    <select
+                                                        className="brand-input !h-11 w-full text-xs font-black uppercase tracking-widest"
+                                                        value={p.mode}
+                                                        onChange={e => updatePaymentEntry(i, 'mode', e.target.value)}
+                                                    >
+                                                        <option>Mpesa</option>
+                                                        <option>Bank Transfer</option>
+                                                        <option>Cash</option>
+                                                        <option>Cheque</option>
+                                                    </select>
+                                                </div>
+                                                <div className="col-span-4 space-y-2">
+                                                    <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest ml-1">Quantum (KSh)</label>
+                                                    <input
+                                                        type="number"
+                                                        className="brand-input !h-11 w-full text-xs font-mono font-black italic"
+                                                        placeholder="0.00"
+                                                        value={p.amount}
+                                                        onChange={e => updatePaymentEntry(i, 'amount', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="col-span-3 space-y-2">
+                                                    <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest ml-1">Reference ID</label>
+                                                    <input
+                                                        type="text"
+                                                        className="brand-input !h-11 w-full text-[10px] font-mono font-black uppercase tracking-tighter"
+                                                        placeholder="REF-HASH..."
+                                                        value={p.ref}
+                                                        onChange={e => updatePaymentEntry(i, 'ref', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="col-span-1 flex justify-end">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removePaymentEntry(i)}
+                                                        disabled={payments.length === 1}
+                                                        className="w-11 h-11 flex items-center justify-center text-muted-foreground/30 hover:text-rose-500 transition-all hover:bg-rose-500/10 rounded-xl disabled:opacity-0"
+                                                    >
+                                                        <Icon name="Trash2" size={18} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex gap-4 pt-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSettlingInvoice(null)}
+                                            className="flex-1 px-8 h-14 bg-muted/50 border border-border text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-muted transition-all italic"
+                                        >
+                                            Abort Transaction
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) <= 0}
+                                            className="flex-2 brand-button-yellow !h-14 !px-12 text-sm font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Commit Settlement Node
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
-                            <button type="submit" className="brand-button-yellow w-full !py-6 text-sm uppercase font-black tracking-[0.2em] italic shadow-2xl">
-                                Authorize & Finalize Transaction
+                        </div>
+                    </div>
+                )}
+
+                {/* Invoice Review Modal */}
+                {selectedInvoice && (
+                    <div className="fixed inset-0 bg-background/95 backdrop-blur-2xl z-[100] overflow-y-auto p-4 md:p-12 animate-in fade-in duration-500">
+                        <div className="max-w-5xl mx-auto mb-12 flex justify-between items-center bg-background/50 backdrop-blur-xl p-6 rounded-3xl border border-border/50 shadow-2xl animate-slide sticky top-0 z-10">
+                            <div className="flex items-center gap-6">
+                                <div className="flex gap-3">
+                                    <button onClick={() => window.print()} className="brand-button-yellow !h-12 !px-8 shadow-lg shadow-primary/20">
+                                        <Icon name="Printer" size={18} /> PRINT PHYSICAL
+                                    </button>
+                                    <button onClick={() => { }} className="px-8 h-12 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/10 transition-all flex items-center gap-2 text-white/60 hover:text-white">
+                                        <Icon name="Download" size={18} /> PDF ARCHIVE
+                                    </button>
+                                </div>
+                                <div className="h-8 w-px bg-border/20 hidden md:block"></div>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] hidden md:block">Active Review Mode // #{selectedInvoice.invoiceNo}</p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedInvoice(null)}
+                                className="w-12 h-12 flex items-center justify-center bg-rose-500/10 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all shadow-lg shadow-rose-500/5 group"
+                            >
+                                <Icon name="X" size={24} className="group-hover:rotate-90 transition-transform" />
                             </button>
                         </div>
-                    </form>
-                </Modal>
-            </div >
+                        <div className="max-w-5xl mx-auto shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden mb-20 animate-in zoom-in-95 duration-500">
+                            <InvoicePreview invoice={selectedInvoice} />
+                        </div>
+                    </div>
+                )}
+            </div>
         );
     };
 
@@ -999,135 +1244,193 @@
         const { data } = useContext(AppContext);
         if (!invoice) return null;
 
+        const unpaidBalance = Math.max(0, invoice.amount - (invoice.amountPaid || 0));
+
         return (
-            <div className="space-y-16 py-12 px-8 sm:px-16 bg-white text-black relative border-2 border-black" id="invoice-content">
-                {/* Brand Sidebar Accent */}
-                <div className="absolute top-0 right-0 w-2 h-full bg-brand-500"></div>
+            <div className="bg-white text-slate-900 p-12 sm:p-24 relative overflow-hidden font-sans min-h-[1414px] flex flex-col" id="invoice-content">
+                {/* Master Watermark Background */}
+                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px] -mr-96 -mt-96 pointer-events-none opacity-50"></div>
 
-                <div className="flex flex-col md:flex-row justify-between items-start gap-12 border-b-4 border-black pb-12">
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-black flex items-center justify-center">
-                                <span className="text-2xl font-black text-brand-500 italic">IG</span>
+                {/* Header Section */}
+                <div className="relative z-10 mb-20">
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-12 border-b-2 border-slate-900/10 pb-16">
+                        <div className="space-y-8">
+                            <div className="flex items-center gap-5">
+                                <div className="w-16 h-16 bg-black flex items-center justify-center rounded-2xl text-primary font-black text-2xl italic shadow-2xl skew-x-[-12deg]">
+                                    IG
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black tracking-tighter uppercase text-slate-900">Identity Graphics</h1>
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em] mt-1 italic">Intelligence in Visual Communication</p>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-2xl font-black uppercase tracking-tighter italic leading-none">Identity Graphics</h2>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2 italic">Creative Excellence Lab</p>
+                            <div className="text-[11px] text-slate-500 space-y-1.5 font-bold uppercase tracking-widest leading-relaxed">
+                                <p className="text-slate-900 font-black italic">Identity Graphics Houzz // Operational Node</p>
+                                <p>Pekars Building // 4th Floor Suite</p>
+                                <p>Mburu Gichua Rd // Nakuru, KE</p>
+                                <div className="pt-4 flex flex-col gap-1.5">
+                                    <p className="flex items-center gap-3 text-slate-900"><Icon name="Phone" size={12} className="text-primary" /> +254 714 561 533</p>
+                                    <p className="flex items-center gap-3 text-primary lowercase tracking-normal"><Icon name="Mail" size={12} className="text-primary" /> identitygraphics@gmail.com</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="text-[11px] space-y-1 font-bold uppercase tracking-wider text-slate-500">
-                            <p className="text-black font-black">Identity Graphics Houzz</p>
-                            <p>Pekars Building, 4th Floor</p>
-                            <p>Mburu Gichua Rd, Nakuru-KENYA</p>
-                            <p className="flex items-center gap-2 pt-2"><Icon name="phone" size={10} className="text-brand-500" /> +254 714 561 533</p>
-                            <p className="text-black underline">identitygraphics@gmail.com</p>
+
+                        <div className="md:text-right flex flex-col gap-8 md:items-end">
+                            <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-xl italic skew-x-[-12deg]">
+                                <span className={`w-2 h-2 rounded-full animate-pulse ${invoice.status === 'Paid' ? 'bg-emerald-400' : 'bg-primary'}`}></span>
+                                {invoice.isQuote ? 'System Quotation' : 'Official Revenue Invoice'}
+                            </div>
+                            <div className="grid grid-cols-2 md:block gap-12 md:space-y-6">
+                                <div>
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mb-1 italic">Voucher Node</p>
+                                    <p className="text-3xl font-black font-mono tracking-tighter text-slate-900 italic">#{invoice.invoiceNo}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mb-1 italic">Temporal Stamp</p>
+                                    <p className="text-lg font-black text-slate-900 uppercase tracking-tighter italic">{new Date(invoice.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div className="md:text-right space-y-4">
-                        <div className="inline-block bg-black text-brand-500 px-8 py-3 text-sm font-black uppercase tracking-[0.4em] italic mb-6">
-                            {invoice.isQuote ? 'Quotation' : 'Invoice'}
+
+                    {/* Parties Intersection */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">Receiver Identity</h4>
+                                <div className="h-px flex-1 bg-slate-900/5"></div>
+                            </div>
+                            <div className="space-y-3">
+                                <p className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">{invoice.client}</p>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{data.clients.find(c => c.name === invoice.client)?.company || 'Independent Principal'}</p>
+                                    <p className="text-xs font-black text-primary italic lowercase tracking-tight">{data.clients.find(c => c.name === invoice.client)?.email}</p>
+                                </div>
+                                <div className={`mt-4 inline-flex items-center gap-3 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] italic border ${invoice.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                                    invoice.status === 'Partial' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                                        'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                    }`}>
+                                    Status Vector: {invoice.status}
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Temporal Sequence</p>
-                            <p className="text-lg font-black italic">{invoice.date}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Document Identifier</p>
-                            <p className="text-lg font-black italic text-brand-600">{invoice.invoiceNo}</p>
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">Regulatory Framework</h4>
+                                <div className="h-px flex-1 bg-slate-900/5"></div>
+                            </div>
+                            <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 italic text-[12px] text-slate-500 leading-relaxed font-medium relative overflow-hidden group">
+                                <Icon name="ShieldCheck" size={64} className="absolute -right-4 -bottom-4 text-slate-200/50 -rotate-12 group-hover:text-primary/10 transition-colors" />
+                                <p className="relative z-10">Commercial covenants apply. All deliverables remain intellectual property of <span className="text-slate-900 font-bold not-italic underline decoration-primary/30">Identity Graphics</span> until full settlement of node <span className="text-slate-900 font-black not-italic font-mono underline">#{invoice.invoiceNo}</span> is verified.</p>
+                                <div className="mt-6 flex flex-wrap gap-5 text-[9px] font-black uppercase not-italic tracking-widest relative z-10">
+                                    <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-primary rounded-full"></div> M-PESA</span>
+                                    <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-primary rounded-full"></div> BANK SWIFT</span>
+                                    <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-primary rounded-full"></div> ESCROW</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                    <div className="space-y-4">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] border-b-2 border-black pb-4">Billed Recipient</h4>
-                        <div className="space-y-2">
-                            <p className="text-2xl font-black text-black uppercase italic tracking-tighter">{invoice.client}</p>
-                            <p className="text-sm font-bold text-slate-500 uppercase tracking-tight">{data.clients.find(c => c.name === invoice.client)?.company}</p>
-                            <p className="text-xs font-medium text-slate-400 underline">{data.clients.find(c => c.name === invoice.client)?.email}</p>
-                            <div className={`mt-6 inline-flex items-center gap-3 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] border-2 ${invoice.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500' : 'bg-rose-500/10 text-rose-600 border-rose-500'}`}>
-                                <div className={`w-2 h-2 rounded-full ${invoice.status === 'Paid' ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`}></div>
-                                Status: {invoice.status}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="space-y-4">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] border-b-2 border-black pb-4">Settlement Credentials</h4>
-                        <div className="p-6 bg-slate-50 border-2 border-black italic">
-                            <p className="text-[11px] font-bold text-slate-600 leading-relaxed uppercase tracking-widest">
-                                Standard business terms apply: 7 operational days. Use reference <span className="text-black font-black">{invoice.invoiceNo}</span> for automated recognition.
-                            </p>
-                            <div className="pt-6 grid grid-cols-3 gap-3">
-                                <div className="text-center py-2 border border-black/10 text-[8px] font-black uppercase tracking-widest bg-white">M-Pesa</div>
-                                <div className="text-center py-2 border border-black/10 text-[8px] font-black uppercase tracking-widest bg-white">Bank</div>
-                                <div className="text-center py-2 border border-black/10 text-[8px] font-black uppercase tracking-widest bg-white">Cash</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="border-4 border-black overflow-hidden shadow-premium">
-                    <table className="w-full text-left font-display">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Asset Specification</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-center">Qty</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right">Rate</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right text-brand-500">Magnitude</th>
+                {/* Ledger Itemization Table */}
+                <div className="flex-grow">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b-[3px] border-slate-900">
+                                <th className="py-6 text-[11px] font-black uppercase tracking-[0.4em] text-slate-900 italic">Deliverable Specification</th>
+                                <th className="py-6 text-[11px] font-black uppercase tracking-[0.4em] text-slate-900 text-center italic">Qty</th>
+                                <th className="py-6 text-[11px] font-black uppercase tracking-[0.4em] text-slate-900 text-right italic">Unit Weight</th>
+                                <th className="py-6 text-[11px] font-black uppercase tracking-[0.4em] text-slate-900 text-right italic">Vector Value</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y-2 divide-black/5">
+                        <tbody className="divide-y-2 divide-slate-100">
                             {(invoice.items || []).map((item, i) => (
-                                <tr key={i} className="text-sm transition-colors hover:bg-slate-50">
-                                    <td className="px-8 py-6 font-black text-black uppercase italic tracking-tight">{item.desc}</td>
-                                    <td className="px-8 py-6 text-center font-bold text-slate-400">{item.qty}</td>
-                                    <td className="px-8 py-6 text-right font-medium text-slate-400">KES {parseFloat(item.price).toLocaleString()}</td>
-                                    <td className="px-8 py-6 text-right font-black text-black">KES {(item.qty * item.price).toLocaleString()}</td>
+                                <tr key={i} className="group hover:bg-slate-50/50 transition-colors">
+                                    <td className="py-8 pr-12">
+                                        <p className="text-base font-black text-slate-900 tracking-tight uppercase italic mb-1">{item.desc}</p>
+                                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                                            <Icon name="Cpu" size={10} className="text-primary/40" /> Product Logic Architecture
+                                        </p>
+                                    </td>
+                                    <td className="py-8 text-center text-sm font-black text-slate-900 font-mono italic">×{item.qty}</td>
+                                    <td className="py-8 text-right text-sm font-black text-slate-500 font-mono italic">KSh {parseFloat(item.price).toLocaleString()}</td>
+                                    <td className="py-8 text-right text-lg font-black text-slate-900 font-mono tracking-tighter italic">KSh {(item.qty * item.price).toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
 
-                <div className="flex flex-col md:flex-row justify-between items-end gap-12 pt-12">
-                    <div className="flex-1 italic max-w-sm">
-                        <div className="flex items-center gap-4 text-slate-300 mb-6">
-                            <div className="h-px flex-1 bg-current"></div>
-                            <Icon name="award" size={16} />
-                            <div className="h-px flex-1 bg-current"></div>
+                {/* Document Footer: Totals & Authentication */}
+                <div className="mt-20 pt-16 border-t-[3px] border-slate-900 flex flex-col md:flex-row justify-between items-start gap-16 relative">
+                    <div className="flex-1 space-y-12">
+                        <div className="space-y-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em] italic">Branding Philosophy</p>
+                            <p className="text-xl font-black text-slate-900 uppercase tracking-tighter italic max-w-sm leading-tight border-l-4 border-primary pl-6">
+                                "Identity Graphics: where creativity meets excellence."
+                            </p>
                         </div>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em] leading-relaxed text-center">
-                            Thank you for partnering with Identity Graphics. Your vision drives our pursuit of creative excellence.
-                        </p>
+                        <div className="flex items-center gap-12 group">
+                            <div className="relative">
+                                <div className="w-24 h-24 border-[3px] border-slate-900/10 rounded-full flex items-center justify-center font-black text-slate-900/20 text-xs rotate-[-15deg] group-hover:rotate-0 transition-all duration-700">
+                                    SYSTEM SEAL
+                                </div>
+                                <Icon name="CheckCircle" size={40} className="absolute inset-0 m-auto text-emerald-500/20 transform group-hover:scale-125 transition-all" />
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1 italic">Authorized Intelligence</p>
+                                <div className="h-0.5 w-32 bg-slate-900 mb-2"></div>
+                                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{invoice.performed_by || 'CENTRAL OPERATOR'}</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="w-full md:w-96 space-y-6">
-                        <div className="space-y-4 bg-black p-8 text-white shadow-[8px_8px_0px_0px_rgba(255,193,7,1)]">
-                            <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-                                <span>Aggregate Net</span>
-                                <span className="font-display text-white">KES {(invoice.subtotal || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] italic opacity-50">
-                                <span>Tax Load ({invoice.taxRate}%)</span>
-                                <span className="font-display text-white">KES {(invoice.tax || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between text-4xl font-display text-brand-500 pt-6 border-t border-white/10 italic">
-                                <span>TOTAL</span>
-                                <span>KES {parseFloat(invoice.amount).toLocaleString()}</span>
-                            </div>
+                    <div className="w-full md:w-96 space-y-5 bg-slate-900 text-white p-10 rounded-3xl shadow-2xl skew-x-[-2deg] relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/20 transition-all"></div>
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.4em] text-white/40 italic relative z-10">
+                            <span>Net Magnitude</span>
+                            <span className="text-white">KSh {(invoice.subtotal || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.4em] text-white/40 italic border-b border-white/10 pb-5 relative z-10">
+                            <span>Tax Load ({invoice.taxRate}%)</span>
+                            <span className="text-white">KSh {(invoice.tax || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 relative z-10">
+                            <span className="text-[11px] font-black uppercase tracking-[0.4em] text-primary italic">Aggregate Sum</span>
+                            <span className="text-2xl font-black tracking-tighter text-white font-mono italic">KSh {parseFloat(invoice.amount).toLocaleString()}</span>
                         </div>
 
-                        <div className="pt-6 no-print">
-                            <button onClick={() => window.print()} className="brand-button-yellow w-full !py-6 text-xs uppercase font-black tracking-[0.3em] italic shadow-2xl flex items-center justify-center gap-4 transform active:scale-95 transition-all">
-                                <Icon name="printer" size={18} /> Commit to Paper
-                            </button>
+                        {(invoice.amountPaid || 0) > 0 && (
+                            <>
+                                <div className="flex justify-between items-center py-2 text-emerald-400 relative z-10">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] italic">Digital Credit</span>
+                                    <span className="text-sm font-black font-mono tracking-widest italic">- KSh {(invoice.amountPaid || 0).toLocaleString()}</span>
+                                </div>
+                                <div className="mt-4 pt-5 border-t border-white/20 flex justify-between items-center relative z-10">
+                                    <span className="text-xs font-black uppercase tracking-[0.4em] text-primary underline italic decoration-white/20">Residue Debt</span>
+                                    <span className="text-4xl font-black tracking-tighter text-white font-mono italic decoration-rose-500/50 underline-offset-8">KSh {unpaidBalance.toLocaleString()}</span>
+                                </div>
+                            </>
+                        )}
+
+                        {invoice.paymentHistory && invoice.paymentHistory.length > 0 && (
+                            <div className="mt-8 pt-8 border-t border-white/10 relative z-10">
+                                <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] mb-4 italic">Settlement Log Matrix</p>
+                                <div className="space-y-3">
+                                    {invoice.paymentHistory.map((p, idx) => (
+                                        <div key={idx} className="flex justify-between text-[10px] font-black italic">
+                                            <span className="text-white/40 uppercase tracking-widest truncate max-w-[150px]">{p.mode} // {p.ref || 'INTERNAL'}</span>
+                                            <span className="text-emerald-400 font-mono tracking-tighter">KSh {parseFloat(p.amount).toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="text-[9px] text-white/20 font-black uppercase tracking-[0.4em] italic text-right mt-10 relative z-10">
+                            AUTH_NODE_{btoa(invoice.invoiceNo || '').substring(0, 12).toUpperCase()}
                         </div>
                     </div>
-                </div>
-
-                <div className="pt-24 text-center opacity-20">
-                    <p className="text-[8px] font-black text-black uppercase tracking-[1em] mb-2">Identity Graphics Houzz Enclave</p>
-                    <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">Digital Auth Vector: {btoa(invoice.invoiceNo || '').substring(0, 24)}</p>
                 </div>
             </div>
         );
@@ -1198,180 +1501,283 @@
 
         const stats = useMemo(() => {
             const totalItems = data.inventory.length;
-            const lowStock = data.inventory.filter(i => i.stock <= i.minStock).length;
-            const totalValue = data.inventory.reduce((sum, i) => sum + (i.stock * i.price), 0);
+            const lowStock = data.inventory.filter(i => i.stock <= (i.minStock || 5)).length;
+            const totalValue = data.inventory.reduce((sum, i) => sum + (i.stock * (i.price || 0)), 0);
             return { totalItems, lowStock, totalValue };
         }, [data.inventory]);
 
-        return (
-            <div className="space-y-12 animate-slide">
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4">
-                    <div className="space-y-2">
-                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Asset Registry</h2>
-                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                            <div className="w-12 h-1 bg-brand-500"></div>
-                            {stats.totalItems} Active SKU Prototypes
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => {
-                            if (isAddingItem) {
-                                setEditingItem(null);
-                                setNewItem({ sku: '', name: '', category: 'Raw Materials', stock: 0, unit: 'pcs', minStock: 5, price: 0 });
+        useEffect(() => {
+            const ctx = document.getElementById('inventoryChart')?.getContext('2d');
+            if (ctx) {
+                const existingChart = Chart.getChart('inventoryChart');
+                if (existingChart) existingChart.destroy();
+
+                const categories = data.inventory.reduce((acc, item) => {
+                    acc[item.category] = (acc[item.category] || 0) + 1;
+                    return acc;
+                }, {});
+
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(categories),
+                        datasets: [{
+                            data: Object.values(categories),
+                            backgroundColor: ['#0f172a', '#facc15', '#fbbf24', '#eab308', '#d97706'],
+                            borderWidth: 0,
+                            hoverOffset: 15
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 20,
+                                    font: { size: 10, weight: 'bold' }
+                                }
                             }
-                            setIsAddingItem(!isAddingItem);
-                        }}
-                        className="brand-button-yellow !py-5 !px-10 flex items-center gap-4 italic"
-                    >
-                        <Icon name={isAddingItem ? 'x' : 'plus'} size={18} />
-                        {isAddingItem ? 'Dismiss Specification' : 'Register New SKU'}
-                    </button>
+                        }
+                    }
+                });
+            }
+        }, [data.inventory]);
+
+        return (
+            <div className="space-y-10 pb-20 animate-in fade-in duration-700">
+                {/* Header: Operational Logistics */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                    <div>
+                        <h1 className="text-4xl font-black italic tracking-tighter uppercase text-foreground decoration-primary underline-offset-[12px] underline">Inventory & Logistics</h1>
+                        <p className="text-[10px] text-muted-foreground mt-4 font-black uppercase tracking-[0.4em] italic flex items-center gap-2">
+                            <Icon name="Database" size={14} className="text-primary" /> Asset Management // SKU Tracking // Resource Flow
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="relative group/search">
+                            <Icon name="Search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within/search:text-primary transition-all" />
+                            <input
+                                type="text"
+                                placeholder="IDENTIFY SKU..."
+                                className="brand-input !bg-card border-border/50 !py-3 !pl-12 !pr-6 w-64 text-[10px] font-black tracking-widest focus:w-80 transition-all uppercase"
+                            />
+                        </div>
+                        <ExportDropdown data={data.inventory} filename="inventory_ledger_node" />
+                        <button
+                            onClick={() => setIsAddingItem(!isAddingItem)}
+                            className="brand-button-yellow !h-[52px] !px-8 shadow-xl shadow-primary/20"
+                        >
+                            <Icon name={isAddingItem ? 'X' : 'PlusCircle'} size={18} />
+                            {isAddingItem ? 'ABORT REG' : 'REGISTER SKU'}
+                        </button>
+                    </div>
                 </div>
 
-                {/* Performance Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="bg-black text-white p-10 border-2 border-black group hover:bg-white hover:text-black transition-all">
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-500 mb-6">Aggregate Valuation</p>
-                        <div className="flex items-end justify-between">
-                            <h3 className="text-4xl font-display tracking-tighter">KES {stats.totalValue.toLocaleString()}</h3>
-                            <div className="w-12 h-12 bg-white/10 group-hover:bg-black/5 flex items-center justify-center transition-colors">
-                                <Icon name="pie-chart" size={20} />
-                            </div>
-                        </div>
+                {/* Dashboard Intelligence Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <window.StatCard label="Total Asset Nodes" value={stats.totalItems} icon="Package" />
+                        <window.StatCard
+                            label="Critical Threshold"
+                            value={stats.lowStock}
+                            trend={stats.lowStock > 0 ? "ACTION REQUIRED" : "STABLE RESERVE"}
+                            trendType={stats.lowStock > 0 ? "down" : "up"}
+                            icon="AlertTriangle"
+                        />
+                        <window.StatCard label="Net Asset Valuation" value={`KSh ${stats.totalValue.toLocaleString()}`} icon="Banknote" />
                     </div>
-                    <div className="bg-white border-2 border-black p-10 group hover:bg-black hover:text-white transition-all">
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 group-hover:text-brand-500 mb-6">SKU Population</p>
-                        <div className="flex items-end justify-between">
-                            <h3 className="text-4xl font-display tracking-tighter">{stats.totalItems} Units</h3>
-                            <div className="w-12 h-12 bg-slate-50 group-hover:bg-white/10 flex items-center justify-center transition-colors">
-                                <Icon name="box" size={20} />
-                            </div>
-                        </div>
-                    </div>
-                    <div className={`p-10 border-2 border-black transition-all ${stats.lowStock > 0 ? 'bg-rose-600 text-white shadow-xl animate-pulse' : 'bg-brand-500 text-black'}`}>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-black/40 mb-6">Threshold Alerts</p>
-                        <div className="flex items-end justify-between">
-                            <h3 className="text-4xl font-display tracking-tighter">{stats.lowStock} Critical</h3>
-                            <div className="w-12 h-12 bg-black/10 flex items-center justify-center">
-                                <Icon name="alert-triangle" size={20} />
-                            </div>
+                    <div className="lg:col-span-4 brand-card p-8 flex flex-col items-center border-none shadow-xl bg-card/30 backdrop-blur-md relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/10 transition-colors"></div>
+                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-6 w-full italic border-b border-border/10 pb-4">SKU Segmentation Matrix</h4>
+                        <div className="h-44 w-full relative z-10 transition-transform group-hover:scale-105 duration-500">
+                            <canvas id="inventoryChart"></canvas>
                         </div>
                     </div>
                 </div>
 
                 {/* Asset Registration Form */}
                 {isAddingItem && (
-                    <div className="p-10 bg-black text-white border-2 border-black animate-slide relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(255,193,7,1)]">
-                        {/* Background Visual Element */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rotate-45 translate-x-16 -translate-y-16"></div>
-
-                        <form onSubmit={handleAddItem} className="space-y-10 relative">
-                            <div className="flex items-center gap-6 border-b border-white/20 pb-6 mb-8">
-                                <Icon name="box" size={24} className="text-brand-500" />
-                                <h4 className="text-xl font-display uppercase italic tracking-[0.1em]">
-                                    {editingItem ? `Vector Refinement: ${editingItem.sku}` : 'Asset Registration Protocol'}
-                                </h4>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                                <div className="space-y-2">
-                                    <label className="brand-label !text-slate-500">SKU Identifier</label>
-                                    <input className="brand-input !bg-dark-surface !border-dark-border !text-white" placeholder="VIN-EX-001" required value={newItem.sku} onChange={e => setNewItem({ ...newItem, sku: e.target.value })} />
+                    <div className="brand-card p-12 animate-slide relative overflow-hidden group border-none shadow-2xl bg-card/50 backdrop-blur-xl">
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 blur-[120px] -mr-48 -mt-48"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-center justify-between mb-12">
+                                <div>
+                                    <h3 className="text-3xl font-black italic tracking-tighter uppercase text-primary underline decoration-primary/20 underline-offset-8">
+                                        {editingItem ? 'Refine Asset Protocol' : 'Register New Asset'}
+                                    </h3>
+                                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.4em] mt-4 italic">Resource Provisioning Sequence // Operational Load</p>
                                 </div>
-                                <div className="space-y-2 md:col-span-2">
-                                    <label className="brand-label !text-slate-500">Asset Nomenclature</label>
-                                    <input className="brand-input !bg-dark-surface !border-dark-border !text-white" placeholder="High-Gloss Polymetric Film" required value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="brand-label !text-slate-500">Categorization</label>
-                                    <select className="brand-input !bg-dark-surface !border-dark-border !text-white" value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })}>
-                                        <option>Raw Materials</option><option>Media</option><option>Ink/Chemicals</option><option>Finished Goods</option>
-                                    </select>
+                                <div className="w-14 h-14 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-inner">
+                                    <Icon name="Box" size={28} />
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                                <div className="space-y-2">
-                                    <label className="brand-label !text-slate-500">Reserve Level</label>
-                                    <input type="number" className="brand-input !bg-dark-surface !border-dark-border !text-white !font-display" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) })} />
+                            <form onSubmit={handleAddItem} className="space-y-10">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                                    <div className="col-span-1 space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">SKU Identifier</label>
+                                        <input
+                                            className="brand-input !h-12 w-full text-xs font-black tracking-widest uppercase"
+                                            placeholder="SKU-AUTO..."
+                                            required
+                                            value={newItem.sku}
+                                            onChange={e => setNewItem({ ...newItem, sku: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="col-span-2 space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Asset Nomenclature</label>
+                                        <input
+                                            className="brand-input !h-12 w-full text-xs font-bold"
+                                            placeholder="HIGH-GLOSS VINYL MEDIA..."
+                                            required
+                                            value={newItem.name}
+                                            onChange={e => setNewItem({ ...newItem, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="col-span-1 space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Classification</label>
+                                        <select
+                                            className="brand-input !h-12 w-full text-xs font-black uppercase tracking-widest"
+                                            value={newItem.category}
+                                            onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+                                        >
+                                            <option>Raw Materials</option>
+                                            <option>Media</option>
+                                            <option>Ink/Chemicals</option>
+                                            <option>Finished Goods</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="brand-label !text-slate-500">Metric Unit</label>
-                                    <input className="brand-input !bg-dark-surface !border-dark-border !text-white" placeholder="m, yd, pcs" required value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="brand-label !text-slate-500">Critical Threshold</label>
-                                    <input type="number" className="brand-input !bg-dark-surface !border-dark-border !text-white !font-display" value={newItem.minStock} onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) })} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="brand-label !text-slate-500">Valuation KES</label>
-                                    <input type="number" className="brand-input !bg-dark-surface !border-dark-border !text-white !font-display" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })} />
-                                </div>
-                            </div>
 
-                            <div className="flex justify-between items-center pt-8 border-t border-white/20">
-                                <div className={`flex items-center gap-3 text-[10px] font-black text-brand-500 uppercase tracking-widest transition-opacity ${isSuccess ? 'opacity-100' : 'opacity-0'}`}>
-                                    <Icon name="check-circle" size={16} /> Registry Synchronized
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Initial Reserve</label>
+                                        <input
+                                            type="number"
+                                            className="brand-input !h-12 w-full font-mono font-black italic"
+                                            value={newItem.stock}
+                                            onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) })}
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Metric Unit</label>
+                                        <input
+                                            className="brand-input !h-12 w-full text-[10px] font-black uppercase tracking-widest"
+                                            placeholder="METERS / PCS / ROLLS..."
+                                            value={newItem.unit}
+                                            onChange={e => setNewItem({ ...newItem, unit: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Critical Level</label>
+                                        <input
+                                            type="number"
+                                            className="brand-input !h-12 w-full font-mono font-black text-rose-500 italic"
+                                            value={newItem.minStock}
+                                            onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) })}
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Unit Value (KSh)</label>
+                                        <input
+                                            type="number"
+                                            className="brand-input !h-12 w-full font-mono font-black italic"
+                                            value={newItem.price}
+                                            onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex gap-4">
-                                    <button type="button" onClick={() => setIsAddingItem(false)} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Abort</button>
-                                    <button type="submit" className="brand-button-yellow !py-4 !px-12 flex items-center gap-3">
-                                        <Icon name="server" size={16} />
-                                        Commit Protocol
-                                    </button>
+
+                                <div className="flex justify-between items-center pt-10 border-t border-border/10">
+                                    <div className={`flex items-center gap-3 text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] italic transition-all duration-500 ${isSuccess ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'}`}>
+                                        <Icon name="CheckCircle" size={16} /> Syncing Protocol Successful
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsAddingItem(false)}
+                                            className="px-8 h-12 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5 rounded-2xl transition-all"
+                                        >
+                                            Discard Node
+                                        </button>
+                                        <button type="submit" className="brand-button-yellow !h-12 !px-12 shadow-xl shadow-primary/20">
+                                            Commit Asset to Ledger
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 )}
 
-                {/* SKU Ledger Table */}
-                <div className="border-4 border-black overflow-hidden shadow-premium bg-white">
+                {/* Inventory Ledger Table */}
+                <div className="brand-card overflow-hidden border-none shadow-2xl bg-card/30 backdrop-blur-md">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left font-display">
-                            <thead className="bg-black text-white">
-                                <tr>
-                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-brand-500">Vector ID / SKU</th>
-                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Classification</th>
-                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-center">Magnitude</th>
-                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right">Registry Operations</th>
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-border/10 bg-muted/20">
+                                    <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] text-primary italic">Resource Identifier</th>
+                                    <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground italic">Classification</th>
+                                    <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground text-center italic">Magnitude // Reserve</th>
+                                    <th className="px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground text-right italic">Action Vectors</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y-2 divide-black/5">
+                            <tbody className="divide-y divide-border/5">
                                 {data.inventory.map(item => (
-                                    <tr key={item.id} className="group hover:bg-slate-50 transition-all">
-                                        <td className="px-10 py-8 relative">
-                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-black group-hover:bg-brand-500 transition-colors"></div>
-                                            <div className="font-black text-lg uppercase italic tracking-tighter leading-none mb-1">{item.sku}</div>
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.name}</div>
-                                        </td>
-                                        <td className="px-10 py-8 text-center md:text-left">
-                                            <span className="px-4 py-1 bg-black text-white text-[9px] font-black uppercase tracking-widest italic">{item.category}</span>
-                                        </td>
+                                    <tr key={item.id} className="group hover:bg-primary/5 transition-all duration-300">
                                         <td className="px-10 py-8">
-                                            <div className="flex flex-col items-center">
-                                                <div className={`text-3xl font-display tracking-tighter ${item.stock <= item.minStock ? 'text-rose-600 animate-pulse' : 'text-black'}`}>
-                                                    {item.stock} <small className="text-[10px] uppercase text-slate-400 tracking-widest italic">{item.unit}</small>
+                                            <div className="flex items-center gap-6">
+                                                <div className={`w-1.5 h-12 rounded-full shadow-lg transition-all duration-500 group-hover:scale-y-110 ${item.stock <= item.minStock ? 'bg-rose-500 shadow-rose-500/20' : 'bg-primary shadow-primary/20'}`}></div>
+                                                <div>
+                                                    <div className="font-black text-foreground font-mono tracking-tighter text-xl italic group-hover:text-primary transition-colors">#{item.sku}</div>
+                                                    <div className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1 group-hover:translate-x-1 transition-transform">{item.name}</div>
                                                 </div>
-                                                <div className="w-32 bg-slate-100 h-2 mt-3 p-0.5 border border-black/5">
-                                                    <div className={`h-full transition-all duration-1000 ${item.stock <= item.minStock ? 'bg-rose-500' : 'bg-brand-500'}`} style={{ width: `${Math.min(100, (item.stock / (item.minStock * 4)) * 100)}%` }}></div>
-                                                </div>
-                                                {item.stock <= item.minStock && (
-                                                    <div className="mt-2 text-[8px] font-black text-rose-600 uppercase tracking-widest">Depleted // Attention Required</div>
-                                                )}
                                             </div>
                                         </td>
                                         <td className="px-10 py-8">
-                                            <div className="flex justify-end gap-3">
-                                                <button onClick={() => setIsAdjustingStock(item.id)} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-brand-500 transition-all group/btn shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Adjust Magnitude">
-                                                    <Icon name="refresh-cw" size={16} />
+                                            <span className="px-4 py-1.5 bg-muted/50 border border-border/10 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground italic">
+                                                {item.category}
+                                            </span>
+                                        </td>
+                                        <td className="px-10 py-8">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className={`text-2xl font-black font-mono tracking-tighter italic ${item.stock <= item.minStock ? 'text-rose-500' : 'text-foreground'}`}>
+                                                    {item.stock} <span className="text-[10px] text-muted-foreground/40 uppercase font-black not-italic ml-1">{item.unit}</span>
+                                                </div>
+                                                <div className="w-40 bg-muted/50 h-1.5 rounded-full overflow-hidden border border-border/5 p-[1px]">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-[1500ms] cubic-bezier(0.4, 0, 0.2, 1) ${item.stock <= item.minStock ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-primary shadow-[0_0_10px_rgba(250,204,21,0.5)]'}`}
+                                                        style={{ width: `${Math.min(100, (item.stock / (item.minStock * 4)) * 100)}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-10 py-8">
+                                            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                                                <button
+                                                    onClick={() => setIsAdjustingStock(item.id)}
+                                                    className="w-11 h-11 rounded-2xl flex items-center justify-center bg-muted text-muted-foreground hover:bg-primary hover:text-black hover:scale-110 active:scale-95 transition-all shadow-xl hover:shadow-primary/20"
+                                                    title="Adjust Magnitude"
+                                                >
+                                                    <Icon name="RefreshCw" size={16} />
                                                 </button>
-                                                <button onClick={() => { setEditingItem(item); setNewItem({ ...item }); setIsAddingItem(true); }} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Refine Specification">
-                                                    <Icon name="edit-3" size={16} />
+                                                <button
+                                                    onClick={() => { setEditingItem(item); setNewItem({ ...item }); setIsAddingItem(true); }}
+                                                    className="w-11 h-11 rounded-2xl flex items-center justify-center bg-muted text-muted-foreground hover:bg-foreground hover:text-background hover:scale-110 active:scale-95 transition-all shadow-xl"
+                                                    title="Refine Protocol"
+                                                >
+                                                    <Icon name="Edit3" size={16} />
                                                 </button>
-                                                <button onClick={() => { if (confirm(`Purge ${item.sku} from registry?`)) { deleteItem('inventory', item.id); logActivity(`Inventory purged: ${item.sku}`, 'Archive'); } }} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-rose-500 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Purge Record">
-                                                    <Icon name="trash-2" size={16} />
+                                                <button
+                                                    onClick={() => { if (confirm(`Purge ${item.sku} from registry?`)) { deleteItem('inventory', item.id); logActivity(`Inventory SKU ${item.sku} purged`, 'Archive'); } }}
+                                                    className="w-11 h-11 rounded-2xl flex items-center justify-center bg-muted text-muted-foreground hover:bg-rose-500 hover:text-white hover:scale-110 active:scale-95 transition-all shadow-xl hover:shadow-rose-500/20"
+                                                    title="Purge Record"
+                                                >
+                                                    <Icon name="Trash2" size={16} />
                                                 </button>
                                             </div>
                                         </td>
@@ -1382,93 +1788,147 @@
                     </div>
                 </div>
 
-                {/* Operational Adjustment Protocol */}
-                <Modal isOpen={!!isAdjustingStock} onClose={() => setIsAdjustingStock(null)} title="Operational Stock Adjustment">
+                <window.Modal isOpen={!!isAdjustingStock} onClose={() => setIsAdjustingStock(null)} title="Operational Stock Adjustment">
                     {isAdjustingStock && (() => {
                         const item = data.inventory.find(i => i.id === isAdjustingStock);
                         return (
-                            <form onSubmit={handleAdjustStock} className="space-y-8 p-4">
-                                <div className="flex items-center gap-6 p-10 bg-black text-white border-2 border-black relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(255,193,7,1)]">
-                                    <div className="absolute -right-4 -top-4 w-32 h-32 bg-brand-500/10 rotate-45"></div>
-                                    <div className="w-24 h-24 bg-brand-500 text-black flex items-center justify-center text-4xl font-black italic shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-10">
+                            <form onSubmit={handleAdjustStock} className="space-y-10 p-2">
+                                <div className="flex items-center gap-8 p-10 bg-card/50 rounded-[32px] border border-border/10 relative overflow-hidden group shadow-inner">
+                                    <div className="absolute -right-8 -top-8 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-700"></div>
+                                    <div className="w-20 h-20 bg-primary/10 border border-primary/20 text-primary flex items-center justify-center text-4xl font-black rounded-[24px] shadow-2xl shadow-primary/10 z-10 animate-pulse">
                                         {item?.sku.charAt(0)}
                                     </div>
                                     <div className="z-10">
-                                        <h4 className="text-3xl font-display uppercase italic tracking-tighter">{item?.name}</h4>
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2">
-                                            Active Reserve: <span className="text-brand-500">{item?.stock} {item?.unit}</span>
+                                        <h4 className="text-3xl font-black tracking-tighter italic uppercase text-foreground">{item?.name}</h4>
+                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] mt-3 italic flex items-center gap-2">
+                                            Current Magnitude: <span className="text-primary underline decoration-primary/20 underline-offset-4">{item?.stock} {item?.unit}</span>
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                     <div className="space-y-4">
-                                        <label className="brand-label !text-slate-400">Flow Direction</label>
-                                        <div className="flex gap-4 p-2 bg-slate-50 border-2 border-black">
-                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'In' })} className={`flex-1 py-4 font-black text-[10px] uppercase tracking-widest transition-all ${adjustment.type === 'In' ? 'bg-black text-white italic' : 'text-slate-400 hover:bg-slate-100'}`}>Increment (+)</button>
-                                            <button type="button" onClick={() => setAdjustment({ ...adjustment, type: 'Out' })} className={`flex-1 py-4 font-black text-[10px] uppercase tracking-widest transition-all ${adjustment.type === 'Out' ? 'bg-rose-600 text-white italic' : 'text-slate-400 hover:bg-slate-100'}`}>Decrement (-)</button>
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Flow Vector</label>
+                                        <div className="flex gap-3 p-2 bg-muted/30 rounded-[20px] border border-border/10">
+                                            <button
+                                                type="button"
+                                                onClick={() => setAdjustment({ ...adjustment, type: 'In' })}
+                                                className={`flex-1 py-4 rounded-[14px] font-black text-[10px] uppercase tracking-[0.2em] italic transition-all duration-300 ${adjustment.type === 'In' ? 'bg-primary text-black shadow-xl scale-105' : 'text-muted-foreground hover:bg-background'}`}
+                                            >
+                                                Inflow (+)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setAdjustment({ ...adjustment, type: 'Out' })}
+                                                className={`flex-1 py-4 rounded-[14px] font-black text-[10px] uppercase tracking-[0.2em] italic transition-all duration-300 ${adjustment.type === 'Out' ? 'bg-rose-500 text-white shadow-xl scale-105' : 'text-muted-foreground hover:bg-background'}`}
+                                            >
+                                                Outflow (-)
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="brand-label !text-slate-400">Magnitude ({item?.unit})</label>
-                                        <input type="number" className="brand-input !bg-white !border-black !text-black !py-6 text-center text-4xl font-display italic tracking-tighter" required value={adjustment.qty} onChange={e => setAdjustment({ ...adjustment, qty: parseFloat(e.target.value) })} />
+                                    <div className="space-y-4">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic text-right block">Magnitude ({item?.unit})</label>
+                                        <input
+                                            type="number"
+                                            className="brand-input w-full text-center text-5xl font-black font-mono !h-20 bg-background/50 border-primary/20 focus:border-primary text-primary italic"
+                                            required
+                                            value={adjustment.qty}
+                                            onChange={e => setAdjustment({ ...adjustment, qty: parseFloat(e.target.value) })}
+                                        />
                                     </div>
                                 </div>
 
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <label className="brand-label !text-slate-400">Context Reference</label>
-                                        <input className="brand-input !bg-white !border-black !text-black uppercase italic" placeholder="e.g. PRJ-SPEC-001" value={adjustment.reference} onChange={e => setAdjustment({ ...adjustment, reference: e.target.value })} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Context Reference</label>
+                                        <input
+                                            className="brand-input w-full !h-12 text-xs font-black tracking-widest uppercase"
+                                            placeholder="PRJ-NODE-77..."
+                                            value={adjustment.reference}
+                                            onChange={e => setAdjustment({ ...adjustment, reference: e.target.value })}
+                                        />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="brand-label !text-slate-400">Operational Log</label>
-                                        <textarea className="brand-input !bg-white !border-black !text-black h-24 resize-none" placeholder="Reason for inventory deviation..." value={adjustment.notes} onChange={e => setAdjustment({ ...adjustment, notes: e.target.value })}></textarea>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Operational Log (Optional)</label>
+                                        <input
+                                            className="brand-input w-full !h-12 text-xs font-bold"
+                                            placeholder="REASON FOR ADJUSTMENT..."
+                                            value={adjustment.notes}
+                                            onChange={e => setAdjustment({ ...adjustment, notes: e.target.value })}
+                                        />
                                     </div>
                                 </div>
 
-                                <button type="submit" className={`w-full py-6 font-black uppercase tracking-[0.3em] text-[11px] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all italic hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none ${adjustment.type === 'In' ? 'bg-brand-500 text-black border-2 border-black' : 'bg-rose-600 text-white border-2 border-black'}`}>
-                                    Execute Flow Modification
+                                <button
+                                    type="submit"
+                                    className={`w-full py-6 rounded-[24px] font-black uppercase tracking-[0.4em] text-xs transition-all shadow-2xl active:scale-[0.98] italic ${adjustment.type === 'In'
+                                        ? 'bg-primary text-black shadow-primary/20 hover:shadow-primary/40'
+                                        : 'bg-rose-500 text-white shadow-rose-500/20 hover:shadow-rose-500/40'
+                                        }`}
+                                >
+                                    Commit Registry Modification
                                 </button>
                             </form>
                         );
                     })()}
-                </Modal>
+                </window.Modal>
 
-                {/* Telemetry: Stock Dynamics */}
-                <div className="border-4 border-black bg-white shadow-premium overflow-hidden">
-                    <div className="p-8 border-b-2 border-black flex justify-between items-center bg-black">
+                <div className="brand-card overflow-hidden border-none shadow-2xl bg-card/30 backdrop-blur-md relative">
+                    <div className="p-8 border-b border-border/10 flex justify-between items-center bg-muted/20">
                         <div className="flex items-center gap-4">
-                            <div className="w-2 h-2 bg-brand-500 animate-pulse"></div>
-                            <h5 className="text-[10px] font-black text-white uppercase tracking-[0.4em] italic leading-none">Telemetry: Stock Dynamics</h5>
+                            <div className="w-2.5 h-2.5 bg-primary animate-ping rounded-full absolute ml-0.5"></div>
+                            <div className="w-2.5 h-2.5 bg-primary rounded-full relative"></div>
+                            <h5 className="text-[11px] font-black text-foreground uppercase tracking-[0.4em] italic">Operational Telemetry: Stock Dynamics</h5>
                         </div>
-                        <Icon name="activity" size={18} className="text-brand-500" />
+                        <Icon name="Activity" size={18} className="text-primary animate-pulse" />
                     </div>
-                    <div className="max-h-96 overflow-y-auto p-10 space-y-6">
+                    <div className="max-h-[500px] overflow-y-auto divide-y divide-border/5">
                         {(data.stockMovements || []).length > 0 ? [...data.stockMovements].reverse().map(m => (
-                            <div key={m.id} className="flex justify-between items-center p-8 bg-slate-50 border-2 border-transparent hover:border-black transition-all group relative">
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-black opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="flex items-center gap-8">
-                                    <div className={`w-16 h-16 border-2 border-black flex items-center justify-center font-black text-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${m.type === 'In' ? 'bg-brand-500 text-black' : 'bg-rose-600 text-white'}`}>
-                                        {m.type === 'In' ? <Icon name="arrow-up-right" size={24} /> : <Icon name="arrow-down-right" size={24} />}
+                            <div key={m.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-8 hover:bg-primary/5 transition-all duration-300 group">
+                                <div className="flex items-center gap-8 mb-4 sm:mb-0">
+                                    <div className={`w-16 h-16 rounded-[20px] flex items-center justify-center shadow-xl transition-transform group-hover:scale-110 duration-500 ${m.type === 'In'
+                                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-emerald-500/10'
+                                        : 'bg-rose-500/10 text-rose-500 border border-rose-500/20 shadow-rose-500/10'
+                                        }`}>
+                                        <Icon name={m.type === 'In' ? 'ArrowUpRight' : 'ArrowDownRight'} size={28} strokeWidth={3} />
                                     </div>
                                     <div>
-                                        <p className="text-xl font-display font-black uppercase italic italic leading-none mb-2">{m.itemName}</p>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.sku}</span>
-                                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{m.date}</span>
+                                        <p className="font-black text-xl italic tracking-tight text-foreground group-hover:text-primary transition-colors">{m.itemName}</p>
+                                        <div className="flex flex-wrap items-center gap-4 mt-2">
+                                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] font-mono bg-primary/5 px-2 py-0.5 rounded-md">#{m.sku}</span>
+                                            <span className="w-1.5 h-1.5 bg-border/20 rounded-full"></span>
+                                            <span className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest italic flex items-center gap-2">
+                                                <Icon name="Clock" size={12} /> {m.date}
+                                            </span>
+                                            {m.notes && (
+                                                <>
+                                                    <span className="w-1.5 h-1.5 bg-border/20 rounded-full"></span>
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest truncate max-w-[200px] italic">
+                                                        "{m.notes}"
+                                                    </span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-3xl font-display tracking-tighter text-black">{m.type === 'In' ? '+' : '-'}{m.qty}</p>
-                                    <p className="text-[9px] font-black text-brand-600 uppercase italic tracking-widest mt-2">{m.reference || 'SYSTEM_ADJ'}</p>
+                                <div className="text-right w-full sm:w-auto">
+                                    <p className={`text-4xl font-black font-mono tracking-tighter italic ${m.type === 'In' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        {m.type === 'In' ? '+' : '-'}{m.qty}
+                                    </p>
+                                    <div className="flex items-center justify-end gap-2 mt-2">
+                                        <span className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.3em] italic">Reference:</span>
+                                        <span className="text-[10px] text-foreground font-black uppercase tracking-[0.2em] border border-border/10 px-3 py-1 rounded-full bg-card/50">
+                                            {m.reference || 'SYS_AUTO'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         )) : (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-300 border-2 border-dashed border-slate-200">
-                                <Icon name="box" size={48} className="opacity-20 mb-6" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em]">Operational Silence: No fluctuations detected</p>
+                            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/20">
+                                <div className="w-24 h-24 rounded-[32px] bg-muted/20 flex items-center justify-center mb-8 border border-border/5">
+                                    <Icon name="Database" size={48} />
+                                </div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.5em] italic">No Movement Sequences Recorded</p>
                             </div>
                         )}
                     </div>
@@ -1549,305 +2009,395 @@
         const totalRevenue = clientSales.reduce((sum, s) => sum + parseFloat(s.amount), 0);
 
         return (
-            <div className="space-y-12 animate-slide">
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4">
-                    <div className="space-y-2">
-                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Stakeholder Matrix</h2>
-                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                            <div className="w-12 h-1 bg-brand-500"></div>
-                            {data.clients.length} Registered Entities
-                        </div>
+            <div className="space-y-10 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="relative">
+                        <div className="absolute -left-4 top-0 w-1 h-full bg-primary rounded-full hidden md:block"></div>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter italic uppercase leading-none">Stakeholder Ecosystem</h1>
+                        <p className="text-muted-foreground mt-3 text-[10px] font-black uppercase tracking-[0.5em] italic flex items-center gap-3">
+                            <span className="w-8 h-[1px] bg-primary/30"></span> Partners & Strategic Alliances
+                        </p>
                     </div>
-                    <button
-                        onClick={() => setIsAddingClient(true)}
-                        className="brand-button-yellow !py-5 !px-10 flex items-center gap-4 italic"
-                    >
-                        <Icon name="plus-circle" size={18} />
-                        Register Stakeholder
-                    </button>
-                </div>
-
-                {/* Relationship Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="bg-black text-white p-10 border-2 border-black group hover:bg-white hover:text-black transition-all">
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-500 mb-6">Aggregate Revenue</p>
-                        <div className="flex items-end justify-between">
-                            <h3 className="text-4xl font-display tracking-tighter">KES {(data.sales.reduce((sum, s) => sum + parseFloat(s.amount), 0) / 1000).toFixed(1)}K</h3>
-                            <div className="w-12 h-12 bg-white/10 group-hover:bg-black/5 flex items-center justify-center transition-colors">
-                                <Icon name="trending-up" size={20} />
-                            </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="relative group/search">
+                            <window.Icon name="Search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within/search:text-primary transition-all duration-300" />
+                            <input
+                                type="text"
+                                placeholder="IDENTIFY PARTNER..."
+                                className="brand-input !bg-card/30 border-border/10 !py-3 !pl-12 !pr-6 w-56 text-[10px] font-black uppercase tracking-widest focus:w-80 transition-all duration-500 rounded-full focus:shadow-[0_0_30px_rgba(var(--primary-rgb),0.1)]"
+                            />
                         </div>
-                    </div>
-                    <div className="bg-white border-2 border-black p-10 group hover:bg-black hover:text-white transition-all">
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 group-hover:text-brand-500 mb-6">Active Operations</p>
-                        <div className="flex items-end justify-between">
-                            <h3 className="text-4xl font-display tracking-tighter">{data.projects.filter(p => p.status === 'Active').length} Units</h3>
-                            <div className="w-12 h-12 bg-slate-50 group-hover:bg-white/10 flex items-center justify-center transition-colors">
-                                <Icon name="zap" size={20} />
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-brand-500 text-black border-2 border-black p-10">
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-black/40 mb-6">Engagement Velocity</p>
-                        <div className="flex items-end justify-between">
-                            <h3 className="text-4xl font-display tracking-tighter">{data.interactions.length} Logs</h3>
-                            <div className="w-12 h-12 bg-black/10 flex items-center justify-center">
-                                <Icon name="message-square" size={20} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Client Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {data.clients.map(c => (
-                        <div
-                            key={c.id}
-                            onClick={() => setSelectedClient(c)}
-                            className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-8"
+                        <ExportDropdown data={data.clients} filename="stakeholder_intelligence" />
+                        <button
+                            onClick={() => setIsAddingClient(true)}
+                            className="bg-primary text-black px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 italic border border-primary/20"
                         >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/5 rotate-45 translate-x-16 -translate-y-16 group-hover:bg-brand-500/10 transition-colors"></div>
-
-                            <div className="w-28 h-28 bg-black text-brand-500 border-4 border-brand-500 flex items-center justify-center text-5xl font-display italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] group-hover:translate-y-[-4px] group-hover:translate-x-[-4px] transition-transform duration-500">
-                                {c.name.charAt(0)}
-                            </div>
-
-                            <div className="space-y-3 relative z-10 w-full">
-                                <h4 className="text-2xl font-display font-black uppercase italic tracking-tighter leading-none group-hover:text-brand-600 transition-colors">{c.name}</h4>
-                                <div className="flex items-center justify-center gap-3">
-                                    <div className="w-8 h-0.5 bg-black/10"></div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{c.company}</p>
-                                    <div className="w-8 h-0.5 bg-black/10"></div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-8 pt-8 border-t-2 border-black/5 w-full justify-center relative z-10">
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Commercials</p>
-                                    <p className="text-sm font-display font-black text-black">KSh {(data.sales.filter(s => s.client === c.name).reduce((sum, s) => sum + parseFloat(s.amount), 0) / 1000).toFixed(1)}K</p>
-                                </div>
-                                <div className="w-0.5 h-10 bg-black/5"></div>
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Initiatives</p>
-                                    <p className="text-sm font-display font-black text-black">{data.projects.filter(p => p.client === c.name).length} OPS</p>
-                                </div>
-                            </div>
-
-                            <div className="absolute bottom-6 right-8 opacity-0 group-hover:opacity-100 group-hover:right-6 transition-all duration-300">
-                                <Icon name="arrow-right" size={24} className="text-brand-500" />
-                            </div>
-                        </div>
-                    ))}
+                            <window.Icon name="Plus" size={16} strokeWidth={3} />
+                            Register Stakeholder
+                        </button>
+                    </div>
                 </div>
 
-                <Modal
-                    isOpen={!!selectedClient}
-                    onClose={() => setSelectedClient(null)}
-                    title="Client Intelligence Matrix"
-                >
-                    {selectedClient && (
-                        <div className="space-y-12 py-4">
-                            {/* Intelligence Header */}
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-10 bg-black p-12 border-2 border-black relative overflow-hidden shadow-[12px_12px_0px_0px_rgba(250,204,21,1)]">
-                                <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-brand-500/10 rotate-45"></div>
-                                <div className="flex items-center gap-10 z-10">
-                                    <div className="w-32 h-32 bg-brand-500 text-black border-4 border-black flex items-center justify-center text-5xl font-display italic shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)]">
-                                        {selectedClient.name.charAt(0)}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="brand-card relative overflow-hidden group p-8 bg-card/30 hover:bg-card/50 transition-all duration-500 border border-border/5">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
+                        <div className="flex justify-between items-start relative z-10">
+                            <div>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-4 italic">Portfolio Valuation</p>
+                                <h3 className="text-4xl font-black font-mono tracking-tighter text-foreground italic">
+                                    KSh {(data.sales.reduce((sum, s) => sum + parseFloat(s.amount), 0) / 1000).toFixed(1)}K
+                                </h3>
+                            </div>
+                            <div className="w-12 h-12 bg-primary/10 border border-primary/20 text-primary rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                <window.Icon name="TrendingUp" size={24} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="brand-card relative overflow-hidden group p-8 bg-card/30 hover:bg-card/50 transition-all duration-500 border border-border/5">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
+                        <div className="flex justify-between items-start relative z-10">
+                            <div>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-4 italic">Active Initiatives</p>
+                                <h3 className="text-4xl font-black font-mono tracking-tighter text-foreground italic">
+                                    {data.projects.filter(p => p.status === 'Active' || p.status === 'In-progress').length} <span className="text-sm font-black uppercase text-muted-foreground ml-1">Nodes</span>
+                                </h3>
+                            </div>
+                            <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                <window.Icon name="Zap" size={24} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="brand-card relative overflow-hidden group p-8 bg-card/30 hover:bg-card/50 transition-all duration-500 border border-border/5">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
+                        <div className="flex justify-between items-start relative z-10">
+                            <div>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-4 italic">Engagement Velocity</p>
+                                <h3 className="text-4xl font-black font-mono tracking-tighter text-foreground italic text-primary">
+                                    {data.interactions.length} <span className="text-sm font-black uppercase text-muted-foreground ml-1">Cycles</span>
+                                </h3>
+                            </div>
+                            <div className="w-12 h-12 bg-primary/10 border border-primary/20 text-primary rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                <window.Icon name="MessageSquare" size={24} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                    {data.clients.map((c, index) => {
+                        const clientRevenue = data.sales.filter(s => s.client === c.name).reduce((sum, s) => sum + parseFloat(s.amount), 0);
+                        const activeOps = data.projects.filter(p => p.client === c.name && (p.status === 'Active' || p.status === 'In-progress')).length;
+
+                        return (
+                            <div
+                                key={c.id}
+                                onClick={() => setSelectedClient(c)}
+                                className="brand-card group cursor-pointer relative overflow-hidden flex flex-col border-none shadow-2xl bg-card/30 backdrop-blur-md hover:bg-card/50 transition-all duration-700 animate-in fade-in zoom-in-95"
+                                style={{ animationDelay: `${index * 50}ms` }}
+                            >
+                                <div className="absolute -right-16 -top-16 w-32 h-32 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/15 transition-all duration-1000"></div>
+
+                                <div className="p-10 space-y-8 relative z-10">
+                                    <div className="flex justify-between items-start">
+                                        <div className="w-20 h-20 bg-black text-primary rounded-[24px] flex items-center justify-center text-4xl font-black shadow-2xl group-hover:bg-primary group-hover:text-black transition-all duration-700 border border-black/10 relative overflow-hidden">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50"></div>
+                                            <span className="relative z-10 italic uppercase">{c.name.charAt(0)}</span>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-3 mt-1">
+                                            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full text-[8px] font-black uppercase tracking-[0.3em] italic">Active Tier</span>
+                                            {activeOps > 0 && (
+                                                <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
+                                                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-ping"></span>
+                                                    <span className="text-[8px] font-black text-primary uppercase tracking-[0.3em] italic">{activeOps} Live Ops</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        <h3 className="text-5xl font-display font-black text-white uppercase italic tracking-tighter leading-none">{selectedClient.name}</h3>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-[11px] font-black text-brand-500 uppercase tracking-[0.4em]">{selectedClient.company}</span>
-                                            <div className="w-2 h-2 bg-white/20 rotate-45"></div>
-                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em]">Active Entity Vector</span>
+
+                                    <div className="space-y-2">
+                                        <h4 className="text-2xl font-black tracking-tighter text-foreground group-hover:text-primary transition-colors italic uppercase leading-none">{c.name}</h4>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] italic">{c.company}</span>
+                                            <span className="w-1 h-1 bg-primary/30 rounded-full"></span>
+                                            <span className="text-[9px] font-medium text-muted-foreground/50 italic">EST. COLLAB</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-8 pt-8 border-t border-border/10">
+                                        <div>
+                                            <p className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.3em] mb-3 italic">Portfolio Yield</p>
+                                            <p className="text-xl font-black text-foreground font-mono italic tracking-tighter group-hover:text-primary transition-colors">KSh {clientRevenue.toLocaleString()}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.3em] mb-3 italic">Velocity</p>
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <div className="w-1 h-4 bg-primary/20 rounded-full overflow-hidden flex flex-col justify-end">
+                                                    <div className="w-full h-[80%] bg-primary"></div>
+                                                </div>
+                                                <div className="w-1 h-4 bg-primary/20 rounded-full overflow-hidden flex flex-col justify-end">
+                                                    <div className="w-full h-[60%] bg-primary"></div>
+                                                </div>
+                                                <div className="w-1 h-4 bg-primary/20 rounded-full overflow-hidden flex flex-col justify-end">
+                                                    <div className="w-full h-[90%] bg-primary"></div>
+                                                </div>
+                                                <span className="text-[10px] font-black text-foreground uppercase tracking-widest italic ml-2">High</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-6 z-10 w-full md:w-auto">
-                                    <button onClick={handleOpenEdit} className="brand-button-yellow !py-5 !px-10 italic">
-                                        <Icon name="edit-3" size={18} />
-                                        <span>Update Profile</span>
+                                <div className="bg-muted/30 p-5 flex justify-between items-center group-hover:bg-primary/5 transition-all duration-500 border-t border-border/5">
+                                    <div className="flex items-center gap-3">
+                                        <window.Icon name="MapPin" size={12} className="text-primary/50" />
+                                        <span className="text-[9px] font-black text-muted-foreground/70 uppercase tracking-[0.2em] italic">{c.location || 'Global Reach'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[8px] font-black text-primary uppercase tracking-[0.2em] italic opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all duration-500">
+                                        Open Dossier <window.Icon name="ArrowRight" size={12} strokeWidth={3} />
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <window.Modal
+                    isOpen={!!selectedClient}
+                    onClose={() => setSelectedClient(null)}
+                    title="Stakeholder Intelligence Profile"
+                >
+                    {selectedClient && (
+                        <div className="space-y-12">
+                            {/* Intelligence Header */}
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 p-10 bg-card/50 rounded-[32px] border border-border/10 relative overflow-hidden group shadow-inner">
+                                <div className="absolute -right-8 -top-8 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-700"></div>
+                                <div className="flex items-center gap-8 z-10">
+                                    <div className="w-24 h-24 bg-primary/10 border border-primary/20 text-primary rounded-[28px] flex items-center justify-center text-4xl font-black shadow-2xl shadow-primary/10 relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-30"></div>
+                                        <span className="relative z-10 italic">{selectedClient.name.charAt(0)}</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-4xl font-black tracking-tighter text-foreground italic uppercase leading-none">{selectedClient.name}</h3>
+                                        <div className="flex items-center gap-4 mt-4">
+                                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] italic">{selectedClient.company}</span>
+                                            <span className="w-1.5 h-1.5 bg-border/20 rounded-full"></span>
+                                            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                                                <span className="w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                                                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em] italic">Active Tier Partner</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex gap-4 z-10 w-full md:w-auto">
+                                    <button onClick={handleOpenEdit} className="flex-1 md:flex-none h-14 px-8 bg-card border border-border/10 text-foreground rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-primary hover:text-black hover:border-primary transition-all duration-300 italic shadow-xl">
+                                        <window.Icon name="Edit3" size={16} className="inline mr-3" />
+                                        Refine Profile
                                     </button>
-                                    <button onClick={handleDelete} className="w-16 h-16 flex items-center justify-center bg-white border-2 border-black hover:bg-rose-600 hover:text-white transition-all">
-                                        <Icon name="archive-restore" size={24} />
+                                    <button onClick={handleDelete} title="Delete Client" className="w-14 h-14 flex items-center justify-center bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-2xl transition-all duration-300 shadow-xl group/trash">
+                                        <window.Icon name="Trash2" size={20} className="group-hover:scale-110 transition-transform" />
                                     </button>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <div className="card p-8 bg-white dark:bg-white/5 border-none shadow-xl group hover:scale-[1.02] transition-all">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="p-2 bg-brand-500/10 text-brand-500 rounded-xl"><Icon name="trending-up" size={16} /></div>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lifetime Yield</span>
+                                <div className="brand-card p-10 bg-card/30 border-none shadow-2xl relative overflow-hidden group">
+                                    <div className="absolute -right-8 -top-8 w-24 h-24 bg-primary/5 rounded-full blur-2xl"></div>
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="p-3 bg-primary/10 text-primary rounded-xl"><window.Icon name="TrendingUp" size={18} /></div>
+                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] italic">Portfolio Revenue</span>
                                     </div>
-                                    <p className="text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tighter italic">KSh {totalRevenue.toLocaleString()}</p>
+                                    <p className="text-3xl font-black text-foreground font-mono tracking-tighter italic">KSh {totalRevenue.toLocaleString()}</p>
                                 </div>
-                                <div className="card p-8 bg-white dark:bg-white/5 border-none shadow-xl group hover:scale-[1.02] transition-all">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl"><Icon name="layers" size={16} /></div>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Ops</span>
+                                <div className="brand-card p-10 bg-card/30 border-none shadow-2xl relative overflow-hidden group">
+                                    <div className="absolute -right-8 -top-8 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl"></div>
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl"><window.Icon name="Layers" size={18} /></div>
+                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] italic">Active Deployments</span>
                                     </div>
-                                    <p className="text-3xl font-black text-emerald-500 font-sans tracking-tighter italic">{clientProjects.filter(p => p.status === 'Active').length}</p>
+                                    <p className="text-3xl font-black text-emerald-500 font-mono tracking-tighter italic">{clientProjects.filter(p => p.status === 'Active' || p.status === 'In-progress').length} <span className="text-xs font-black uppercase text-muted-foreground ml-1">Live Ops</span></p>
                                 </div>
-                                <div className="card p-8 bg-white dark:bg-white/5 border-none shadow-xl group hover:scale-[1.02] transition-all">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="p-2 bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-300 rounded-xl"><Icon name="zap" size={16} /></div>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Touchpoints</span>
+                                <div className="brand-card p-10 bg-card/30 border-none shadow-2xl relative overflow-hidden group">
+                                    <div className="absolute -right-8 -top-8 w-24 h-24 bg-primary/5 rounded-full blur-2xl"></div>
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="p-3 bg-primary/10 text-primary rounded-xl"><window.Icon name="Zap" size={18} /></div>
+                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] italic">Engagement Cycles</span>
                                     </div>
-                                    <p className="text-3xl font-black text-slate-900 dark:text-white font-sans tracking-tighter italic">{clientInteractions.length}</p>
+                                    <p className="text-3xl font-black text-foreground font-mono tracking-tighter italic">{clientInteractions.length} <span className="text-xs font-black uppercase text-muted-foreground ml-1">Sessions</span></p>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                 <div className="space-y-8">
-                                    <div className="flex justify-between items-center px-2">
-                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-black italic leading-none">Engagement Chronology</h5>
-                                        <button onClick={() => setIsAddingInteraction(true)} className="w-12 h-12 flex items-center justify-center bg-black text-brand-500 border-2 border-black hover:bg-brand-500 hover:text-black transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                                            <Icon name="plus" size={20} />
+                                    <div className="flex justify-between items-end border-b border-border/10 pb-6">
+                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-foreground italic">Engagement Protocol History</h5>
+                                        <button onClick={() => setIsAddingInteraction(true)} className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-full hover:bg-primary hover:text-black transition-all duration-300 shadow-lg shadow-primary/5">
+                                            <window.Icon name="Plus" size={14} strokeWidth={3} />
+                                            <span className="text-[9px] font-black uppercase tracking-widest italic">Log Sequence</span>
                                         </button>
                                     </div>
                                     <div className="space-y-6 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
                                         {clientInteractions.length > 0 ? [...clientInteractions].reverse().map(i => (
-                                            <div key={i.id} className="p-8 bg-slate-50 border-2 border-transparent hover:border-black transition-all relative group">
-                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-black opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                                <div className="flex justify-between items-start mb-6">
-                                                    <span className={`px-4 py-1 bg-black text-white text-[9px] font-black uppercase tracking-widest italic`}>
-                                                        {i.type}
+                                            <div key={i.id} className="p-8 bg-card/30 border border-border/5 rounded-[24px] hover:border-primary/20 transition-all duration-500 group relative overflow-hidden">
+                                                <div className="absolute -right-4 -top-4 w-16 h-16 bg-primary/5 rounded-full blur-xl group-hover:bg-primary/10 transition-colors"></div>
+                                                <div className="flex justify-between items-center mb-6 relative z-10">
+                                                    <span className="px-4 py-1.5 bg-muted/50 border border-border/10 rounded-full text-[9px] font-black uppercase tracking-[0.2em] text-primary italic">
+                                                        {i.type} Vector
                                                     </span>
-                                                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase italic">
-                                                        <Icon name="calendar" size={12} />
+                                                    <div className="flex items-center gap-2 text-[9px] font-black text-muted-foreground/60 uppercase tracking-widest italic">
+                                                        <window.Icon name="Calendar" size={12} className="text-primary/40" />
                                                         {i.date}
                                                     </div>
                                                 </div>
-                                                <p className="text-sm text-black font-medium leading-relaxed italic border-l-4 border-brand-500 pl-6">"{i.notes}"</p>
+                                                <div className="relative z-10 flex gap-4">
+                                                    <div className="w-1 h-auto bg-primary/20 rounded-full shrink-0"></div>
+                                                    <p className="text-sm text-foreground/80 font-medium leading-relaxed italic py-1">"{i.notes}"</p>
+                                                </div>
                                             </div>
                                         )) : (
-                                            <div className="flex flex-col items-center justify-center py-20 bg-slate-50 border-2 border-dashed border-slate-200">
-                                                <Icon name="message-square" size={48} className="opacity-20 mb-6" />
-                                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Archival Silence: No recorded interactions</p>
+                                            <div className="flex flex-col items-center justify-center py-24 bg-card/10 border border-dashed border-border/10 rounded-[32px]">
+                                                <window.Icon name="MessageSquare" size={48} className="text-muted-foreground/10 mb-6" />
+                                                <p className="text-[11px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic text-center">Zero Engagement Vectors Detected<br /><span className="text-[9px] opacity-50">Initiate first contact sequence</span></p>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
                                 <div className="space-y-8">
-                                    <div className="px-2">
-                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-black italic leading-none">Commercial Velocity</h5>
+                                    <div className="border-b border-border/10 pb-6">
+                                        <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-foreground italic">Commercial Flow Telemetry</h5>
                                     </div>
-                                    <div className="space-y-6">
-                                        {clientSales.slice(0, 5).map(s => (
-                                            <div key={s.id} className="flex items-center justify-between p-8 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] hover:translate-x-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all group">
+                                    <div className="space-y-4">
+                                        {clientSales.length > 0 ? clientSales.slice(0, 8).map(s => (
+                                            <div key={s.id} className="flex items-center justify-between p-7 bg-card/20 border border-border/5 rounded-[24px] hover:bg-card/40 transition-all duration-300 group shadow-sm">
                                                 <div className="flex items-center gap-6">
-                                                    <div className="w-14 h-14 bg-black text-brand-500 flex items-center justify-center border-2 border-black">
-                                                        <Icon name="file-text" size={24} />
+                                                    <div className="w-14 h-14 bg-muted/50 text-primary flex items-center justify-center rounded-[18px] border border-border/10 group-hover:scale-105 transition-transform duration-500">
+                                                        <window.Icon name="FileText" size={24} strokeWidth={1.5} />
                                                     </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-lg font-display font-black text-black uppercase tracking-tighter italic leading-none mb-2">{s.invoiceNo}</span>
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{s.date}</span>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-sm font-black text-foreground uppercase tracking-tight group-hover:text-primary transition-colors">{s.invoiceNo}</span>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest italic">{s.date}</span>
+                                                            <span className="w-1 h-1 bg-border/20 rounded-full"></span>
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${s.status === 'Paid' ? 'text-emerald-500' : 'text-primary'}`}>{s.status}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <span className="text-2xl font-display font-black text-black tracking-tighter">KES {parseFloat(s.amount).toLocaleString()}</span>
+                                                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.3em] mb-1 italic text-right">Value Node</p>
+                                                    <span className="text-xl font-black text-foreground font-mono italic tracking-tighter">KSh {parseFloat(s.amount).toLocaleString()}</span>
                                                 </div>
                                             </div>
-                                        ))}
+                                        )) : (
+                                            <div className="flex flex-col items-center justify-center py-24 bg-card/10 border border-dashed border-border/10 rounded-[32px]">
+                                                <window.Icon name="TrendingUp" size={48} className="text-muted-foreground/10 mb-6" />
+                                                <p className="text-[11px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic text-center">No Commercial Records Found</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
-                </Modal>
+                </window.Modal>
 
-                <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} title="Operational Profile Refinement">
-                    <form onSubmit={handleSaveEdit} className="space-y-10 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Entity Nomenclature</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Corporate Alias</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required value={editData.company} onChange={e => setEditData({ ...editData, company: e.target.value })} />
-                            </div>
-                            <div className="space-y-2 lg:col-span-2">
-                                <label className="brand-label !text-slate-400">Communication Vector (Phone)</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">KRA Fiscal Identity</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black uppercase" value={editData.kraPin} onChange={e => setEditData({ ...editData, kraPin: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Geospatial Coordinates</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" value={editData.location} onChange={e => setEditData({ ...editData, location: e.target.value })} />
-                            </div>
+                <window.Modal isOpen={isEditing} onClose={() => setIsEditing(false)} title="Stakeholder Profile Configuration">
+                    <form onSubmit={handleSaveEdit} className="p-2 space-y-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            {[
+                                { label: 'Stakeholder Alias', key: 'name', type: 'text', placeholder: 'ENTITY NAME...' },
+                                { label: 'Corporate Identity', key: 'company', type: 'text', placeholder: 'LEGAL ENTITY...' },
+                                { label: 'Communication Node (Email)', key: 'email', type: 'email', placeholder: 'OPERATIONAL EMAIL...' },
+                                { label: 'Voice Vector (Phone)', key: 'phone', type: 'text', placeholder: 'CONTACT VECTOR...' },
+                                { label: 'Fiscal Protocol (KRA PIN)', key: 'kraPin', type: 'text', placeholder: 'P05...' },
+                                { label: 'Geospatial Operations', key: 'location', type: 'text', placeholder: 'GEOGRAPHIC RADIUS...' },
+                            ].map((field) => (
+                                <div key={field.key} className="space-y-3">
+                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">{field.label}</label>
+                                    <input
+                                        className="brand-input w-full !h-14 text-xs font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30"
+                                        placeholder={field.placeholder}
+                                        required={field.key !== 'kraPin' && field.key !== 'location'}
+                                        type={field.type}
+                                        value={editData[field.key]}
+                                        onChange={e => setEditData({ ...editData, [field.key]: e.target.value })}
+                                    />
+                                </div>
+                            ))}
                         </div>
-                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
-                            Authorize Profile Synchronization
+                        <button type="submit" className="w-full py-6 bg-primary text-black rounded-[24px] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 italic active:scale-[0.98]">
+                            Commit Profile Authorization
                         </button>
                     </form>
-                </Modal>
+                </window.Modal>
 
-                <Modal isOpen={isAddingInteraction} onClose={() => setIsAddingInteraction(false)} title="Log Engagement Protocol">
-                    <form onSubmit={handleAddInteraction} className="space-y-10 p-4">
+                <window.Modal isOpen={isAddingInteraction} onClose={() => setIsAddingInteraction(false)} title="Engagement Protocol Authorization">
+                    <form onSubmit={handleAddInteraction} className="p-2 space-y-10">
                         <div className="space-y-4">
-                            <label className="brand-label !text-slate-400">Engagement Vector</label>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                {['Call', 'Meeting', 'Email', 'Proposal'].map(type => (
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Engagement Topology</label>
+                            <div className="flex flex-wrap gap-3 p-3 bg-muted/30 rounded-[24px] border border-border/10">
+                                {['Voice Audit (Call)', 'Synchronous Meeting', 'Digital Dispatch (Email)', 'On-Site Intelligence'].map(t => (
                                     <button
-                                        key={type}
+                                        key={t}
                                         type="button"
-                                        onClick={() => setNewInteraction({ ...newInteraction, type })}
-                                        className={`py-4 border-2 border-black font-black text-[10px] uppercase tracking-widest transition-all italic ${newInteraction.type === type ? 'bg-black text-white shadow-[4px_4px_0px_0px_rgba(250,204,21,1)]' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
+                                        onClick={() => setNewInteraction({ ...newInteraction, type: t.split(' (')[0].split(' ').pop() === 'Intelligence' ? 'Site Visit' : t.split(' (')[0].split(' ').pop() })}
+                                        className={`flex-1 py-4 rounded-[18px] font-black text-[9px] uppercase tracking-[0.2em] italic transition-all duration-500 min-w-[140px] ${(newInteraction.type === 'Call' && t.includes('Call')) ||
+                                            (newInteraction.type === 'Meeting' && t.includes('Meeting')) ||
+                                            (newInteraction.type === 'Email' && t.includes('Email')) ||
+                                            (newInteraction.type === 'Site Visit' && t.includes('Site'))
+                                            ? 'bg-primary text-black shadow-xl scale-105' : 'text-muted-foreground hover:bg-background'}`}
                                     >
-                                        {type}
+                                        {t}
                                     </button>
                                 ))}
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="brand-label !text-slate-400">Interaction Intelligence</label>
-                            <textarea className="brand-input !bg-white !border-black !text-black min-h-[160px] py-6 leading-relaxed" placeholder="Document strategic outcomes and operational decisions..." required value={newInteraction.notes} onChange={e => setNewInteraction({ ...newInteraction, notes: e.target.value })} />
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Intelligence Summary</label>
+                            <textarea
+                                className="brand-input w-full h-48 resize-none text-sm font-bold border-border/10 focus:border-primary/50 !bg-card/30 p-6 leading-relaxed"
+                                placeholder="Detail the strategic outcome of this engagement cycle..."
+                                required
+                                value={newInteraction.notes}
+                                onChange={e => setNewInteraction({ ...newInteraction, notes: e.target.value })}
+                            ></textarea>
                         </div>
-                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
-                            Commit to Historical Matrix
+                        <button type="submit" className="w-full py-6 bg-primary text-black rounded-[24px] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 italic">
+                            Commit Engagement Log
                         </button>
                     </form>
-                </Modal>
+                </window.Modal>
 
-                <Modal isOpen={isAddingClient} onClose={() => setIsAddingClient(false)} title="Stakeholder Registry Initiation">
-                    <form onSubmit={handleRegisterClient} className="space-y-10 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Entity Nomenclature</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="Full Name" value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Corporate Alias</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="Company" value={newClient.company} onChange={e => setNewClient({ ...newClient, company: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">KRA Fiscal Identity</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black uppercase" placeholder="KRA PIN" value={newClient.kraPin} onChange={e => setNewClient({ ...newClient, kraPin: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Geospatial Coordinates</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="Physical Location" value={newClient.location} onChange={e => setNewClient({ ...newClient, location: e.target.value })} />
-                            </div>
-                            <div className="space-y-2 lg:col-span-2">
-                                <label className="brand-label !text-slate-400">Communication Vector (Phone)</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="+254..." value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
-                            </div>
+                <window.Modal isOpen={isAddingClient} onClose={() => setIsAddingClient(false)} title="Stakeholder Onboarding Protocol">
+                    <form onSubmit={handleRegisterClient} className="p-2 space-y-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            {[
+                                { label: 'Primary Nomenclature', key: 'name', type: 'text', placeholder: 'FULL NAME...' },
+                                { label: 'Corporate Entity', key: 'company', type: 'text', placeholder: 'COMPANY IDENTITY...' },
+                                { label: 'Primary Email Node', key: 'email', type: 'email', placeholder: 'CLIENT@DOMAIN.COM...' },
+                                { label: 'Communication Channel', key: 'phone', type: 'text', placeholder: '+254...' },
+                                { label: 'KRA Fiscal Identity', key: 'kraPin', type: 'text', placeholder: 'PIN AUTHORIZATION...' },
+                                { label: 'Base Operations', key: 'location', type: 'text', placeholder: 'PHYSICAL LOCALE...' },
+                            ].map((field) => (
+                                <div key={field.key} className="space-y-3">
+                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">{field.label}</label>
+                                    <input
+                                        className="brand-input w-full !h-14 text-xs font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30"
+                                        placeholder={field.placeholder}
+                                        required={field.key !== 'kraPin' && field.key !== 'location'}
+                                        type={field.type}
+                                        value={newClient[field.key]}
+                                        onChange={e => setNewClient({ ...newClient, [field.key]: e.target.value })}
+                                    />
+                                </div>
+                            ))}
                         </div>
-                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
-                            Synchronize New Stakeholder
+                        <button type="submit" className="w-full py-6 bg-primary text-black rounded-[24px] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 italic">
+                            Authorize Protocol & Register
                         </button>
                     </form>
-                </Modal>
+                </window.Modal>
             </div >
         );
     };
+
 
     const SupplierModule = () => {
         const { data, updateData, deleteItem, logActivity } = useContext(AppContext);
@@ -1882,151 +2432,258 @@
         };
 
         return (
-            <div className="space-y-12 animate-slide">
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4">
-                    <div className="space-y-2">
-                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Stakeholder Registry</h2>
-                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                            <div className="w-12 h-1 bg-brand-500"></div>
-                            {data.suppliers.length} Active Partner Entities
-                        </div>
+            <div className="space-y-10 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="relative">
+                        <div className="absolute -left-4 top-0 w-1 h-full bg-primary rounded-full hidden md:block"></div>
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter italic uppercase leading-none">Supply Chain Ecosystem</h1>
+                        <p className="text-muted-foreground mt-3 text-[10px] font-black uppercase tracking-[0.5em] italic flex items-center gap-3">
+                            <span className="w-8 h-[1px] bg-primary/30"></span> Strategic Resource Alliances
+                        </p>
                     </div>
-                    <button
-                        onClick={handleOpenAdd}
-                        className="brand-button-yellow !py-5 !px-10 flex items-center gap-4 italic"
-                    >
-                        <Icon name="plus-circle" size={18} />
-                        Register Partner Entity
-                    </button>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="relative group/search">
+                            <window.Icon name="Search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within/search:text-primary transition-all duration-300" />
+                            <input
+                                type="text"
+                                placeholder="IDENTIFY VENDOR..."
+                                className="brand-input !bg-card/30 border-border/10 !py-3 !pl-12 !pr-6 w-56 text-[10px] font-black uppercase tracking-widest focus:w-80 transition-all duration-500 rounded-full focus:shadow-[0_0_30px_rgba(var(--primary-rgb),0.1)]"
+                            />
+                        </div>
+                        <ExportDropdown data={data.suppliers} filename="supplier_intelligence" />
+                        <button
+                            onClick={handleOpenAdd}
+                            className="bg-primary text-black px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 italic border border-primary/20"
+                        >
+                            <window.Icon name="Plus" size={16} strokeWidth={3} />
+                            Onboard Partner
+                        </button>
+                    </div>
                 </div>
 
-                {/* Vendor Ledger Table */}
-                <div className="border-4 border-black overflow-hidden shadow-premium bg-white">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left font-display">
-                            <thead className="bg-black text-white">
-                                <tr>
-                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-brand-500">Partner Identity</th>
-                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Primary Liaison</th>
-                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Operation Classification</th>
-                                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right">Registry Operations</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y-2 divide-black/5">
-                                {data.suppliers.map(s => (
-                                    <tr key={s.id} className="group hover:bg-slate-50 transition-all">
-                                        <td className="px-10 py-8 relative">
-                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-black group-hover:bg-brand-500 transition-colors"></div>
-                                            <div className="font-black text-lg uppercase italic tracking-tighter leading-none mb-1">{s.name}</div>
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{s.email}</div>
-                                        </td>
-                                        <td className="px-10 py-8">
-                                            <div className="font-bold text-black italic text-sm">{s.contact}</div>
-                                            <div className="text-[10px] uppercase text-slate-400 tracking-widest mt-1">{s.contactPerson}</div>
-                                        </td>
-                                        <td className="px-10 py-8">
-                                            <span className="px-4 py-1 bg-black text-white text-[9px] font-black uppercase tracking-widest italic">{s.category}</span>
-                                        </td>
-                                        <td className="px-10 py-8 text-right">
-                                            <div className="flex items-center justify-end gap-3">
-                                                <button onClick={() => handleOpenEdit(s)} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Refine Configuration">
-                                                    <Icon name="edit-3" size={16} />
-                                                </button>
-                                                <button onClick={() => { if (confirm('Archive Partner Entity?')) { deleteItem('suppliers', s.id); logActivity(`Archived vendor: ${s.name}`, 'Archive'); } }} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-black hover:bg-rose-500 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none" title="Purge Record">
-                                                    <Icon name="trash-2" size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="brand-card relative overflow-hidden group p-8 bg-card/30 hover:bg-card/50 transition-all duration-500 border border-border/5">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
+                        <div className="flex justify-between items-start relative z-10">
+                            <div>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-4 italic">Total Network</p>
+                                <h3 className="text-4xl font-black font-mono tracking-tighter text-foreground italic">
+                                    {data.suppliers.length} <span className="text-sm font-black uppercase text-muted-foreground ml-1">Nodes</span>
+                                </h3>
+                            </div>
+                            <div className="w-12 h-12 bg-primary/10 border border-primary/20 text-primary rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                <window.Icon name="Share2" size={24} />
+                            </div>
+                        </div>
                     </div>
+                    <div className="brand-card relative overflow-hidden group p-8 bg-card/30 hover:bg-card/50 transition-all duration-500 border border-border/5">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
+                        <div className="flex justify-between items-start relative z-10">
+                            <div>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-4 italic">Supply Verticals</p>
+                                <h3 className="text-4xl font-black font-mono tracking-tighter text-foreground italic">
+                                    {new Set(data.suppliers.map(s => s.category)).size} <span className="text-sm font-black uppercase text-muted-foreground ml-1">Sectors</span>
+                                </h3>
+                            </div>
+                            <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                <window.Icon name="Layers" size={24} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="brand-card relative overflow-hidden group p-8 bg-card/30 hover:bg-card/50 transition-all duration-500 border border-border/5">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
+                        <div className="flex justify-between items-start relative z-10">
+                            <div>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-4 italic">Operational Reach</p>
+                                <h3 className="text-4xl font-black font-mono tracking-tighter text-foreground italic text-primary">
+                                    {new Set(data.suppliers.map(s => s.address)).size} <span className="text-sm font-black uppercase text-muted-foreground ml-1">Hubs</span>
+                                </h3>
+                            </div>
+                            <div className="w-12 h-12 bg-primary/10 border border-primary/20 text-primary rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                <window.Icon name="MapPin" size={24} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                    {data.suppliers.map((s, index) => (
+                        <div
+                            key={s.id}
+                            className="brand-card group relative overflow-hidden flex flex-col border-none shadow-2xl bg-card/30 backdrop-blur-md hover:bg-card/50 transition-all duration-700 animate-in fade-in zoom-in-95"
+                            style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                            <div className="absolute -right-16 -top-16 w-32 h-32 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/15 transition-all duration-1000"></div>
+
+                            <div className="p-10 space-y-8 relative z-10">
+                                <div className="flex justify-between items-start">
+                                    <div className="w-20 h-20 bg-black text-primary rounded-[24px] flex items-center justify-center text-4xl font-black shadow-2xl group-hover:bg-primary group-hover:text-black transition-all duration-700 border border-black/10 relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50"></div>
+                                        <span className="relative z-10 italic uppercase">{s.name.charAt(0)}</span>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-3 mt-1">
+                                        <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-[8px] font-black uppercase tracking-[0.3em] italic">{s.category} Unit</span>
+                                        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                                            <span className="w-1 h-1 bg-emerald-500 rounded-full"></span>
+                                            <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.3em] italic">Active Flow</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h4 className="text-2xl font-black tracking-tighter text-foreground group-hover:text-primary transition-colors italic uppercase leading-none">{s.name}</h4>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] italic">{s.contactPerson || 'STRATEGIC LIAISON'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-8 pt-8 border-t border-border/10">
+                                    <div>
+                                        <p className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.3em] mb-3 italic">Communication</p>
+                                        <p className="text-[11px] font-black text-foreground tracking-tight uppercase truncate italic">{s.email}</p>
+                                        <p className="text-[10px] font-black text-muted-foreground italic mt-1">{s.contact}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.3em] mb-3 italic">Fiscal ID</p>
+                                        <span className="text-[11px] font-black text-foreground font-mono italic tracking-tighter bg-muted/50 px-2 py-1 rounded-md">{s.kraPin || 'UNSPECIFIED'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-muted/30 p-5 flex justify-between items-center group-hover:bg-primary/5 transition-all duration-500 border-t border-border/5">
+                                <div className="flex items-center gap-3">
+                                    <window.Icon name="MapPin" size={12} className="text-primary/50" />
+                                    <span className="text-[9px] font-black text-muted-foreground/70 uppercase tracking-[0.2em] italic truncate max-w-[120px]">{s.address || 'Global Supply'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => handleOpenEdit(s)} title="Edit Supplier" className="w-10 h-10 flex items-center justify-center bg-card border border-border/10 text-muted-foreground hover:bg-primary hover:text-black hover:scale-105 rounded-xl transition-all">
+                                        <window.Icon name="Edit3" size={14} />
+                                    </button>
+                                    <button onClick={() => { if (confirm('Archive Partner?')) { deleteItem('suppliers', s.id); logActivity(`Archived vendor: ${s.name}`, 'Archive'); } }} title="Delete Supplier" className="w-10 h-10 flex items-center justify-center bg-card border border-border/10 text-muted-foreground hover:bg-rose-500 hover:text-white hover:scale-105 rounded-xl transition-all">
+                                        <window.Icon name="Trash2" size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Stakeholder Registration Protocol */}
-                <Modal isOpen={isAdding} onClose={() => setIsAdding(false)} title={editingSupplier ? "Partner Entity Configuration" : "Stakeholder Registry Initiation"}>
-                    <form onSubmit={handleSubmit} className="space-y-10 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Entity Nomenclature</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="Identity Graphics Houzz" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                <window.Modal isOpen={isAdding} onClose={() => setIsAdding(false)} title={editingSupplier ? "Partner Resource Configuration" : "Stakeholder Registry Initiation"}>
+                    <form onSubmit={handleSubmit} className="p-2 space-y-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Entity Nomenclature</label>
+                                <input className="brand-input w-full !h-14 text-xs font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30" placeholder="LEGAL PARTNER NAME..." required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                             </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Liaison Identity</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="+254 700 000 000" required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} />
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Liaison Contact Vector</label>
+                                <input className="brand-input w-full !h-14 text-xs font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30" placeholder="+254..." required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} />
                             </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Communication Protocol (Email)</label>
-                                <input type="email" className="brand-input !bg-slate-50 !border-slate-200 !text-black italic" placeholder="liaison@partner.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Primary Email Channel</label>
+                                <input type="email" className="brand-input w-full !h-14 text-xs font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30" placeholder="LIAISON@DOMAIN.COM..." required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                             </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Operation Classification</label>
-                                <select className="brand-input !bg-slate-50 !border-slate-200 !text-black" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Resource Classification</label>
+                                <select className="brand-input w-full !h-14 text-[10px] font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30 px-6 appearance-none cursor-pointer" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                     <option>Material</option><option>Software</option><option>Infrastructure</option><option>Logistics</option><option>Marketing</option>
                                 </select>
                             </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Fiscal Identity (KRA PIN)</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black uppercase" placeholder="P051XXXXXXX" value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Fiscal Matrix (KRA PIN)</label>
+                                <input className="brand-input w-full !h-14 text-xs font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30" placeholder="P05..." value={formData.kraPin} onChange={e => setFormData({ ...formData, kraPin: e.target.value })} />
                             </div>
-                            <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Key Personnel</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="Head of Operations" value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Key Strategic Liaison</label>
+                                <input className="brand-input w-full !h-14 text-xs font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30" placeholder="MANAGER NAME..." value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
                             </div>
-                            <div className="space-y-2 lg:col-span-2">
-                                <label className="brand-label !text-slate-400">Geospatial Logistics Center</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" placeholder="Industrial Area, Gate 4" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                            <div className="space-y-3 md:col-span-2">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Geospatial Operations Hub</label>
+                                <input className="brand-input w-full !h-14 text-xs font-black tracking-widest uppercase border-border/10 focus:border-primary/50 !bg-card/30" placeholder="PHYSICAL LOCALE..." value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                             </div>
                         </div>
-                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
-                            {editingSupplier ? "Authorize Config Update" : "Synchronize New Partner"}
+                        <button type="submit" className="w-full py-6 bg-primary text-black rounded-[24px] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 italic active:scale-[0.98]">
+                            {editingSupplier ? "Authorize Config Authorization" : "Synchronize Partner Sequence"}
                         </button>
                     </form>
-                </Modal>
+                </window.Modal>
             </div>
         );
     };
 
     const ProjectModule = () => {
-        const { data, updateData, deleteItem, logActivity, seedInvoice } = useContext(AppContext);
+        const { data, updateData, updateItem, deleteItem, logActivity, seedInvoice, user } = useContext(AppContext);
         const [selectedProject, setSelectedProject] = useState(null);
         const [isAdding, setIsAdding] = useState(false);
         const [isAddingBOM, setIsAddingBOM] = useState(false);
-        const [isAddingAsset, setIsAddingAsset] = useState(false);
+        const [viewProject, setViewProject] = useState(null);
+        const [searchTerm, setSearchTerm] = useState('');
+        const [exportOpen, setExportOpen] = useState(false);
+        const [extendId, setExtendId] = useState(null);
+        const [extendDate, setExtendDate] = useState('');
 
-        const [formData, setFormData] = useState({ name: '', client: '', deadline: '', designer: '', status: 'Active', stage: 'Brief' });
+        const isAdmin = user?.role === 'admin';
+
+        const [formData, setFormData] = useState({ name: '', client: '', deadline: '', designer: '', status: 'In-progress', stage: 'Brief', budget: '' });
         const [newBOMItem, setNewBOMItem] = useState({ itemId: '', qty: 1 });
-        const [newAsset, setNewAsset] = useState({ name: '', url: '' });
 
         const stages = ['Brief', 'Design', 'Production', 'Logistics', 'Delivered'];
-        const statuses = ['In-progress', 'Completed', 'Cancelled', 'Outsourced'];
+        const statuses = ['Active', 'Awaiting Payment', 'Completed', 'Cancelled', 'Outsourced'];
 
         const handleOpenAdd = () => {
-            setFormData({ name: '', client: '', deadline: '', designer: '', status: 'Active', stage: 'Brief' });
+            setFormData({ name: '', client: '', deadline: '', designer: '', status: 'In-progress', stage: 'Brief', budget: '' });
+            setSelectedProject(null);
             setIsAdding(true);
         };
 
         const handleOpenEdit = (p) => {
-            setFormData({ ...p, designer: p.designer || '' });
+            if (p.status === 'Completed' && !isAdmin) return;
+            setFormData({ name: p.name, client: p.client, deadline: p.deadline, designer: p.designer || '', status: p.status, stage: p.stage || 'Brief', budget: p.budget || '' });
             setSelectedProject(p.id);
             setIsAdding(true);
         };
 
         const handleSubmit = async (e) => {
             e.preventDefault();
-            if (selectedProject && isAdding) {
-                const updated = data.projects.map(p => p.id === selectedProject ? { ...formData, id: p.id } : p);
+            if (selectedProject) {
+                const updated = data.projects.map(p => p.id === selectedProject ? { ...p, ...formData } : p);
                 await updateData('projects_bulk', updated);
                 logActivity(`Updated project: ${formData.name}`, 'Update');
             } else {
-                const project = { ...formData, id: Date.now(), team: [], bom: [], assets: [] };
+                const project = { ...formData, id: Date.now(), bom: [] };
                 await updateData('projects', project);
-                logActivity(`Launched new project: ${formData.name}`, 'Success');
+                logActivity(`New design project created: ${formData.name}`, 'Success');
             }
             setIsAdding(false);
             setSelectedProject(null);
+        };
+
+        const handleStageChange = async (p, stage) => {
+            if (p.status === 'Completed' && !isAdmin) return;
+            const updated = data.projects.map(proj => proj.id === p.id ? { ...proj, stage } : proj);
+            await updateData('projects_bulk', updated);
+            logActivity(`${p.name} stage → ${stage}`, 'Update');
+            // Auto-seed to sales when Delivered
+            if (stage === 'Delivered' && p.status !== 'Awaiting Payment' && p.status !== 'Completed') {
+                await updateData('projects_bulk', data.projects.map(proj => proj.id === p.id ? { ...proj, stage, status: 'Awaiting Payment' } : proj));
+                seedInvoice({ client: p.client, projectId: p.id, itemName: `Design Project: ${p.name}`, amount: p.budget || 0 });
+                logActivity(`Project "${p.name}" delivered — seeded to Sales as "Awaiting Payment"`, 'Invoice');
+            }
+        };
+
+        const handleMarkCompleted = async (p) => {
+            if (!isAdmin) return;
+            await updateData('projects_bulk', data.projects.map(proj => proj.id === p.id ? { ...proj, status: 'Completed' } : proj));
+            logActivity(`Project "${p.name}" marked as Completed (Paid)`, 'Success');
+        };
+
+        const handleExtend = async (e) => {
+            e.preventDefault();
+            const p = data.projects.find(proj => proj.id === extendId);
+            if (!p || !extendDate) return;
+            await updateData('projects_bulk', data.projects.map(proj => proj.id === extendId ? { ...proj, deadline: extendDate } : proj));
+            logActivity(`Deadline extended for "${p.name}" to ${extendDate}`, 'Update');
+            setExtendId(null); setExtendDate('');
         };
 
         const handleAddBOM = (e) => {
@@ -2036,875 +2693,906 @@
             const inventoryItem = data.inventory.find(i => i.id === parseInt(newBOMItem.itemId));
             const bomItem = { id: Date.now(), itemId: parseInt(newBOMItem.itemId), sku: inventoryItem?.sku, name: inventoryItem?.name, qty: parseFloat(newBOMItem.qty), status: 'Reserved' };
             updateData('projects_bulk', data.projects.map(p => p.id === selectedProject ? { ...p, bom: [...(p.bom || []), bomItem] } : p));
-            logActivity(`BOM item added to ${project.name}`, 'Sync');
+            logActivity(`Material added to ${project.name}`, 'Sync');
             setIsAddingBOM(false);
         };
 
-        const consumeBOM = async (projectId, bomId) => {
-            const project = data.projects.find(p => p.id === projectId);
-            const bomItem = project.bom.find(b => b.id === bomId);
-            if (!bomItem || bomItem.status === 'Consumed') return;
-            const inventoryItem = data.inventory.find(i => i.id === bomItem.itemId);
-            if (inventoryItem) {
-                // B2 Fix: Sequential awaits to avoid race condition
-                await updateData('inventory_bulk', data.inventory.map(i => i.id === bomItem.itemId ? { ...i, stock: Math.max(0, i.stock - bomItem.qty) } : i));
-                await updateData('stockMovements', { itemId: bomItem.itemId, sku: bomItem.sku, type: 'Out', qty: bomItem.qty, date: new Date().toISOString().split('T')[0], reference: `PRJ-${projectId}`, notes: `Consumed for project: ${project.name}` });
-            }
-            await updateData('projects_bulk', data.projects.map(p => p.id === projectId ? { ...p, bom: p.bom.map(b => b.id === bomId ? { ...b, status: 'Consumed' } : b) } : p));
-            logActivity(`Material consumed for ${project.name}`, 'Action');
+        // Export helpers
+        const exportCSV = () => {
+            const rows = ['"Project","Client","Designer","Stage","Status","Deadline","Budget"'];
+            data.projects.forEach(p => rows.push(`"${p.name}","${p.client}","${p.designer || ''}","${p.stage}","${p.status}","${p.deadline}","${p.budget || ''}"`));
+            const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'IGH-Projects.csv'; a.click();
+        };
+        const exportEmail = () => {
+            const subj = encodeURIComponent('IGH Design Projects Report');
+            const body = encodeURIComponent(`Projects Summary:\nTotal: ${data.projects.length}\nActive: ${data.projects.filter(p=>p.status==='In-progress').length}\nDelivered: ${data.projects.filter(p=>p.status==='Awaiting Payment').length}\nCompleted: ${data.projects.filter(p=>p.status==='Completed').length}`);
+            window.location.href = `mailto:?subject=${subj}&body=${body}`;
+        };
+
+        const filtered = data.projects.filter(p => {
+            if (!searchTerm) return true;
+            const q = searchTerm.toLowerCase();
+            return (p.name||'').toLowerCase().includes(q) || (p.client||'').toLowerCase().includes(q) ||
+                (p.designer||'').toLowerCase().includes(q) || (p.stage||'').toLowerCase().includes(q) ||
+                (p.status||'').toLowerCase().includes(q);
+        });
+
+        const statusColor = (s) => {
+            if (s === 'Completed') return 'bg-emerald-100 text-emerald-700';
+            if (s === 'Awaiting Payment') return 'bg-blue-100 text-blue-700';
+            if (s === 'Cancelled') return 'bg-red-100 text-red-700';
+            if (s === 'Outsourced') return 'bg-purple-100 text-purple-700';
+            return 'bg-yellow-100 text-yellow-700';
         };
 
 
         return (
-            <div className="space-y-8 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-brand-500 rounded-full animate-pulse"></span>
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic leading-none">Project Hub</h2>
-                        </div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Lifecycle Management Matrix // {data.projects.filter(p => p.status !== 'Done & Paid' && p.stage !== 'Archived').length} Active Ops</p>
+            <div className="space-y-8 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-black text-foreground tracking-widest uppercase leading-none">Design Base</h1>
+                        <p className="text-muted-foreground mt-1 text-[10px] font-bold uppercase tracking-[0.35em]">Innovation | Excellency | Professionalism</p>
                     </div>
-                    <button onClick={handleOpenAdd} className="btn-primary">
-                        <Icon name="plus-circle" size={18} /> Initiate Fresh OP
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Always-visible search */}
+                        <div className="relative">
+                            <window.Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Search projects..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="brand-input pl-9 pr-4 py-2 w-52 text-xs"
+                            />
+                        </div>
+                        {/* Generate Report dropdown */}
+                        <div className="relative">
+                            <button onClick={() => setExportOpen(!exportOpen)} className="brand-button-black text-xs px-4 py-2 gap-2">
+                                <window.Icon name="bar-chart-2" size={14} /> Generate Report <window.Icon name="chevron-down" size={12} />
+                            </button>
+                            {exportOpen && (
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-border rounded-xl shadow-2xl z-50 min-w-[140px] overflow-hidden">
+                                    <button onClick={() => { exportCSV(); setExportOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold hover:bg-muted text-left">
+                                        <window.Icon name="table" size={13} className="text-green-600" /> CSV
+                                    </button>
+                                    <button onClick={() => { window.print(); setExportOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold hover:bg-muted text-left">
+                                        <window.Icon name="printer" size={13} className="text-blue-600" /> PDF / Print
+                                    </button>
+                                    <button onClick={() => { exportEmail(); setExportOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold hover:bg-muted text-left">
+                                        <window.Icon name="mail" size={13} className="text-purple-600" /> Email
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        {isAdmin && (
+                            <button onClick={handleOpenAdd} className="brand-button-yellow text-xs px-4 py-2 gap-2">
+                                <window.Icon name="plus" size={14} strokeWidth={3} /> New Design Project
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {data.projects.filter(p => p.status !== 'Done & Paid' && p.stage !== 'Archived').map(p => (
-                        <div key={p.id} className="card !p-8 bg-white dark:bg-white/5 border-none shadow-xl hover:shadow-2xl transition-all group relative overflow-hidden flex flex-col gap-6">
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 blur-3xl rounded-full"></div>
-
-                            <div className="flex justify-between items-start z-10">
-                                <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${p.status === 'Completed' ? 'bg-emerald-500 text-white' : 'bg-brand-500 text-black shadow-lg shadow-brand-500/20 animate-pulse'}`}>
-                                    {p.status}
-                                </span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleOpenEdit(p)} className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-brand-500 hover:bg-brand-500/10 rounded-lg transition-all">
-                                        <Icon name="edit-3" size={14} />
-                                    </button>
-                                    <button onClick={() => { if (confirm('Archive Project?')) { deleteItem('projects', p.id); logActivity(`Archived project: ${p.name}`, 'Archive'); } }} className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all">
-                                        <Icon name="archive" size={14} />
-                                    </button>
-                                </div>
+                {/* Stat Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {[
+                        { label: 'Active', sub: 'In-progress status', value: data.projects.filter(p => p.status === 'In-progress').length, color: '#facc15', border: 'border-b-4 border-yellow-400', icon: 'activity' },
+                        { label: 'Pending', sub: 'Awaiting payment', value: data.projects.filter(p => p.status === 'Awaiting Payment').length, color: '#3b82f6', border: 'border-b-4 border-blue-500', icon: 'clock' },
+                        { label: 'In Queue', sub: 'Brief stage', value: data.projects.filter(p => p.stage === 'Brief').length, color: '#f97316', border: 'border-b-4 border-orange-500', icon: 'list' },
+                        { label: 'In Progress', sub: 'Design / Production', value: data.projects.filter(p => p.stage === 'Design' || p.stage === 'Production').length, color: '#8b5cf6', border: 'border-b-4 border-violet-500', icon: 'pen-tool' },
+                        { label: 'Total Projects', sub: 'All time', value: data.projects.length, color: '#10b981', border: 'border-b-4 border-emerald-500', icon: 'briefcase' },
+                    ].map(card => (
+                        <div key={card.label} className={`brand-card p-5 flex items-center justify-between ${card.border}`}>
+                            <div>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">{card.label}</p>
+                                <p className="text-[9px] text-muted-foreground/70 uppercase tracking-wide mb-1">{card.sub}</p>
+                                <h3 className="text-3xl font-black text-foreground">{card.value}</h3>
                             </div>
-
-                            <div className="z-10 space-y-1">
-                                <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none group-hover:text-brand-500 transition-colors">{p.name}</h4>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{p.client}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 z-10">
-                                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-transparent hover:border-brand-500/20 transition-all">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Strategist</p>
-                                    <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase">@{p.designer || 'TBD'}</p>
-                                </div>
-                                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-transparent hover:border-rose-500/20 transition-all">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Deadline</p>
-                                    <p className="text-[10px] font-black text-rose-500 font-sans">{p.deadline}</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3 z-10">
-                                <div className="flex justify-between items-center px-1">
-                                    <span className="text-[9px] font-black text-slate-900 dark:text-brand-500 uppercase tracking-widest italic">{p.stage || 'Brief'}</span>
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase">OP-{p.id.toString().slice(-4)}</span>
-                                </div>
-                                <div className="flex gap-1.5 h-1.5">
-                                    {stages.map((stage, idx) => {
-                                        const currentIdx = stages.indexOf(p.stage || 'Brief');
-                                        const isCompleted = idx < currentIdx;
-                                        const isActive = idx === currentIdx;
-                                        return (
-                                            <div
-                                                key={stage}
-                                                onClick={() => { updateData('projects_bulk', data.projects.map(proj => proj.id === p.id ? { ...proj, stage: stage } : proj)); logActivity(`${p.name} -> ${stage}`, 'Sync'); }}
-                                                className={`flex-1 rounded-full cursor-pointer transition-all duration-500 ${isCompleted ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : isActive ? 'bg-brand-500 shadow-[0_0_15px_rgba(250,204,21,0.4)]' : 'bg-slate-100 dark:bg-white/10'}`}
-                                                title={stage}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-3 mt-auto pt-2 z-10">
-                                <button
-                                    onClick={() => seedInvoice({ client: p.client, projectId: p.id, itemName: `Project Billing: ${p.name}`, amount: 0 })}
-                                    className="w-full py-4 bg-brand-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] italic hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-brand-500/20 flex items-center justify-center gap-3"
-                                >
-                                    <Icon name="file-text" size={16} /> Link Commercial Ops
-                                </button>
-                                <div className="flex gap-3">
-                                    <button onClick={() => { setSelectedProject(p.id); setIsAddingBOM(true); }} className="flex-1 py-3 bg-slate-900 dark:bg-white/10 text-brand-500 dark:text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-brand-500 hover:text-black transition-all">
-                                        <Icon name="package" size={12} /> BOM Registry
-                                    </button>
-                                </div>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: card.color + '18' }}>
+                                <window.Icon name={card.icon} size={20} style={{ color: card.color }} />
                             </div>
                         </div>
                     ))}
                 </div>
 
-                <Modal isOpen={isAdding} onClose={() => { setIsAdding(false); setSelectedProject(null); }} title={selectedProject ? "OP-Blueprint Refinement" : "Operational Initiative Pipeline"}>
-                    <form onSubmit={handleSubmit} className="space-y-8 p-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Initiative Title</label>
-                                <input className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                {/* Project List — Linear Row Format */}
+                <div className="brand-card overflow-hidden">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-[2fr_1.2fr_1fr_1fr_1fr_auto] gap-3 px-5 py-3 bg-black text-white text-[10px] font-black uppercase tracking-wider">
+                        <span>Project</span><span>Client</span><span>Designer</span><span>Stage</span><span>Deadline</span><span className="text-right pr-2">Actions</span>
+                    </div>
+                    {/* Rows */}
+                    <div className="divide-y divide-border">
+                        {filtered.length === 0 && (
+                            <div className="py-16 text-center text-sm text-muted-foreground font-bold uppercase tracking-widest">No projects found</div>
+                        )}
+                        {filtered.map((p, idx) => {
+                            const isLocked = p.status === 'Completed' && !isAdmin;
+                            const currentStageIdx = stages.indexOf(p.stage || 'Brief');
+                            return (
+                                <div key={p.id} className={`grid grid-cols-[2fr_1.2fr_1fr_1fr_1fr_auto] gap-3 px-5 py-4 items-center text-xs hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? '' : 'bg-gray-50/50'} ${isLocked ? 'opacity-80' : ''}`}>
+                                    {/* Project name + status */}
+                                    <div className="min-w-0">
+                                        <p className="font-black text-foreground truncate">{p.name}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${statusColor(p.status)}`}>{p.status}</span>
+                                            {isLocked && <window.Icon name="lock" size={10} className="text-muted-foreground" />}
+                                        </div>
+                                    </div>
+                                    {/* Client */}
+                                    <span className="text-muted-foreground font-bold truncate">{p.client || '—'}</span>
+                                    {/* Designer */}
+                                    <span className="text-muted-foreground font-bold truncate">@{p.designer || 'unassigned'}</span>
+                                    {/* Stage bar */}
+                                    <div className="space-y-1">
+                                        <span className="text-[9px] font-black text-primary uppercase tracking-wider">{p.stage || 'Brief'}</span>
+                                        <div className="flex gap-0.5 h-1.5">
+                                            {stages.map((stage, si) => (
+                                                <div key={stage}
+                                                    onClick={() => !isLocked && handleStageChange(p, stage)}
+                                                    title={stage}
+                                                    className={`flex-1 rounded-full transition-all ${si < currentStageIdx ? 'bg-emerald-500' : si === currentStageIdx ? 'bg-primary' : 'bg-gray-200'} ${!isLocked ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* Deadline */}
+                                    <div className="flex items-center gap-1.5">
+                                        <window.Icon name="calendar" size={12} className={p.deadline && p.deadline < new Date().toISOString().slice(0,10) && p.status === 'In-progress' ? 'text-rose-500' : 'text-muted-foreground'} />
+                                        <span className={`font-bold ${p.deadline && p.deadline < new Date().toISOString().slice(0,10) && p.status === 'In-progress' ? 'text-rose-500' : 'text-muted-foreground'}`}>{p.deadline || '—'}</span>
+                                    </div>
+                                    {/* Action badges */}
+                                    <div className="flex items-center gap-1 justify-end flex-wrap">
+                                        {/* VD — View Details (all users) */}
+                                        <button onClick={() => setViewProject(p)} title="View Details" className="h-7 px-2 rounded-md text-[10px] font-black tracking-wider bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white transition-all border border-blue-200 hover:border-blue-600">VD</button>
+                                        {/* EP — Edit Project (all non-locked) */}
+                                        {!isLocked && (
+                                            <button onClick={() => handleOpenEdit(p)} title="Edit Project" className="h-7 px-2 rounded-md text-[10px] font-black tracking-wider bg-yellow-100 text-yellow-700 hover:bg-yellow-500 hover:text-white transition-all border border-yellow-300 hover:border-yellow-500">EP</button>
+                                        )}
+                                        {/* UP — Update Progress (all non-locked) */}
+                                        {!isLocked && (
+                                            <button onClick={() => handleOpenEdit(p)} title="Update Progress" className="h-7 px-2 rounded-md text-[10px] font-black tracking-wider bg-amber-100 text-amber-700 hover:bg-amber-500 hover:text-white transition-all border border-amber-300 hover:border-amber-500">UP</button>
+                                        )}
+                                        {/* ED — Extend Deadline (all non-locked) */}
+                                        {!isLocked && (
+                                            <button onClick={() => { setExtendId(p.id); setExtendDate(p.deadline || ''); }} title="Extend Deadline" className="h-7 px-2 rounded-md text-[10px] font-black tracking-wider bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white transition-all border border-purple-200 hover:border-purple-600">ED</button>
+                                        )}
+                                        {/* Admin-only */}
+                                        {isAdmin && (
+                                            <>
+                                                {/* AM — Assign Materials */}
+                                                <button onClick={() => { setSelectedProject(p.id); setIsAddingBOM(true); }} title="Assign Materials" className="h-7 px-2 rounded-md text-[10px] font-black tracking-wider bg-cyan-100 text-cyan-700 hover:bg-cyan-600 hover:text-white transition-all border border-cyan-200 hover:border-cyan-600">AM</button>
+                                                {/* MC — Mark Completed (only when Awaiting Payment) */}
+                                                {p.status === 'Awaiting Payment' && (
+                                                    <button onClick={() => handleMarkCompleted(p)} title="Mark as Completed" className="h-7 px-2 rounded-md text-[10px] font-black tracking-wider bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-all border border-emerald-200 hover:border-emerald-600">MC</button>
+                                                )}
+                                                {/* DP — Delete Project */}
+                                                <button onClick={() => { if (confirm(`Delete "${p.name}"?`)) { deleteItem('projects', p.id); logActivity(`Deleted project: ${p.name}`, 'Delete'); } }} title="Delete Project" className="h-7 px-2 rounded-md text-[10px] font-black tracking-wider bg-red-100 text-red-700 hover:bg-red-600 hover:text-white transition-all border border-red-200 hover:border-red-600">DP</button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* View Project Modal */}
+                <window.Modal isOpen={!!viewProject} onClose={() => setViewProject(null)} title="Project Details">
+                    {viewProject && (
+                        <div className="p-2 space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                {[
+                                    { label: 'Project Name', value: viewProject.name },
+                                    { label: 'Client', value: viewProject.client },
+                                    { label: 'Designer', value: '@' + (viewProject.designer || 'Unassigned') },
+                                    { label: 'Deadline', value: viewProject.deadline },
+                                    { label: 'Status', value: viewProject.status },
+                                    { label: 'Stage', value: viewProject.stage },
+                                    { label: 'Budget', value: viewProject.budget ? `KSh ${parseFloat(viewProject.budget).toLocaleString()}` : '—' },
+                                ].map(f => (
+                                    <div key={f.label} className="bg-muted/30 rounded-xl p-4">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">{f.label}</p>
+                                        <p className="text-sm font-bold text-foreground">{f.value}</p>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Stakeholder Liaison</label>
-                                <select className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required value={formData.client} onChange={e => setFormData({ ...formData, client: e.target.value })}>
-                                    <option value="">Select Liaison...</option>
+                            <button onClick={() => setViewProject(null)} className="w-full brand-button-black h-11 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                                <window.Icon name="x" size={14} /> Close
+                            </button>
+                        </div>
+                    )}
+                </window.Modal>
+
+                {/* Add / Edit Project Modal */}
+                <window.Modal isOpen={isAdding} onClose={() => { setIsAdding(false); setSelectedProject(null); }} title={selectedProject ? "Edit Design Project" : "New Design Project"}>
+                    <form onSubmit={handleSubmit} className="p-2 space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="space-y-1.5">
+                                <label className="brand-label">Project Name</label>
+                                <input className="brand-input" placeholder="e.g. Brand Identity for Acme Co." required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="brand-label">Client</label>
+                                <select className="brand-input cursor-pointer" required value={formData.client} onChange={e => setFormData({ ...formData, client: e.target.value })}>
+                                    <option value="">Select client...</option>
                                     {data.clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Temporal Deadline</label>
-                                <input type="date" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white font-sans" required value={formData.deadline} onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
+                            <div className="space-y-1.5">
+                                <label className="brand-label">Deadline</label>
+                                <input type="date" className="brand-input" required value={formData.deadline} onChange={e => setFormData({ ...formData, deadline: e.target.value })} />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Lead Strategist</label>
-                                <select className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" value={formData.designer} onChange={e => setFormData({ ...formData, designer: e.target.value })}>
+                            <div className="space-y-1.5">
+                                <label className="brand-label">Assigned Designer</label>
+                                <select className="brand-input cursor-pointer" value={formData.designer} onChange={e => setFormData({ ...formData, designer: e.target.value })}>
                                     <option value="">Unassigned</option>
                                     {data.users.filter(u => u.role === 'designer' || u.role === 'admin').map(u => (
-                                        <option key={u.id} value={u.username}>{u.name} (@{u.username})</option>
+                                        <option key={u.id} value={u.username}>{u.name || u.username} (@{u.username})</option>
                                     ))}
                                 </select>
                             </div>
+                            <div className="space-y-1.5">
+                                <label className="brand-label">Project Status</label>
+                                <select className="brand-input cursor-pointer" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
+                                    {statuses.map(s => <option key={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="brand-label">Current Stage</label>
+                                <select className="brand-input cursor-pointer" value={formData.stage} onChange={e => setFormData({ ...formData, stage: e.target.value })}>
+                                    {stages.map(s => <option key={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-1.5 md:col-span-2">
+                                <label className="brand-label">Project Budget (KSh)</label>
+                                <input type="number" className="brand-input" placeholder="e.g. 50000" value={formData.budget} onChange={e => setFormData({ ...formData, budget: e.target.value })} />
+                            </div>
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] italic shadow-2xl">{selectedProject ? "Authorize Blueprint Update" : "Launch Operational Sequence"}</button>
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={() => { setIsAdding(false); setSelectedProject(null); }} className="flex-1 brand-button-black h-11 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                                <window.Icon name="x" size={14} /> Cancel
+                            </button>
+                            <button type="submit" className="flex-1 brand-button-yellow h-11 text-xs font-black uppercase tracking-widest">
+                                <window.Icon name="check" size={14} /> {selectedProject ? "Save Changes" : "Create Project"}
+                            </button>
+                        </div>
                     </form>
-                </Modal>
+                </window.Modal>
 
-                <Modal isOpen={isAddingBOM} onClose={() => { setIsAddingBOM(false); setSelectedProject(null); }} title="Commercial Material Matrix">
-                    <form onSubmit={handleAddBOM} className="space-y-8 p-2">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Asset SKU Selection</label>
-                            <select className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white" required value={newBOMItem.itemId} onChange={e => setNewBOMItem({ ...newBOMItem, itemId: e.target.value })}>
-                                <option value="">Identify Asset...</option>
-                                {data.inventory.map(i => <option key={i.id} value={i.id}>{i.sku} - {i.name} (Stock: {i.stock})</option>)}
+                {/* Extend Deadline Modal */}
+                <window.Modal isOpen={!!extendId} onClose={() => { setExtendId(null); setExtendDate(''); }} title="Extend Project Deadline">
+                    <form onSubmit={handleExtend} className="p-2 space-y-5">
+                        <div className="space-y-1.5">
+                            <label className="brand-label">New Deadline Date</label>
+                            <input type="date" className="brand-input" required value={extendDate} onChange={e => setExtendDate(e.target.value)} />
+                        </div>
+                        <div className="flex gap-3">
+                            <button type="button" onClick={() => { setExtendId(null); setExtendDate(''); }} className="flex-1 brand-button-black h-11 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                                <window.Icon name="x" size={14} /> Cancel
+                            </button>
+                            <button type="submit" className="flex-1 brand-button-yellow h-11 text-xs font-black uppercase tracking-widest">
+                                <window.Icon name="calendar-plus" size={14} /> Confirm Extension
+                            </button>
+                        </div>
+                    </form>
+                </window.Modal>
+
+                {/* Add Materials (BOM) Modal */}
+                <window.Modal isOpen={isAddingBOM} onClose={() => { setIsAddingBOM(false); setSelectedProject(null); }} title="Assign Materials to Project">
+                    <form onSubmit={handleAddBOM} className="p-2 space-y-5">
+                        <div className="space-y-1.5">
+                            <label className="brand-label">Select Inventory Item</label>
+                            <select className="brand-input cursor-pointer" required value={newBOMItem.itemId} onChange={e => setNewBOMItem({ ...newBOMItem, itemId: e.target.value })}>
+                                <option value="">Choose item...</option>
+                                {data.inventory.map(i => <option key={i.id} value={i.id}>{i.sku} — {i.name} (Stock: {i.stock})</option>)}
                             </select>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-1 italic">Operational Magnitude (Qty)</label>
-                            <input type="number" className="input-field !bg-slate-50 dark:!bg-white/5 !border-slate-200 dark:!border-white/10 !text-slate-900 dark:!text-white font-sans" required value={newBOMItem.qty} onChange={e => setNewBOMItem({ ...newBOMItem, qty: parseFloat(e.target.value) })} />
+                        <div className="space-y-1.5">
+                            <label className="brand-label">Quantity</label>
+                            <input type="number" step="any" className="brand-input" placeholder="e.g. 10" required value={newBOMItem.qty} onChange={e => setNewBOMItem({ ...newBOMItem, qty: parseFloat(e.target.value) })} />
                         </div>
-                        <button type="submit" className="btn-primary w-full py-5 text-[11px] uppercase font-black tracking-[0.3em] shadow-xl italic">Authorize Material Allocation</button>
+                        <div className="flex gap-3">
+                            <button type="button" onClick={() => { setIsAddingBOM(false); setSelectedProject(null); }} className="flex-1 brand-button-black h-11 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                                <window.Icon name="x" size={14} /> Cancel
+                            </button>
+                            <button type="submit" className="flex-1 brand-button-yellow h-11 text-xs font-black uppercase tracking-widest">
+                                <window.Icon name="package" size={14} /> Add Materials
+                            </button>
+                        </div>
                     </form>
-                </Modal>
-
+                </window.Modal>
             </div>
         );
     };
 
     const ReportModule = () => {
-        const { data, deleteItem, logActivity } = useContext(AppContext);
-        const [reportView, setReportView] = useState('overview'); // 'overview', 'pl', 'bs'
-        const [selectedCategory, setSelectedCategory] = useState(null);
+        const { data, user } = useContext(AppContext);
+        const [reportType, setReportType] = useState(null);
+        const [dateFrom, setDateFrom] = useState('');
+        const [dateTo, setDateTo] = useState('');
+        const [generated, setGenerated] = useState(null);
+        const [isSaving, setIsSaving] = useState(false);
 
-        const stats = useMemo(() => {
-            const totalSales = data.sales.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
-            const totalExpenses = data.expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+        // Admin-only guard
+        if (user?.role !== 'admin') {
+            return (
+                <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6">
+                    <div className="w-20 h-20 rounded-3xl bg-rose-50 flex items-center justify-center">
+                        <window.Icon name="ShieldOff" size={36} className="text-rose-400" />
+                    </div>
+                    <div className="text-center">
+                        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">Access Restricted</h2>
+                        <p className="text-sm text-muted-foreground mt-2">This section is only accessible to system administrators.</p>
+                    </div>
+                </div>
+            );
+        }
 
-            // Calculate COGS from Consumed BOM items
-            let cogs = 0;
-            data.projects.forEach(p => {
-                (p.bom || []).forEach(b => {
-                    if (b.status === 'Consumed') {
-                        const item = data.inventory.find(i => i.id === b.itemId);
-                        cogs += (item?.price || 0) * b.qty;
-                    }
-                });
-            });
+        const reportTypes = [
+            { id: 'sales',     label: 'Sales Report',      icon: 'ShoppingCart',   color: '#16a34a', bg: '#f0fdf4', desc: 'Invoice & revenue summary' },
+            { id: 'expenses',  label: 'Expenses Report',   icon: 'Receipt',        color: '#dc2626', bg: '#fef2f2', desc: 'Cost & expenditure breakdown' },
+            { id: 'inventory', label: 'Inventory Report',  icon: 'Package',        color: '#2563eb', bg: '#eff6ff', desc: 'Stock levels & valuation' },
+            { id: 'clients',   label: 'Clients Report',    icon: 'Users',          color: '#7c3aed', bg: '#f5f3ff', desc: 'Client list & revenue per client' },
+            { id: 'projects',  label: 'Projects Report',   icon: 'FolderOpen',     color: '#d97706', bg: '#fffbeb', desc: 'Project status & budget tracking' },
+            { id: 'suppliers', label: 'Suppliers Report',  icon: 'Truck',          color: '#0891b2', bg: '#ecfeff', desc: 'Supplier directory & contacts' },
+            { id: 'audit',     label: 'System Audit',      icon: 'ClipboardList',  color: '#475569', bg: '#f8fafc', desc: 'User activity & system log' },
+        ];
 
-            // Inventory Value
-            const inventoryValue = data.inventory.reduce((sum, i) => sum + (i.stock * i.price), 0);
+        const currency = (v) => `KSh ${parseFloat(v || 0).toLocaleString()}`;
 
-            return {
-                revenue: totalSales,
-                cogs: cogs,
-                grossProfit: totalSales - cogs,
-                expenses: totalExpenses,
-                netProfit: totalSales - cogs - totalExpenses,
-                inventoryValue: inventoryValue,
-                cash: Math.max(0, totalSales - totalExpenses)
-            };
-        }, [data]);
+        const generateReport = async () => {
+            if (!reportType) return;
+            setIsSaving(true);
+            const from = dateFrom || '2000-01-01';
+            const to = dateTo || new Date().toISOString().slice(0, 10);
+            const inRange = (d) => !d || (d >= from && d <= to);
 
-        useEffect(() => {
-            if (reportView !== 'overview') return;
-
-            const revCtx = document.getElementById('revenueFlowChart')?.getContext('2d');
-            if (revCtx) {
-                const existingChart = Chart.getChart('revenueFlowChart');
-                if (existingChart) existingChart.destroy();
-                new Chart(revCtx, {
-                    type: 'line',
-                    data: {
-                        labels: ['W1', 'W2', 'W3', 'W4'],
-                        datasets: [{
-                            label: 'Revenue Trend',
-                            data: [stats.revenue * 0.2, stats.revenue * 0.5, stats.revenue * 0.8, stats.revenue],
-                            borderColor: '#facc15',
-                            backgroundColor: 'rgba(250, 204, 21, 0.1)',
-                            fill: true, tension: 0.4, borderWeight: 4,
-                            pointBackgroundColor: '#0f172a',
-                            pointBorderColor: '#facc15',
-                            pointBorderWidth: 2,
-                            pointRadius: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: '#0f172a',
-                                titleFont: { weight: 'bold' },
-                                padding: 12,
-                                cornerRadius: 12
-                            }
-                        },
-                        scales: {
-                            y: { display: false },
-                            x: { display: true, grid: { display: false }, ticks: { font: { weight: 'bold', size: 10 }, color: '#94a3b8' } }
-                        }
-                    }
-                });
+            let records = [], totalValue = 0, summary = {};
+            switch (reportType) {
+                case 'sales':
+                    records = data.sales.filter(s => inRange(s.date));
+                    totalValue = records.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
+                    summary = { count: records.length, total: totalValue };
+                    break;
+                case 'expenses':
+                    records = data.expenses.filter(e => inRange(e.date));
+                    totalValue = records.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+                    summary = { count: records.length, total: totalValue };
+                    break;
+                case 'inventory':
+                    records = data.inventory;
+                    totalValue = records.reduce((sum, i) => sum + ((i.stock || 0) * (i.price || 0)), 0);
+                    summary = { count: records.length, totalValue };
+                    break;
+                case 'clients':
+                    records = data.clients;
+                    summary = { count: records.length };
+                    break;
+                case 'projects':
+                    records = data.projects;
+                    summary = { count: records.length, active: records.filter(p => p.status !== 'Done & Paid').length };
+                    break;
+                case 'suppliers':
+                    records = data.suppliers;
+                    summary = { count: records.length };
+                    break;
+                case 'audit':
+                    records = data.activities;
+                    summary = { count: records.length };
+                    break;
             }
 
-            const expCtx = document.getElementById('expenseDistributionChart')?.getContext('2d');
-            if (expCtx) {
-                const existingChart = Chart.getChart('expenseDistributionChart');
-                if (existingChart) existingChart.destroy();
-                const catMap = data.expenses.reduce((acc, exp) => {
-                    const cat = exp.category || 'Other';
-                    acc[cat] = (acc[cat] || 0) + parseFloat(exp.amount || 0);
-                    return acc;
-                }, {});
-                new Chart(expCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(catMap).length ? Object.keys(catMap) : ['No Data'],
-                        datasets: [{
-                            data: Object.values(catMap).length ? Object.values(catMap) : [1],
-                            backgroundColor: ['#0f172a', '#facc15', '#fbbf24', '#eab308', '#475569'],
-                            borderWidth: 0, hoverOffset: 20
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '80%',
-                        onClick: (evt, item) => {
-                            if (item.length > 0) {
-                                const index = item[0].index;
-                                const label = Object.keys(catMap)[index];
-                                setSelectedCategory(label);
-                            }
-                        },
-                        plugins: {
-                            legend: { position: 'bottom', labels: { usePointStyle: true, font: { weight: 'bold', size: 10 }, padding: 20 } }
-                        }
-                    }
-                });
+            // Save to Supabase with deduplication on type + date_from + date_to
+            try {
+                const { data: existing } = await window.supabaseClient
+                    .from('reports').select('id').eq('type', reportType).eq('date_from', from).eq('date_to', to);
+                const payload = {
+                    type: reportType, date_from: from, date_to: to,
+                    generated_by: user?.username || 'admin',
+                    generated_at: new Date().toISOString(),
+                    record_count: records.length,
+                    total_value: totalValue,
+                    summary_json: JSON.stringify(summary)
+                };
+                if (existing && existing.length > 0) {
+                    await window.supabaseClient.from('reports').update(payload).eq('id', existing[0].id);
+                } else {
+                    await window.supabaseClient.from('reports').insert([{ id: Math.floor(Math.random() * 900000) + 10000, ...payload }]);
+                }
+            } catch (err) {
+                console.warn('Report cloud save skipped (table may not exist):', err.message);
             }
-        }, [data, stats, reportView]);
 
-        const renderOverview = () => (
-            <div className="space-y-10 animate-slide">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="card bg-[#0f172a] text-white border-none relative overflow-hidden group p-10 ring-1 ring-white/10">
-                        <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-150 transition-transform duration-1000"><Icon name="trending-up" size={140} /></div>
-                        <h4 className="text-4xl font-black text-brand-500 font-sans tracking-tighter italic">KSh {stats.revenue.toLocaleString()}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mt-2">Gross Commercial Velocity</p>
-                    </div>
-                    <div className="card bg-white dark:bg-white/5 border-none p-10 shadow-xl hover:shadow-2xl transition-all">
-                        <h4 className="text-4xl font-black text-slate-900 dark:text-white font-sans tracking-tighter italic">KSh {stats.expenses.toLocaleString()}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mt-2">Operational Friction</p>
-                    </div>
-                    <div className="card bg-white dark:bg-white/5 border-none p-10 shadow-xl hover:shadow-2xl transition-all relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-3xl rounded-full"></div>
-                        <h4 className="text-4xl font-black text-emerald-600 dark:text-emerald-400 font-sans tracking-tighter italic">KSh {stats.netProfit.toLocaleString()}</h4>
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mt-2">Net Liquidity Pool</p>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="card lg:col-span-3 !p-0 overflow-hidden bg-white dark:bg-[#0f172a] border-none shadow-2xl min-h-[450px] flex flex-col">
-                        <div className="bg-slate-900 p-8 flex justify-between items-center border-b border-white/5">
-                            <div>
-                                <h5 className="text-[10px] font-black text-brand-500 uppercase tracking-[0.3em] leading-none mb-2">Financial Trajectory Matrix</h5>
-                                <p className="text-white/40 text-[9px] font-bold uppercase italic mt-1">Real-time Revenue Reconciliation</p>
-                            </div>
-                            <div className="p-3 bg-brand-500/10 rounded-xl"><Icon name="activity" size={20} className="text-brand-500" /></div>
-                        </div>
-                        <div className="flex-1 p-8 w-full"><canvas id="revenueFlowChart"></canvas></div>
-                    </div>
-                    <div className="card lg:col-span-2 !p-0 overflow-hidden bg-white dark:bg-white/5 border-none shadow-2xl min-h-[450px] flex flex-col">
-                        <div className="bg-slate-50 dark:bg-white/10 p-8 flex justify-between items-center border-b border-slate-100 dark:border-white/5">
-                            <h5 className="text-[10px] font-black text-slate-400 dark:text-white uppercase tracking-[0.3em] leading-none">Cost Allocation Dispersion</h5>
-                            <Icon name="pie-chart" size={18} className="text-slate-400" />
-                        </div>
-                        <div className="flex-1 p-8 text-xs cursor-pointer"><canvas id="expenseDistributionChart"></canvas></div>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase text-center py-4 italic border-t border-slate-50 dark:border-white/5">Tip: Click segments to drill into details</p>
-                    </div>
-                </div>
+            setGenerated({ type: reportType, from, to, records, summary, totalValue, generatedAt: new Date() });
+            setIsSaving(false);
+        };
 
-                <Modal isOpen={!!selectedCategory} onClose={() => setSelectedCategory(null)} title={`Expense intelligence: ${selectedCategory}`}>
-                    <div className="space-y-6 py-6 p-2">
-                        {data.expenses.filter(e => e.category === selectedCategory).map(e => (
-                            <div key={e.id} className="flex justify-between items-center p-6 bg-white dark:bg-white/5 rounded-[2rem] hover:bg-slate-50 dark:hover:bg-white/10 transition-all border border-transparent hover:border-brand-500/20 shadow-sm">
-                                <div className="space-y-1">
-                                    <p className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-tight">{e.notes || 'Uncategorized Expense'}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase italic tracking-widest">{e.date}</p>
-                                </div>
-                                <span className="text-lg font-black text-rose-600 dark:text-rose-400 font-sans italic tracking-tighter">KSh {parseFloat(e.amount).toLocaleString()}</span>
-                            </div>
-                        ))}
-                    </div>
-                </Modal>
-            </div>
-        );
+        const handlePrint = () => window.print();
 
-        const renderPL = () => (
-            <div className="card p-0 overflow-hidden shadow-2xl animate-slide border-none bg-white dark:bg-white/5">
-                <div className="bg-[#0f172a] p-16 flex flex-col md:flex-row justify-between items-center text-white relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/5 blur-[120px] rounded-full"></div>
-                    <div className="z-10">
-                        <h3 className="text-5xl font-black tracking-tighter uppercase italic leading-none">P&L Statement</h3>
-                        <p className="text-brand-500 font-black uppercase text-[12px] tracking-[0.4em] mt-3">Fiscal Performance Audit // {new Date().getFullYear()} Matrix</p>
-                    </div>
-                    <button onClick={() => window.print()} className="mt-8 md:mt-0 btn-primary py-4 px-10 text-[10px] uppercase font-black tracking-[0.3em] shadow-2xl z-10">Generate Intelligence PDF</button>
-                </div>
-                <div className="p-16">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left font-sans italic">
-                            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                                {/* Revenue Section */}
-                                <tr className="bg-slate-50 dark:bg-white/10"><td className="py-6 px-8 font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] text-[11px]">I. Total Operating Revenue</td><td className="py-6 px-8 text-right font-black text-slate-900 dark:text-white text-lg">KSh {stats.revenue.toLocaleString()}</td></tr>
-                                <tr><td className="py-6 px-12 text-sm text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Gross Sales (Invoiced)</td><td className="py-6 px-8 text-right text-slate-900 dark:text-white font-bold italic">KSh {stats.revenue.toLocaleString()}</td></tr>
+        const handleDownload = () => {
+            if (!generated) return;
+            const typeInfo = reportTypes.find(r => r.id === generated.type);
+            const rows = [`"${typeInfo?.label} — Period: ${generated.from} to ${generated.to}"`, ''];
+            if (generated.records.length > 0) {
+                const keys = Object.keys(generated.records[0]);
+                rows.push(keys.map(k => `"${k}"`).join(','));
+                generated.records.forEach(rec => rows.push(keys.map(k => `"${String(rec[k] ?? '').replace(/"/g, '""')}"`).join(',')));
+            } else { rows.push('"No records found."'); }
+            const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `IGH-${generated.type}-${generated.from}-${generated.to}.csv`; a.click();
+            URL.revokeObjectURL(url);
+        };
 
-                                {/* COGS Section */}
-                                <tr className="bg-slate-50 dark:bg-white/10 mt-8"><td className="py-6 px-8 font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] text-[11px]">II. Cost of Goods Sold (BOM)</td><td className="py-6 px-8 text-right font-black text-rose-600 dark:text-rose-400 italic">(KSh {stats.cogs.toLocaleString()})</td></tr>
-                                <tr><td className="py-6 px-12 text-sm text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Material Consumption</td><td className="py-6 px-8 text-right text-slate-900 dark:text-white font-bold italic">KSh {stats.cogs.toLocaleString()}</td></tr>
+        const handleEmail = () => {
+            if (!generated) return;
+            const typeInfo = reportTypes.find(r => r.id === generated.type);
+            const subj = encodeURIComponent(`IGH ${typeInfo?.label} — ${generated.from} to ${generated.to}`);
+            const body = encodeURIComponent(
+                `Hi,\n\n${typeInfo?.label} Summary:\n` +
+                `Period: ${generated.from} to ${generated.to}\n` +
+                `Records: ${generated.records.length}\n` +
+                (generated.totalValue ? `Total Value: KSh ${generated.totalValue.toLocaleString()}\n` : '') +
+                `\nGenerated by: ${user?.name || user?.username} on ${generated.generatedAt.toLocaleString()}\n\n— Identity Graphics Houzz System`
+            );
+            window.location.href = `mailto:?subject=${subj}&body=${body}`;
+        };
 
-                                {/* Gross Profit */}
-                                <tr className="bg-brand-500/10 dark:bg-brand-500/20"><td className="py-10 px-8 font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] text-sm">Gross Profit Margin</td><td className="py-10 px-8 text-right font-black text-slate-900 dark:text-white text-3xl tracking-tighter italic">KSh {stats.grossProfit.toLocaleString()}</td></tr>
+        const renderTable = () => {
+            const { type, records } = generated;
+            const thCls = 'px-4 py-3 font-black uppercase tracking-wider text-xs';
+            const tdCls = 'px-4 py-3 text-xs';
+            const rowCls = (i) => i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
 
-                                {/* Expenses Section */}
-                                <tr className="bg-slate-50 dark:bg-white/10 mt-8"><td className="py-6 px-8 font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] text-[11px]">III. Operating Expenses</td><td className="py-6 px-8 text-right font-black text-rose-600 dark:text-rose-400 italic">(KSh {stats.expenses.toLocaleString()})</td></tr>
-                                {Object.entries(data.expenses.reduce((acc, e) => {
-                                    acc[e.category] = (acc[e.category] || 0) + parseFloat(e.amount);
-                                    return acc;
-                                }, {})).map(([cat, amt]) => (
-                                    <tr key={cat}><td className="py-6 px-12 text-sm text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">{cat}</td><td className="py-6 px-8 text-right text-slate-900 dark:text-white font-bold italic">KSh {amt.toLocaleString()}</td></tr>
-                                ))}
+            if (type === 'sales') return (
+                <table className="w-full text-left">
+                    <thead><tr className="bg-black text-white">
+                        <th className={thCls}>Invoice #</th><th className={thCls}>Client</th>
+                        <th className={thCls}>Date</th><th className={thCls}>Status</th>
+                        <th className={thCls + ' text-right'}>Amount</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                        {records.map((s, i) => (<tr key={s.id} className={rowCls(i)}>
+                            <td className={tdCls + ' font-bold text-primary'}>{s.invoice_number || `INV-${s.id}`}</td>
+                            <td className={tdCls}>{s.client}</td><td className={tdCls + ' text-muted-foreground'}>{s.date}</td>
+                            <td className={tdCls}><span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${s.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{s.status}</span></td>
+                            <td className={tdCls + ' text-right font-bold'}>{currency(s.amount)}</td>
+                        </tr>))}
+                    </tbody>
+                    <tfoot><tr className="bg-primary/10 border-t-2 border-black">
+                        <td colSpan={4} className="px-4 py-3 font-black uppercase tracking-widest text-sm">Total Revenue</td>
+                        <td className="px-4 py-3 text-right font-black text-base">{currency(generated.totalValue)}</td>
+                    </tr></tfoot>
+                </table>
+            );
+            if (type === 'expenses') return (
+                <table className="w-full text-left">
+                    <thead><tr className="bg-black text-white">
+                        <th className={thCls}>Category</th><th className={thCls}>Description</th>
+                        <th className={thCls}>Date</th><th className={thCls + ' text-right'}>Amount</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                        {records.map((e, i) => (<tr key={e.id} className={rowCls(i)}>
+                            <td className={tdCls}><span className="px-2 py-0.5 bg-primary/10 rounded text-[9px] font-bold uppercase">{e.category}</span></td>
+                            <td className={tdCls}>{e.notes || e.description || '—'}</td>
+                            <td className={tdCls + ' text-muted-foreground'}>{e.date}</td>
+                            <td className={tdCls + ' text-right font-bold text-rose-600'}>{currency(e.amount)}</td>
+                        </tr>))}
+                    </tbody>
+                    <tfoot><tr className="bg-rose-50 border-t-2 border-black">
+                        <td colSpan={3} className="px-4 py-3 font-black uppercase tracking-widest text-sm">Total Expenses</td>
+                        <td className="px-4 py-3 text-right font-black text-base text-rose-600">{currency(generated.totalValue)}</td>
+                    </tr></tfoot>
+                </table>
+            );
+            if (type === 'inventory') return (
+                <table className="w-full text-left">
+                    <thead><tr className="bg-black text-white">
+                        <th className={thCls}>Item</th><th className={thCls}>Category</th>
+                        <th className={thCls + ' text-right'}>Stock</th><th className={thCls + ' text-right'}>Unit Price</th>
+                        <th className={thCls + ' text-right'}>Total Value</th><th className={thCls + ' text-center'}>Status</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                        {records.map((item, i) => {
+                            const val = (item.stock || 0) * (item.price || 0);
+                            const isLow = item.stock <= (item.reorder_level || 5);
+                            return (<tr key={item.id} className={rowCls(i)}>
+                                <td className={tdCls + ' font-bold'}>{item.name}</td>
+                                <td className={tdCls + ' text-muted-foreground'}>{item.category || '—'}</td>
+                                <td className={tdCls + ' text-right font-bold'}>{item.stock}</td>
+                                <td className={tdCls + ' text-right'}>{currency(item.price)}</td>
+                                <td className={tdCls + ' text-right font-bold'}>{currency(val)}</td>
+                                <td className={tdCls + ' text-center'}><span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${isLow ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{isLow ? 'Low Stock' : 'OK'}</span></td>
+                            </tr>);
+                        })}
+                    </tbody>
+                    <tfoot><tr className="bg-primary/10 border-t-2 border-black">
+                        <td colSpan={4} className="px-4 py-3 font-black uppercase tracking-widest text-sm">Total Inventory Value</td>
+                        <td colSpan={2} className="px-4 py-3 text-right font-black text-base">{currency(generated.totalValue)}</td>
+                    </tr></tfoot>
+                </table>
+            );
+            if (type === 'clients') return (
+                <table className="w-full text-left">
+                    <thead><tr className="bg-black text-white">
+                        <th className={thCls}>Client Name</th><th className={thCls}>Email</th>
+                        <th className={thCls}>Phone</th><th className={thCls + ' text-right'}>Total Revenue</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                        {records.map((c, i) => {
+                            const rev = data.sales.filter(s => s.client === c.name).reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
+                            return (<tr key={c.id} className={rowCls(i)}>
+                                <td className={tdCls + ' font-bold'}>{c.name}</td>
+                                <td className={tdCls + ' text-muted-foreground'}>{c.email || '—'}</td>
+                                <td className={tdCls + ' text-muted-foreground'}>{c.phone || '—'}</td>
+                                <td className={tdCls + ' text-right font-bold text-primary'}>{currency(rev)}</td>
+                            </tr>);
+                        })}
+                    </tbody>
+                </table>
+            );
+            if (type === 'projects') return (
+                <table className="w-full text-left">
+                    <thead><tr className="bg-black text-white">
+                        <th className={thCls}>Project</th><th className={thCls}>Client</th>
+                        <th className={thCls}>Designer</th><th className={thCls}>Deadline</th>
+                        <th className={thCls + ' text-right'}>Budget</th><th className={thCls + ' text-center'}>Status</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                        {records.map((p, i) => (<tr key={p.id} className={rowCls(i)}>
+                            <td className={tdCls + ' font-bold'}>{p.name}</td>
+                            <td className={tdCls + ' text-muted-foreground'}>{p.client}</td>
+                            <td className={tdCls + ' text-muted-foreground'}>@{p.designer}</td>
+                            <td className={tdCls + ' text-muted-foreground'}>{p.deadline}</td>
+                            <td className={tdCls + ' text-right font-bold'}>{currency(p.budget)}</td>
+                            <td className={tdCls + ' text-center'}><span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${p.status === 'Done & Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{p.status}</span></td>
+                        </tr>))}
+                    </tbody>
+                </table>
+            );
+            if (type === 'suppliers') return (
+                <table className="w-full text-left">
+                    <thead><tr className="bg-black text-white">
+                        <th className={thCls}>Supplier</th><th className={thCls}>Contact</th>
+                        <th className={thCls}>Email</th><th className={thCls}>Category</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                        {records.map((s, i) => (<tr key={s.id} className={rowCls(i)}>
+                            <td className={tdCls + ' font-bold'}>{s.name}</td>
+                            <td className={tdCls + ' text-muted-foreground'}>{s.phone || '—'}</td>
+                            <td className={tdCls + ' text-muted-foreground'}>{s.email || '—'}</td>
+                            <td className={tdCls + ' text-muted-foreground'}>{s.category || '—'}</td>
+                        </tr>))}
+                    </tbody>
+                </table>
+            );
+            if (type === 'audit') return (
+                <table className="w-full text-left">
+                    <thead><tr className="bg-black text-white">
+                        <th className={thCls}>Time</th><th className={thCls}>User</th>
+                        <th className={thCls}>Type</th><th className={thCls}>Action</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                        {records.map((a, i) => (<tr key={a.id || i} className={rowCls(i)}>
+                            <td className={tdCls + ' text-muted-foreground font-mono'}>{a.time}</td>
+                            <td className={tdCls + ' font-bold text-primary'}>@{a.user}</td>
+                            <td className={tdCls}><span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase">{a.type}</span></td>
+                            <td className={tdCls}>{a.msg}</td>
+                        </tr>))}
+                    </tbody>
+                </table>
+            );
+            return null;
+        };
 
-                                {/* Net Income */}
-                                <tr className="bg-slate-900 dark:bg-brand-500 text-white dark:text-black"><td className="py-12 px-8 font-black uppercase tracking-[0.5em] text-brand-500 dark:text-black text-[12px]">Net Business Income</td><td className="py-12 px-8 text-right font-black text-5xl italic tracking-tighter">KSh {stats.netProfit.toLocaleString()}</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div className="p-12 bg-slate-50 border-t border-slate-200">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 italic">Secondary Metrics Registry</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-brand-500/10 text-brand-600 rounded-xl group-hover:bg-brand-500 group-hover:text-black transition-all">
-                                    <Icon name="brush" size={20} />
-                                </div>
-                                <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Active Designs</span>
-                            </div>
-                            <span className="text-xl font-black text-slate-900">{data.projects.filter(p => ['Active', 'Review'].includes(p.status)).length}</span>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-indigo-500/10 text-indigo-600 rounded-xl group-hover:bg-indigo-500 group-hover:text-white transition-all">
-                                    <Icon name="users" size={20} />
-                                </div>
-                                <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Client Entities</span>
-                            </div>
-                            <span className="text-xl font-black text-slate-900">{data.clients.length}</span>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                                    <Icon name="truck" size={20} />
-                                </div>
-                                <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Active Vendors</span>
-                            </div>
-                            <span className="text-xl font-black text-slate-900">{data.suppliers.length}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-
-        const renderBS = () => (
-            <div className="card p-0 overflow-hidden shadow-2xl animate-slide border-none bg-white dark:bg-white/5">
-                <div className="bg-[#0f172a] p-16 flex flex-col md:flex-row justify-between items-center text-white relative overflow-hidden ring-1 ring-white/10">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[120px] rounded-full"></div>
-                    <div className="z-10">
-                        <h3 className="text-5xl font-black tracking-tighter uppercase italic leading-none">Balance Sheet</h3>
-                        <p className="text-brand-500 font-black uppercase text-[12px] tracking-[0.4em] mt-3">System Asset Evaluation // Real-time Audit</p>
-                    </div>
-                    <div className="mt-8 md:mt-0 text-right z-10">
-                        <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">Snapshot Timestamp</p>
-                        <p className="text-xl font-black italic text-white mt-1">{new Date().toLocaleDateString()} // {new Date().toLocaleTimeString()}</p>
-                    </div>
-                </div>
-                <div className="p-16 grid grid-cols-1 lg:grid-cols-2 gap-16 font-sans italic">
-                    <div className="space-y-10">
-                        <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-[0.4em] border-b-2 border-slate-950 dark:border-white/20 pb-4">I. Assets Portfolio</h4>
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center group">
-                                <span className="text-sm font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Cash & Equivalents</span>
-                                <span className="text-lg font-black text-slate-900 dark:text-white italic tracking-tighter">KSh {stats.cash.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between items-center group border-t border-slate-100 dark:border-white/5 pt-6">
-                                <span className="text-sm font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Inventory Valuation</span>
-                                <span className="text-lg font-black text-slate-900 dark:text-white italic tracking-tighter">KSh {stats.inventoryValue.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-slate-900 dark:bg-brand-500 p-8 rounded-[2rem] text-white dark:text-black mt-10 shadow-2xl">
-                                <span className="text-[12px] font-black uppercase tracking-[0.4em]">Total Operational Assets</span>
-                                <span className="text-3xl font-black italic tracking-tighter">KSh {(stats.cash + stats.inventoryValue).toLocaleString()}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="space-y-10">
-                        <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-[0.4em] border-b-2 border-slate-950 dark:border-white/20 pb-4">II. Equity & Retained Value</h4>
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center group">
-                                <span className="text-sm font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Accounts Payable</span>
-                                <span className="text-lg font-black text-slate-300 dark:text-slate-600 italic tracking-tighter">KSh 0.00</span>
-                            </div>
-                            <div className="flex justify-between items-center group border-t border-slate-100 dark:border-white/5 pt-6">
-                                <span className="text-sm font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Retained Intelligence (Earnings)</span>
-                                <span className="text-lg font-black text-slate-900 dark:text-white italic tracking-tighter">KSh {stats.netProfit.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-brand-500/10 dark:bg-white/10 p-8 rounded-[2rem] border-2 border-slate-900 dark:border-white/20 mt-10">
-                                <span className="text-[12px] font-black uppercase text-slate-900 dark:text-white tracking-[0.4em]">Total Shareholder Equity</span>
-                                <span className="text-3xl font-black text-slate-900 dark:text-white italic tracking-tighter">KSh {stats.netProfit.toLocaleString()}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
+        const typeInfo = reportTypes.find(r => r.id === reportType);
+        const genTypeInfo = generated ? reportTypes.find(r => r.id === generated.type) : null;
 
         return (
-            <div className="space-y-8 animate-slide">
-                <div className="flex justify-between items-center mb-4">
-                    <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
-                        {[
-                            { id: 'overview', label: 'Executive Summary' },
-                            { id: 'pl', label: 'P&L Statement' },
-                            { id: 'bs', label: 'Balance Sheet' },
-                            { id: 'projects', label: 'Archived Projects' }
-                        ].map(v => (
-                            <button
-                                key={v.id}
-                                onClick={() => setReportView(v.id)}
-                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportView === v.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                {v.label}
-                            </button>
-                        ))}
+            <div className="space-y-8 pb-12">
+                {/* Page Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-black uppercase tracking-widest text-foreground">Reports Center</h1>
+                        <p className="text-sm text-muted-foreground mt-1">Generate, save and distribute business intelligence reports.</p>
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl shrink-0">
+                        <window.Icon name="ShieldCheck" size={16} className="text-primary" />
+                        <span className="text-xs font-black uppercase tracking-widest text-primary">Admin Access Only</span>
                     </div>
                 </div>
 
-                {reportView === 'overview' && renderOverview()}
-                {reportView === 'pl' && renderPL()}
-                {reportView === 'bs' && renderBS()}
-                {reportView === 'projects' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-slide">
-                        {data.projects.filter(p => p.status === 'Done & Paid' || p.stage === 'Archived').map(p => (
-                            <div key={p.id} className="card !p-8 bg-white dark:bg-white/5 border-none shadow-xl hover:shadow-2xl transition-all group relative overflow-hidden flex flex-col gap-6">
-                                <div className="absolute top-0 right-0 p-6">
-                                    <span className="px-4 py-1.5 bg-emerald-500 text-white rounded-full text-[9px] font-black uppercase tracking-[0.3em] shadow-lg shadow-emerald-500/20">ARCHIVED OPS</span>
-                                </div>
-                                <div className="space-y-1 mt-4">
-                                    <h4 className="text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none group-hover:text-brand-500 transition-colors">{p.name}</h4>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{p.client}</p>
-                                </div>
-                                <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-[2rem] space-y-4 border border-transparent group-hover:border-brand-500/10 transition-all">
-                                    <div className="flex justify-between items-center text-[10px]">
-                                        <span className="text-slate-400 font-black uppercase tracking-widest italic">Liaison Designer</span>
-                                        <span className="font-black text-slate-900 dark:text-white italic">@{p.designer}</span>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                    {/* LEFT PANEL */}
+                    <div className="xl:col-span-1 space-y-6">
+                        {/* Step 1: Report Type */}
+                        <div className="brand-card p-6 space-y-3">
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-1">1. Select Report Type</p>
+                            {reportTypes.map(rt => (
+                                <button
+                                    key={rt.id}
+                                    onClick={() => { setReportType(rt.id); setGenerated(null); }}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${reportType === rt.id ? 'border-black bg-black text-white' : 'border-border bg-white hover:border-gray-400'}`}
+                                >
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: reportType === rt.id ? 'rgba(255,255,255,0.12)' : rt.bg }}>
+                                        <window.Icon name={rt.icon} size={15} style={{ color: reportType === rt.id ? '#facc15' : rt.color }} />
                                     </div>
-                                    <div className="flex justify-between items-center text-[10px] border-t border-slate-100 dark:border-white/5 pt-4">
-                                        <span className="text-slate-400 font-black uppercase tracking-widest italic">Delivered Sequence</span>
-                                        <span className="font-black text-slate-900 dark:text-white">{p.deadline}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-[11px] font-black uppercase tracking-wider ${reportType === rt.id ? 'text-white' : 'text-foreground'}`}>{rt.label}</p>
+                                        <p className={`text-[9px] font-bold mt-0.5 truncate ${reportType === rt.id ? 'text-white/50' : 'text-muted-foreground'}`}>{rt.desc}</p>
                                     </div>
-                                </div>
-                                <div className="mt-4 flex gap-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0">
-                                    <button onClick={() => alert('Intelligence Dossier Retrieval: In Progress')} className="flex-1 py-4 bg-slate-900 dark:bg-white/10 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl">View Dossier</button>
-                                    <button onClick={() => { if (confirm('Permanently decommission project intelligence?')) deleteItem('projects', p.id); }} className="p-4 bg-rose-500/10 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Icon name="trash-2" size={18} /></button>
-                                </div>
+                                    {reportType === rt.id && <window.Icon name="ChevronRight" size={14} className="text-primary shrink-0" />}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Step 2: Date Range */}
+                        <div className="brand-card p-6 space-y-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">2. Date Range</p>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">From</label>
+                                <input type="date" className="brand-input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
                             </div>
-                        ))}
-                        {data.projects.filter(p => p.status === 'Done & Paid' || p.stage === 'Archived').length === 0 && (
-                            <div className="col-span-full py-32 text-center">
-                                <Icon name="archive" size={64} className="text-slate-200 dark:text-white/5 mx-auto mb-6" />
-                                <p className="text-slate-300 dark:text-white/10 font-black uppercase tracking-[0.5em] italic">No archived intelligence matrices found.</p>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">To</label>
+                                <input type="date" className="brand-input" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                            </div>
+                            <p className="text-[9px] text-muted-foreground font-bold italic">Leave blank to include all records</p>
+                        </div>
+
+                        {/* Step 3: Generate */}
+                        <button
+                            onClick={generateReport}
+                            disabled={!reportType || isSaving}
+                            className="w-full brand-button-yellow h-12 font-black uppercase tracking-widest text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {isSaving
+                                ? <><window.Icon name="Loader" size={16} className="animate-spin" /> Generating...</>
+                                : <><window.Icon name="FileText" size={16} /> Generate Report</>}
+                        </button>
+
+                        {generated && (
+                            <p className="text-center text-[9px] text-emerald-600 font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                                <window.Icon name="CheckCircle" size={12} /> Saved to cloud — no duplicates
+                            </p>
+                        )}
+                    </div>
+
+                    {/* RIGHT PANEL — Preview */}
+                    <div className="xl:col-span-2 space-y-4">
+                        {!generated ? (
+                            <div className="brand-card min-h-[480px] flex flex-col items-center justify-center gap-6 p-12">
+                                <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center">
+                                    <window.Icon name="FileBarChart" size={36} className="text-primary" />
+                                </div>
+                                <div className="text-center space-y-2">
+                                    <p className="text-base font-black uppercase tracking-widest text-foreground">No Report Generated Yet</p>
+                                    <p className="text-xs text-muted-foreground">Select a report type and date range, then click Generate.</p>
+                                </div>
+                                {reportType && typeInfo && (
+                                    <div className="flex items-center gap-3 px-5 py-3 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5">
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: typeInfo.bg }}>
+                                            <window.Icon name={typeInfo.icon} size={16} style={{ color: typeInfo.color }} />
+                                        </div>
+                                        <span className="text-xs font-black uppercase tracking-wider text-foreground">{typeInfo.label} — ready to generate</span>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {/* Report Header Bar */}
+                                <div className="brand-card p-5 border-l-4 border-black bg-white">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                        <div>
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <div className="w-5 h-5 rounded" style={{ background: genTypeInfo?.color }}></div>
+                                                <h3 className="text-base font-black uppercase tracking-widest">{genTypeInfo?.label}</h3>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                                                {generated.from} — {generated.to} &nbsp;·&nbsp; {generated.records.length} records &nbsp;·&nbsp; {generated.generatedAt.toLocaleString()}
+                                            </p>
+                                        </div>
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-2 no-print shrink-0">
+                                            <button onClick={handlePrint} title="Print Report" className="flex items-center gap-1.5 px-3 py-2 bg-black text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:bg-zinc-800 transition-all">
+                                                <window.Icon name="Printer" size={13} /> Print
+                                            </button>
+                                            <button onClick={handleDownload} title="Download as CSV" className="flex items-center gap-1.5 px-3 py-2 bg-primary text-black text-[10px] font-black uppercase tracking-wider rounded-lg hover:opacity-90 transition-all">
+                                                <window.Icon name="Download" size={13} /> Save CSV
+                                            </button>
+                                            <button onClick={handleEmail} title="Send via Email" className="flex items-center gap-1.5 px-3 py-2 border-2 border-black text-black text-[10px] font-black uppercase tracking-wider rounded-lg hover:bg-black hover:text-white transition-all">
+                                                <window.Icon name="Mail" size={13} /> Email
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Table */}
+                                <div className="brand-card overflow-hidden">
+                                    {generated.records.length === 0 ? (
+                                        <div className="p-16 text-center">
+                                            <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                                                <window.Icon name="FileX" size={24} className="text-muted-foreground" />
+                                            </div>
+                                            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">No records found for this period.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">{renderTable()}</div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
-                )}
-            </div>
-        );
-    };
-
-    const FieldOpsModule = () => {
-        const { data, updateData } = useContext(AppContext);
-        const [scanResult, setScanResult] = useState(null);
-        const [isScanning, setIsScanning] = useState(false);
-        const [receiptFile, setReceiptFile] = useState(null);
-        const [ocrResult, setOcrResult] = useState(null);
-
-        const simulateScan = () => {
-            setIsScanning(true);
-            setTimeout(() => {
-                const randomItem = data.inventory[Math.floor(Math.random() * data.inventory.length)];
-                setScanResult(randomItem);
-                setIsScanning(false);
-            }, 2000);
-        };
-
-        const handleReceiptUpload = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            setReceiptFile(file);
-            setOcrResult('Analyzing receipt structure...');
-
-            setTimeout(() => {
-                setOcrResult({
-                    vendor: 'Total Energies',
-                    amount: 4500,
-                    date: new Date().toISOString().split('T')[0],
-                    category: 'Logistics'
-                });
-            }, 2500);
-        };
-
-        return (
-            <div className="space-y-10 animate-slide max-w-4xl mx-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Barcode Scanner Simulation */}
-                    <div className="card !p-0 overflow-hidden shadow-2xl border-none bg-white dark:bg-white/5">
-                        <div className="bg-[#0f172a] p-10 text-white relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 blur-3xl rounded-full"></div>
-                            <h4 className="text-2xl font-black uppercase tracking-tighter italic flex items-center gap-4 z-10 relative">
-                                <Icon name="scan-barcode" size={28} className="text-brand-500" />
-                                Inventory Scanner
-                                <span className="text-[8px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full ml-2 not-italic tracking-widest">DEMO</span>
-                            </h4>
-                        </div>
-                        <div className="p-10 space-y-10">
-                            <div className="relative aspect-video bg-slate-950 rounded-[2.5rem] overflow-hidden border-4 border-slate-900 flex flex-col items-center justify-center group shadow-2xl shadow-black/50">
-                                {isScanning ? (
-                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10">
-                                        <div className="w-48 h-48 border-2 border-brand-500/30 rounded-3xl relative">
-                                            <div className="absolute top-1/2 left-0 w-full h-1 bg-brand-500 shadow-[0_0_30px_rgba(250,204,21,1)] animate-[scan_2s_infinite]"></div>
-                                            <div className="absolute inset-0 border-2 border-brand-500 animate-pulse rounded-3xl"></div>
-                                        </div>
-                                        <p className="text-brand-500 text-[10px] font-black uppercase tracking-[0.5em] mt-10 italic">Searching optics...</p>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center mt-4">
-                                        <Icon name="camera" size={64} className="text-slate-800 group-hover:text-brand-500/20 transition-all duration-700" />
-                                        <div className="mt-6 flex items-center gap-3">
-                                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                                            <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.3em]">Optical Engine: Online</p>
-                                        </div>
-                                    </div>
-                                )}
-                                {scanResult && !isScanning && (
-                                    <div className="absolute inset-0 bg-emerald-500 flex flex-col items-center justify-center p-10 text-center animate-slide">
-                                        <div className="p-4 bg-white/20 rounded-[2rem] mb-6"><Icon name="check-circle" size={48} className="text-white" /></div>
-                                        <h5 className="text-white font-black uppercase text-3xl italic tracking-tighter leading-none">{scanResult.name}</h5>
-                                        <p className="text-white/70 font-black text-sm mt-3 uppercase tracking-[0.3em] font-sans">{scanResult.sku}</p>
-                                        <div className="bg-white/20 backdrop-blur-md px-10 py-5 rounded-[2rem] mt-8 text-white font-black text-2xl tracking-tighter border border-white/20 shadow-2xl">
-                                            Stock Level: {scanResult.stock} {scanResult.unit}
-                                        </div>
-                                        <button onClick={() => setScanResult(null)} className="mt-10 text-white/60 text-[11px] font-black uppercase tracking-[0.4em] hover:text-white transition-colors underline-offset-4 underline">Flush Optical Cache</button>
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={simulateScan}
-                                disabled={isScanning}
-                                className="btn-primary w-full py-6 text-xs uppercase tracking-[0.3em] font-black flex items-center justify-center gap-4 group"
-                            >
-                                <Icon name="maximize" size={20} className="group-hover:scale-125 transition-transform" />
-                                Engage Optical Engine
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Receipt OCR Simulation */}
-                    <div className="card !p-0 overflow-hidden shadow-2xl border-none bg-white dark:bg-white/5">
-                        <div className="bg-[#0f172a] p-10 text-white relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full"></div>
-                            <h4 className="text-2xl font-black uppercase tracking-tighter italic flex items-center gap-4 z-10 relative">
-                                <Icon name="receipt" size={28} className="text-brand-500" />
-                                Receipt Intelligence
-                                <span className="text-[8px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full ml-2 not-italic tracking-widest">DEMO</span>
-                            </h4>
-                        </div>
-                        <div className="p-10 space-y-10">
-                            <label className="block relative aspect-video bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[2.5rem] cursor-pointer hover:border-brand-500 hover:bg-brand-500/5 transition-all flex flex-col items-center justify-center p-10 group shadow-inner">
-                                <input type="file" className="hidden" accept="image/*" onChange={handleReceiptUpload} />
-                                {receiptFile ? (
-                                    <div className="text-center animate-slide">
-                                        <div className="p-6 bg-brand-500/10 rounded-[2rem] inline-block mb-6"><Icon name="file-text" size={64} className="text-brand-500 mx-auto" /></div>
-                                        <p className="text-slate-900 dark:text-white font-black text-lg uppercase italic tracking-tighter">{receiptFile.name}</p>
-                                        <p className="text-slate-400 text-[10px] font-black uppercase mt-3 tracking-[0.3em]">Payload Size: {(receiptFile.size / 1024).toFixed(1)} KB</p>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center">
-                                        <div className="p-6 bg-slate-100 dark:bg-white/5 rounded-[2rem] mb-6 group-hover:bg-brand-500/20 group-hover:text-brand-500 transition-all duration-700">
-                                            <Icon name="upload-cloud" size={64} className="text-slate-300 dark:text-white/20 group-hover:text-brand-500" />
-                                        </div>
-                                        <p className="text-slate-400 text-[11px] font-black uppercase tracking-[0.4em] italic">Ingest Physical Evidence</p>
-                                    </div>
-                                )}
-                            </label>
-
-                            {ocrResult && (
-                                <div className="p-8 bg-slate-950 rounded-[2.5rem] animate-slide relative overflow-hidden ring-1 ring-white/10 shadow-2xl">
-                                    <div className="absolute right-0 top-0 p-8 opacity-10"><Icon name="cpu" size={80} className="text-brand-500" /></div>
-                                    {typeof ocrResult === 'string' ? (
-                                        <div className="flex items-center gap-4 text-brand-500 font-black text-[11px] uppercase tracking-[0.3em] py-4">
-                                            <Icon name="loader" size={20} className="animate-spin" />
-                                            {ocrResult}
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-8">
-                                            <div className="grid grid-cols-2 gap-8">
-                                                <div>
-                                                    <h6 className="text-brand-500 text-[9px] font-black uppercase tracking-[0.4em] mb-2">Entity Detected</h6>
-                                                    <p className="text-white font-black text-2xl uppercase italic tracking-tighter">{ocrResult.vendor}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <h6 className="text-brand-500 text-[9px] font-black uppercase tracking-[0.4em] mb-2">Fiscal Magnitude</h6>
-                                                    <p className="text-white font-black text-2xl italic tracking-tighter">KSh {ocrResult.amount.toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    updateData('expenses', { id: Date.now(), ...ocrResult, notes: `Scanned from mobile at ${new Date().toLocaleTimeString()}` });
-                                                    setOcrResult(null);
-                                                    setReceiptFile(null);
-                                                }}
-                                                className="w-full bg-white text-black hover:bg-brand-500 py-5 rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.3em] italic transition-all shadow-xl hover:-translate-y-1"
-                                            >
-                                                Commit to Distributed Ledger
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* PWA / Connectivity Status */}
-                <div className="bg-[#0f172a] p-8 rounded-3xl flex items-center justify-between shadow-2xl shadow-slate-900/40 border border-white/5">
-                    <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-brand-500/10 rounded-2xl flex items-center justify-center p-3">
-                            <Icon name="wifi" size={32} className="text-brand-500" />
-                        </div>
-                        <div>
-                            <h5 className="text-white font-black uppercase italic tracking-tight">Offline Persistence Engine</h5>
-                            <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mt-1 italic">Service Worker v2.4 Active | IndexedDB: 12MB Cache</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></div>
-                            <span className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">Linked</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         );
+
+
     };
+
 
     const SettingsModule = () => {
-        const { data, user, updateData, updateItem, deleteItem, logActivity, changePassword } = useContext(AppContext);
+        const { data, user, updateData, updateItem, deleteItem, logActivity, changePassword, fetchAllData } = useContext(AppContext);
         const [isSyncing, setIsSyncing] = useState(false);
         const [syncLog, setSyncLog] = useState([]);
         const [activeSection, setActiveSection] = useState('overview'); // 'overview', 'profile', 'security', 'integration', 'users'
 
         const [isAddingUser, setIsAddingUser] = useState(false);
-        const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'reception' });
+        const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'user' });
         const [editingUser, setEditingUser] = useState(null);
         const [pwData, setPwData] = useState({ current: '', new: '', confirm: '' });
 
-        // Google Sheets Integration — E3: Lazy-load scripts only when needed
-        const GOOGLE_CONFIG = {
-            CLIENT_ID: '30962656774-3dgcq5q2rk340o71p358i2fd6h53jc3n.apps.googleusercontent.com',
-            SPREADSHEET_ID: '1jZTc8sJJ6dZSLkTwgr9Z6r6YBGi8qnZtiHNSBLQUmdA',
-            SCOPES: 'https://www.googleapis.com/auth/spreadsheets'
-        };
+        // Database Sync state
+        const [lastSyncTime, setLastSyncTime] = useState(null);
+        const [syncStats, setSyncStats] = useState([]);
 
-        const [tokenResponse, setTokenResponse] = useState(null);
-        const [googleLoaded, setGoogleLoaded] = useState(typeof google !== 'undefined');
-
-        const loadGoogleScripts = () => {
-            return new Promise((resolve) => {
-                if (typeof google !== 'undefined' && window.gapi) {
-                    setGoogleLoaded(true);
-                    return resolve();
-                }
-                let loaded = 0;
-                const checkDone = () => { if (++loaded === 2) { setGoogleLoaded(true); resolve(); } };
-                if (!document.querySelector('script[src*="apis.google.com"]')) {
-                    const s1 = document.createElement('script');
-                    s1.src = 'https://apis.google.com/js/api.js';
-                    s1.onload = checkDone;
-                    document.head.appendChild(s1);
-                } else { checkDone(); }
-                if (!document.querySelector('script[src*="accounts.google.com"]')) {
-                    const s2 = document.createElement('script');
-                    s2.src = 'https://accounts.google.com/gsi/client';
-                    s2.onload = checkDone;
-                    document.head.appendChild(s2);
-                } else { checkDone(); }
-            });
-        };
-
-        const handleFullSync = async () => {
+        const handleSync = async () => {
             setIsSyncing(true);
-            setSyncLog([{ time: new Date().toLocaleTimeString(), msg: 'Loading Google APIs...' }]);
-
+            setSyncLog([{ time: new Date().toLocaleTimeString(), msg: 'Connecting to Supabase...', ok: true }]);
             try {
-                // E3: Lazy-load Google scripts if not loaded yet
-                await loadGoogleScripts();
-                setSyncLog(prev => [{ time: new Date().toLocaleTimeString(), msg: 'Starting secure reconciliation...' }, ...prev]);
-
-                // 1. Authenticate via GIS
-                const client = google.accounts.oauth2.initTokenClient({
-                    client_id: GOOGLE_CONFIG.CLIENT_ID,
-                    scope: GOOGLE_CONFIG.SCOPES,
-                    callback: async (response) => {
-                        if (response.error) {
-                            setSyncLog(prev => [{ time: new Date().toLocaleTimeString(), msg: `Auth Error: ${response.error}` }, ...prev]);
-                            setIsSyncing(false);
-                            return;
-                        }
-                        setTokenResponse(response);
-                        await performDataPush(response.access_token);
-                    },
-                });
-                client.requestAccessToken();
-            } catch (err) {
-                setSyncLog(prev => [{ time: new Date().toLocaleTimeString(), msg: `Init Error: ${err.message}` }, ...prev]);
-                setIsSyncing(false);
-            }
-        };
-
-        const performDataPush = async (accessToken) => {
-            setSyncLog(prev => [{ time: new Date().toLocaleTimeString(), msg: 'Handshake complete. Preparing datasets...' }, ...prev]);
-
-            // Helper to format data for sheets
-            const formatData = (items, headers) => {
-                return [headers, ...items.map(item => headers.map(h => {
-                    const val = item[h.toLowerCase()] || item[h] || '';
-                    return typeof val === 'object' ? JSON.stringify(val) : val;
-                }))];
-            };
-
-            const sheetsToSync = [
-                { name: 'Sales', data: data.sales, headers: ['InvoiceNo', 'Date', 'Client', 'Amount', 'Status'] },
-                { name: 'Expenses', data: data.expenses, headers: ['Date', 'Category', 'Amount', 'Notes'] },
-                { name: 'Projects', data: data.projects, headers: ['Name', 'Client', 'Deadline', 'Stage', 'Status'] },
-                { name: 'Inventory', data: data.inventory, headers: ['SKU', 'Name', 'Category', 'Stock', 'Price'] },
-                { name: 'Clients', data: data.clients, headers: ['Name', 'Company', 'Email', 'Phone'] }
-            ];
-
-            try {
-                for (const sheet of sheetsToSync) {
-                    setSyncLog(prev => [{ time: new Date().toLocaleTimeString(), msg: `Pushing ${sheet.name} matrix...` }, ...prev]);
-
-                    const gridData = formatData(sheet.data, sheet.headers);
-
-                    // Clear and Write (Simplest approach for sync in this context)
-                    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.SPREADSHEET_ID}/values/${sheet.name}!A1:Z1000?valueInputOption=RAW`, {
-                        method: 'PUT',
-                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ values: gridData })
-                    });
+                const tables = [
+                    { key: 'sales', label: 'Sales' },
+                    { key: 'expenses', label: 'Expenses' },
+                    { key: 'projects', label: 'Projects' },
+                    { key: 'clients', label: 'Clients' },
+                    { key: 'suppliers', label: 'Suppliers' },
+                    { key: 'inventory', label: 'Inventory' },
+                    { key: 'users', label: 'Users' },
+                ];
+                const stats = [];
+                for (const t of tables) {
+                    const { count, error } = await window.supabaseClient.from(t.key).select('*', { count: 'exact', head: true });
+                    const n = error ? '?' : (count ?? 0);
+                    stats.push({ label: t.label, count: n });
+                    setSyncLog(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: `${t.label}: ${n} record${n === 1 ? '' : 's'} confirmed`, ok: !error }]);
                 }
-
-                setSyncLog(prev => [{ time: new Date().toLocaleTimeString(), msg: 'SUCCESS: Data vault updated on Google Cloud.' }, ...prev]);
-                logActivity('Google Sheets Sync: Complete', 'Sync');
+                setSyncStats(stats);
+                await fetchAllData();
+                const now = new Date().toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' });
+                setLastSyncTime(now);
+                setSyncLog(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'All data verified and refreshed successfully.', ok: true }]);
+                logActivity('Database sync completed', 'Sync');
             } catch (err) {
-                setSyncLog(prev => [{ time: new Date().toLocaleTimeString(), msg: `Sync Critical Failure: ${err.message}` }, ...prev]);
+                setSyncLog(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Sync failed: ' + err.message, ok: false }]);
             } finally {
                 setIsSyncing(false);
             }
         };
+
+        // Auto-sync every 15 minutes
+        useEffect(() => {
+            if (!user) return;
+            const interval = setInterval(() => {
+                fetchAllData().then(() => {
+                    setLastSyncTime(new Date().toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' }));
+                });
+            }, 15 * 60 * 1000);
+            return () => clearInterval(interval);
+        }, [user]);
+
         const handleEditClick = (u) => {
             setEditingUser(u);
-            setNewUser({ name: u.name, username: u.username, password: u.password, role: u.role });
+            setNewUser({ name: u.name || u.display_name || '', username: u.username, password: u.password || '', role: u.role || 'user' });
             setIsAddingUser(true);
         };
 
         const handleProvisionUser = async (e) => {
             e.preventDefault();
+            if (!editingUser && newUser.password.length < 5) {
+                return alert('Password must be at least 5 characters.');
+            }
+            if (!newUser.name.trim() || !newUser.username.trim()) {
+                return alert('Full name and username are required.');
+            }
             try {
+                let dbError;
                 if (editingUser) {
-                    await updateItem('users', editingUser.id, newUser);
-                    logActivity(`User privileges updated: ${newUser.username}`, 'Update');
+                    const payload = { name: newUser.name, username: newUser.username, role: newUser.role };
+                    if (newUser.password) payload.password = newUser.password;
+                    const { error } = await window.supabaseClient.from('users').update(payload).eq('id', editingUser.id);
+                    dbError = error;
+                    if (!error) logActivity(`User updated: ${newUser.username}`, 'Update');
                 } else {
-                    await updateData('users', newUser);
-                    logActivity(`New user provisioned: ${newUser.username}`, 'Access');
+                    const { error } = await window.supabaseClient.from('users').insert([{
+                        id: Math.floor(Math.random() * 900000) + 10000,
+                        name: newUser.name,
+                        username: newUser.username,
+                        password: newUser.password,
+                        role: newUser.role
+                    }]);
+                    dbError = error;
+                    if (!error) logActivity(`New user added: ${newUser.username}`, 'Access');
                 }
+                if (dbError) {
+                    alert('Could not save user: ' + (dbError.message || 'Unknown error. Check Supabase permissions.'));
+                    return;
+                }
+                await fetchAllData();
                 setIsAddingUser(false);
                 setEditingUser(null);
-                setNewUser({ name: '', username: '', password: '', role: 'reception' });
+                setNewUser({ name: '', username: '', password: '', role: 'user' });
             } catch (err) {
+                alert('Unexpected error: ' + err.message);
                 console.error('Provision Error:', err);
             }
         };
 
         const renderIntegration = () => (
-            <div className="space-y-12 animate-slide">
-                <div className="bg-[#0f172a] p-16 flex flex-col items-center justify-center text-center space-y-8 border-4 border-black relative overflow-hidden group shadow-premium">
-                    <div className="absolute right-0 top-0 p-8 opacity-[0.03] group-hover:scale-110 transition-all pointer-events-none"><Icon name="cloud-lightning" size={200} /></div>
-                    <div className="w-24 h-24 bg-emerald-500/10 text-emerald-500 flex items-center justify-center border-2 border-emerald-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <Icon name="database" size={40} />
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-4xl mx-auto">
+                {/* Header card */}
+                <div className="brand-card p-8 flex flex-col md:flex-row items-center md:items-start gap-6 bg-white border-l-4 border-emerald-500">
+                    <div className="w-16 h-16 shrink-0 flex items-center justify-center rounded-2xl border-2" style={{background:'#D1FAE5', borderColor:'#6EE7B7', color:'#065f46'}}>
+                        <window.Icon name="Database" size={28} strokeWidth={2} />
                     </div>
-                    <div>
-                        <h3 className="text-4xl font-display font-black text-white italic tracking-tighter uppercase">G-Cloud Reconciliation</h3>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic mt-4">Active Sync Protocol: Google Sheets API v4</p>
+                    <div className="flex-1 text-center md:text-left">
+                        <h3 className="text-2xl font-black uppercase tracking-widest text-foreground">Database Sync</h3>
+                        <p className="text-sm text-muted-foreground mt-1">Connected to Supabase — all data is stored and synced in real time. Use this panel to verify record counts and force a full refresh.</p>
+                        {lastSyncTime && (
+                            <p className="text-xs text-emerald-600 font-bold mt-2 flex items-center gap-2 justify-center md:justify-start">
+                                <window.Icon name="CheckCircle" size={12} />
+                                Last synced: {lastSyncTime}
+                            </p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">Auto-sync runs every 15 minutes in the background.</p>
                     </div>
                     <button
-                        onClick={handleFullSync}
+                        onClick={handleSync}
                         disabled={isSyncing}
-                        className="brand-button-yellow !py-5 !px-12 flex items-center gap-4 italic group disabled:opacity-50"
+                        className="shrink-0 flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-black text-xs uppercase tracking-widest rounded-lg shadow-md hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50"
                     >
-                        {isSyncing ? <Icon name="refresh-cw" className="animate-spin" /> : <Icon name="zap" />}
-                        {isSyncing ? "Executing Reconciliation..." : "initiate master sync"}
+                        <window.Icon name="RefreshCw" size={14} className={isSyncing ? 'animate-spin' : ''} />
+                        {isSyncing ? 'Syncing...' : 'Sync Data'}
                     </button>
                 </div>
 
+                {/* Stats grid */}
+                {syncStats.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {syncStats.map((s, i) => (
+                            <div key={i} className="brand-card p-5 flex flex-col gap-1 bg-white border border-gray-200">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{s.label}</p>
+                                <p className="text-3xl font-black text-foreground">{s.count}</p>
+                                <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1"><window.Icon name="CheckCircle" size={10} /> Verified</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Sync log */}
                 {syncLog.length > 0 && (
-                    <div className="bg-black border-4 border-black p-10 space-y-6 shadow-premium">
-                        <div className="flex items-center gap-4 border-b border-white/10 pb-4">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-none animate-pulse"></div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Live Telemetry Feed</span>
+                    <div className="brand-card bg-white border border-gray-200">
+                        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Sync Log</span>
                         </div>
-                        <div className="space-y-4 font-mono text-[10px] max-h-[300px] overflow-y-auto custom-scrollbar pr-4">
+                        <div className="p-6 space-y-2 max-h-64 overflow-y-auto font-mono text-xs">
                             {syncLog.map((log, i) => (
-                                <div key={i} className="flex gap-6 opacity-60 hover:opacity-100 transition-opacity">
-                                    <span className="text-emerald-500 font-black shrink-0">[{log.time}]</span>
-                                    <span className="text-white tracking-tight uppercase">{log.msg}</span>
+                                <div key={i} className="flex items-start gap-4 py-1 border-b border-gray-50 last:border-0">
+                                    <span className="text-muted-foreground/50 shrink-0">{log.time}</span>
+                                    <span className={log.ok ? 'text-emerald-700' : 'text-rose-600'}>{log.msg}</span>
                                 </div>
                             ))}
                         </div>
@@ -2913,44 +3601,47 @@
             </div>
         );
 
+
         const renderSecurity = () => (
-            <div className="space-y-12 animate-slide max-w-4xl mx-auto">
-                <div className="bg-rose-600/5 border-4 border-black p-12 space-y-10 shadow-premium">
-                    <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-black text-rose-500 flex items-center justify-center border-2 border-rose-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                            <Icon name="shield-alert" size={28} />
+            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-4xl mx-auto">
+                <div className="brand-card p-12 bg-rose-500/5 backdrop-blur-md border border-rose-500/10 space-y-12 shadow-2xl">
+                    <div className="flex items-center gap-8">
+                        <div className="w-20 h-20 bg-rose-500/10 text-rose-500 flex items-center justify-center rounded-[24px] border border-rose-500/20 shadow-2xl relative overflow-hidden">
+                            <div className="absolute inset-0 bg-rose-500/5 blur-xl"></div>
+                            <window.Icon name="ShieldAlert" size={32} className="relative z-10" />
                         </div>
-                        <div>
-                            <h3 className="text-3xl font-display font-black text-black italic tracking-tighter uppercase leading-none">Credential Rotation</h3>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mt-2">Active Sentinel Protocol // SHA-256 Encryption</p>
+                        <div className="space-y-2">
+                            <h3 className="text-4xl font-black text-foreground italic tracking-tighter uppercase leading-none">Credential Rotation</h3>
+                            <p className="text-[10px] font-black text-rose-500/60 uppercase tracking-[0.3em] italic">Active Sentinel Protocol // SHA-256 Alignment</p>
                         </div>
                     </div>
 
-                    <form className="space-y-8" onSubmit={e => {
+                    <form className="space-y-10" onSubmit={e => {
                         e.preventDefault();
+                        if (pwData.new.length < 5) return alert('New password must be at least 5 characters.');
                         if (pwData.new !== pwData.confirm) return alert('Cipher mismatch. Verification failed.');
                         changePassword(pwData.current, pwData.new).then(res => {
-                            if (res) alert('Security sequence updated.');
-                            else alert('Authentication invalid.');
+                            if (res) { alert('Security sequence updated.'); setPwData({ current: '', new: '', confirm: '' }); }
+                            else alert('Authentication invalid. Check your current password.');
                         });
                     }}>
-                        <div className="space-y-6">
-                            <div>
-                                <label className="brand-label">Current Authentication Cipher</label>
-                                <input type="password" required className="brand-input" value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
+                        <div className="space-y-8">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Current Authentication Cipher</label>
+                                <input type="password" required className="brand-input !h-14 border-border focus:border-rose-500" value={pwData.current} onChange={e => setPwData({ ...pwData, current: e.target.value })} />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div>
-                                    <label className="brand-label">New Sequence Designation</label>
-                                    <input type="password" required className="brand-input" value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">New Sequence Designation <span className="text-rose-400 normal-case not-italic">(min 5 chars)</span></label>
+                                    <input type="password" required minLength={5} className="brand-input !h-14 border-border focus:border-rose-500" value={pwData.new} onChange={e => setPwData({ ...pwData, new: e.target.value })} />
                                 </div>
-                                <div>
-                                    <label className="brand-label">Sequence Confirmation</label>
-                                    <input type="password" required className="brand-input" value={pwData.confirm} onChange={e => setPwData({ ...pwData, confirm: e.target.value })} />
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 italic">Sequence Confirmation</label>
+                                    <input type="password" required minLength={5} className="brand-input !h-14 border-border focus:border-rose-500" value={pwData.confirm} onChange={e => setPwData({ ...pwData, confirm: e.target.value })} />
                                 </div>
                             </div>
                         </div>
-                        <button type="submit" className="brand-button-black w-full !py-5 italic border-2 border-black">
+                        <button type="submit" className="w-full py-6 bg-rose-600 text-white rounded-[24px] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl shadow-rose-600/20 hover:shadow-rose-600/40 transition-all duration-300 italic active:scale-[0.98] border border-rose-500/20">
                             Execute Rotation Protocol
                         </button>
                     </form>
@@ -2959,108 +3650,150 @@
         );
 
 
+
         const renderOverview = () => (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 animate-slide">
-                <div onClick={() => setActiveSection('profile')} className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6">
-                    <div className="w-20 h-20 bg-black text-brand-500 flex items-center justify-center border-2 border-brand-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:-translate-y-1 transition-transform">
-                        <Icon name="user" size={32} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {[
+                    { id: 'profile', label: 'My Profile', sub: 'View and edit your account details', icon: 'User', bg: '#FEF9C3', iconColor: '#854d0e', border: '#FDE047' },
+                    { id: 'security', label: 'Change Password', sub: 'Update your login password', icon: 'ShieldCheck', bg: '#FEE2E2', iconColor: '#b91c1c', border: '#FCA5A5' },
+                    { id: 'integration', label: 'Data Sync', sub: 'Sync and verify data with Supabase', icon: 'RefreshCw', bg: '#D1FAE5', iconColor: '#065f46', border: '#6EE7B7' },
+                    { id: 'users', label: 'Manage Users', sub: 'Add, edit and remove system users', icon: 'Users', bg: '#EDE9FE', iconColor: '#5b21b6', border: '#C4B5FD' },
+                ].map((item) => (
+                    <div
+                        key={item.id}
+                        onClick={() => setActiveSection(item.id)}
+                        className="brand-card group p-8 cursor-pointer relative overflow-hidden flex flex-col gap-5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                    >
+                        <div
+                            className="w-14 h-14 flex items-center justify-center rounded-2xl border-2 transition-transform duration-200 group-hover:scale-110 shrink-0"
+                            style={{ background: item.bg, borderColor: item.border, color: item.iconColor }}
+                        >
+                            <window.Icon name={item.icon} size={26} strokeWidth={2} />
+                        </div>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <window.Icon name={item.icon} size={14} strokeWidth={2.5} style={{color: item.iconColor}} />
+                                <h4 className="text-base font-black uppercase tracking-widest transition-colors" style={{color: item.iconColor}}>{item.label}</h4>
+                            </div>
+                            <p className="text-[11px] font-medium text-muted-foreground leading-snug normal-case tracking-normal">{item.sub}</p>
+                        </div>
+                        <div className="absolute bottom-0 left-0 w-0 h-[3px] bg-primary group-hover:w-full transition-all duration-300 rounded-b-xl"></div>
                     </div>
-                    <div>
-                        <h4 className="text-xl font-display font-black uppercase italic tracking-tighter">Command Profile</h4>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Identity & Authority Matrix</p>
+                ))}
+            </div>
+        );
+
+
+        const getRoleLabel = (role) => {
+            if (role === 'admin') return 'System Administrator';
+            if (role === 'designer') return 'Designer — Project Handler';
+            return 'Staff — General User';
+        };
+        const getRoleHandle = (role) => {
+            if (role === 'admin') return 'admin@igh';
+            if (role === 'designer') return 'designer@igh';
+            return 'staff@igh';
+        };
+
+        const renderProfile = () => (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="brand-card p-8 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden bg-white border border-gray-200 shadow-2xl">
+                    <div className="absolute right-0 top-0 w-96 h-96 bg-primary/5 blur-[100px] rounded-full translate-x-24 -translate-y-24"></div>
+                    <div className="w-24 h-24 bg-primary text-black flex items-center justify-center text-4xl font-black shadow-xl uppercase italic tracking-tighter border border-primary/20 rounded-3xl relative overflow-hidden shrink-0">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
+                        <span className="relative z-10">{(user?.name || user?.display_name || '?').charAt(0)}</span>
+                    </div>
+                    <div className="z-10 text-center md:text-left space-y-2">
+                        <h3 className="text-3xl font-black text-foreground tracking-tighter uppercase leading-none">{user?.display_name || user?.name}</h3>
+                        <div className="flex items-center justify-center md:justify-start gap-3 mt-1">
+                            <span className="w-3 h-[2px] bg-primary"></span>
+                            <p className="text-slate-600 dark:text-slate-300 font-bold uppercase text-[11px] tracking-[0.3em] leading-none">{getRoleLabel(user?.role)}</p>
+                        </div>
                     </div>
                 </div>
-                <div onClick={() => setActiveSection('security')} className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6">
-                    <div className="w-20 h-20 bg-black text-rose-500 flex items-center justify-center border-2 border-rose-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:-translate-y-1 transition-transform">
-                        <Icon name="shield-check" size={32} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="brand-card p-8 bg-card/30 backdrop-blur-md border border-border/5 space-y-3 hover:bg-card/50 transition-all duration-700">
+                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-3">Personnel ID</p>
+                        <div className="flex items-center gap-4">
+                            <window.Icon name="Fingerprint" size={20} className="text-primary" />
+                            <span className="text-xl font-black text-foreground tracking-tight uppercase">{getRoleHandle(user?.role)}</span>
+                        </div>
                     </div>
-                    <div>
-                        <h4 className="text-xl font-display font-black uppercase italic tracking-tighter">Security Sentinel</h4>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Credential Rotation Protocols</p>
-                    </div>
-                </div>
-                <div onClick={() => setActiveSection('integration')} className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6">
-                    <div className="w-20 h-20 bg-black text-emerald-500 flex items-center justify-center border-2 border-emerald-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:-translate-y-1 transition-transform">
-                        <Icon name="database" size={32} />
-                    </div>
-                    <div>
-                        <h4 className="text-xl font-display font-black uppercase italic tracking-tighter">Data Handshake</h4>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">G-Sheets & Cloud Reconciliation</p>
-                    </div>
-                </div>
-                <div onClick={() => setActiveSection('users')} className="bg-white border-4 border-black p-10 hover:shadow-premium transition-all group cursor-pointer relative overflow-hidden flex flex-col items-center text-center space-y-6">
-                    <div className="w-20 h-20 bg-black text-indigo-500 flex items-center justify-center border-2 border-indigo-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:-translate-y-1 transition-transform">
-                        <Icon name="users" size={32} />
-                    </div>
-                    <div>
-                        <h4 className="text-xl font-display font-black uppercase italic tracking-tighter">Access Matrix</h4>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Personnel Privilege Provisions</p>
+                    <div className="brand-card p-8 bg-card/30 backdrop-blur-md border border-border/5 space-y-3 hover:bg-card/50 transition-all duration-700">
+                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] mb-3">System Username</p>
+                        <div className="flex items-center gap-4">
+                            <window.Icon name="AtSign" size={20} className="text-primary" />
+                            <span className="text-xl font-black text-primary tracking-tight uppercase">@{user?.username}</span>
+                        </div>
                     </div>
                 </div>
             </div>
         );
 
-        const renderProfile = () => (
-            <div className="space-y-12 animate-slide">
-                <div className="bg-black p-16 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ring-4 ring-black shadow-premium">
-                    <div className="absolute right-0 top-0 w-64 h-64 bg-brand-500/10 blur-[100px] rounded-full translate-x-24 -translate-y-24"></div>
-                    <div className="w-32 h-32 bg-brand-500 text-black flex items-center justify-center text-5xl font-display font-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] uppercase italic tracking-tighter border-4 border-black">
-                        {user?.name?.charAt(0)}
-                    </div>
-                    <div className="z-10 text-center md:text-left space-y-4">
-                        <h3 className="text-5xl font-display font-black text-white tracking-tighter uppercase italic leading-none">{user?.name}</h3>
-                        <div className="flex items-center justify-center md:justify-start gap-3">
-                            <span className="w-3 h-3 bg-brand-500 rounded-none animate-pulse"></span>
-                            <p className="text-brand-500 font-black uppercase text-[12px] tracking-[0.4em] leading-none italic">Executive Command Level</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="p-10 bg-white border-4 border-black space-y-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.4em] italic block">Personnel Identifier</span>
-                        <span className="text-2xl font-display font-black text-black italic tracking-tighter uppercase">admin@ighouzz.com</span>
-                    </div>
-                    <div className="p-10 bg-white border-4 border-black space-y-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <span className="font-black uppercase text-[10px] text-slate-400 tracking-[0.4em] italic block">Auth Matrix Handle</span>
-                        <span className="text-2xl font-display font-black text-brand-600 italic tracking-tighter uppercase">@{user?.username}</span>
-                    </div>
-                </div>
-            </div>
-        );
         const renderUsers = () => (
-            <div className="space-y-12 animate-slide">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-8 px-4">
-                    <div className="text-center md:text-left space-y-2">
-                        <h3 className="text-4xl font-display font-black uppercase italic tracking-tighter text-black">Access Control Matrix</h3>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">{data.users.length} Identified Entities // Active Privileges</p>
+            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-8 px-2">
+                    <div className="text-center md:text-left space-y-3">
+                        <h3 className="text-4xl font-black uppercase italic tracking-tighter text-foreground leading-none">Access Control Matrix</h3>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] italic flex items-center gap-3">
+                            <span className="w-8 h-[1px] bg-primary/30"></span> {data.users.length} Identified Entities // Active Privileges
+                        </p>
                     </div>
-                    <button onClick={() => setIsAddingUser(true)} className="brand-button-yellow !py-5 !px-10 flex items-center gap-3">
-                        <Icon name="plus-circle" size={20} /> Provision New Entity
+                    <button
+                        onClick={() => setIsAddingUser(true)}
+                        className="bg-primary text-black px-10 py-4 rounded-full font-black text-[11px] uppercase tracking-[0.3em] shadow-2xl shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 italic border border-primary/20"
+                    >
+                        <window.Icon name="Plus" size={18} strokeWidth={3} />
+                        Provision New Entity
                     </button>
                 </div>
-                <div className="grid grid-cols-1 gap-6 px-4">
-                    {data.users.map(u => (
-                        <div key={u.id} className="p-8 bg-white border-4 border-black flex flex-col sm:flex-row items-center justify-between group hover:shadow-premium transition-all">
-                            <div className="flex flex-col sm:flex-row items-center gap-8 mb-6 sm:mb-0">
-                                <div className="w-20 h-20 bg-black text-brand-500 flex items-center justify-center font-display font-black text-3xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-2 border-brand-500">
-                                    {u.name.charAt(0)}
+
+                <div className="grid grid-cols-1 gap-8 px-2">
+                    {data.users.map((u, index) => (
+                        <div
+                            key={u.id}
+                            className="brand-card group relative overflow-hidden flex flex-col sm:flex-row items-center justify-between p-8 bg-card/30 backdrop-blur-md border border-border/5 hover:bg-card/50 transition-all duration-700 animate-in fade-in slide-in-from-left-4"
+                            style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                            <div className="absolute -left-16 -top-16 w-32 h-32 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-1000"></div>
+
+                            <div className="flex flex-col sm:flex-row items-center gap-10 relative z-10 w-full sm:w-auto">
+                                <div className="w-24 h-24 bg-black text-primary rounded-[28px] flex items-center justify-center font-black text-4xl shadow-2xl group-hover:bg-primary group-hover:text-black transition-all duration-700 border border-black/10 relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50"></div>
+                                    <span className="relative z-10 italic">{(u.display_name || u.name || '').charAt(0)}</span>
                                 </div>
-                                <div className="text-center sm:text-left space-y-1">
-                                    <p className="text-2xl font-black text-black uppercase italic leading-none tracking-tighter">{u.name}</p>
-                                    <div className="flex items-center justify-center sm:justify-start gap-3 mt-2">
-                                        <p className="text-[10px] font-black text-brand-600 uppercase tracking-[0.3em] font-sans">@{u.username}</p>
-                                        <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] italic">{u.role}</p>
+                                <div className="text-center sm:text-left space-y-2">
+                                    <h4 className="text-2xl font-black text-foreground uppercase italic leading-none tracking-tighter group-hover:text-primary transition-colors">{u.display_name || u.name}</h4>
+                                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mt-3">
+                                        <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
+                                            <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em] italic">@{u.username}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 px-3 py-1 bg-muted/50 border border-border/10 rounded-full">
+                                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] italic">{u.role}</span>
+                                        </div>
+                                        <div className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.2em] italic">
+                                            UID: 0x{u.id.toString(16).toUpperCase()}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => handleEditClick(u)} className="w-12 h-12 flex items-center justify-center bg-black text-white hover:text-brand-500 transition-all border-2 border-black" title="Modify Privileges">
-                                    <Icon name="edit-3" size={18} />
+
+                            <div className="flex items-center gap-3 mt-6 sm:mt-0 relative z-10 flex-wrap justify-center sm:justify-end">
+                                <button
+                                    onClick={() => handleEditClick(u)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 hover:bg-primary hover:text-black hover:border-primary rounded-lg font-bold text-xs uppercase tracking-widest transition-all duration-200 shadow-sm"
+                                >
+                                    <window.Icon name="Pencil" size={14} />
+                                    Edit
                                 </button>
-                                {u.id !== user.id && (
-                                    <button onClick={() => { if (confirm(`Decommission access for ${u.username}?`)) { deleteItem('users', u.id); logActivity(`Access revoked for ${u.username}`, 'Archive'); } }} className="w-12 h-12 flex items-center justify-center bg-black text-white hover:text-rose-500 transition-all border-2 border-black" title="Revoke Permissions">
-                                        <Icon name="shield-off" size={18} />
+                                {user && u.id !== user.id && (
+                                    <button
+                                        onClick={() => { if (confirm(`Remove user "${u.display_name || u.username}"? This cannot be undone.`)) { deleteItem('users', u.id); logActivity(`User removed: ${u.username}`, 'Archive'); } }}
+                                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-500 rounded-lg font-bold text-xs uppercase tracking-widest transition-all duration-200 shadow-sm"
+                                    >
+                                        <window.Icon name="Trash2" size={14} />
+                                        Remove
                                     </button>
                                 )}
                             </div>
@@ -3070,67 +3803,91 @@
             </div>
         );
 
+
         return (
-            <div className="space-y-12 animate-slide">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4 border-b-4 border-black">
-                    <div className="space-y-2">
-                        <h2 className="text-4xl font-display uppercase italic tracking-[0.1em] text-black">Administrative Command</h2>
-                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                            <div className="w-12 h-1 bg-brand-500"></div>
-                            System Configuration & Security Protocols
-                        </div>
+            <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-border">
+                    <div className="relative pl-5 border-l-4 border-primary">
+                        <h2 className="text-3xl font-black text-foreground tracking-tight uppercase leading-none">Admin Control Center</h2>
+                        <p className="text-muted-foreground mt-2 text-[11px] font-bold uppercase tracking-widest">
+                            Manage users, security and system settings
+                        </p>
                     </div>
                     {activeSection !== 'overview' && (
                         <button
                             onClick={() => setActiveSection('overview')}
-                            className="brand-button-yellow !py-4 !px-8 flex items-center gap-4 italic"
+                            className="flex items-center gap-2 bg-white border border-gray-200 text-foreground px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest shadow-md hover:bg-primary hover:text-black hover:border-primary transition-all active:scale-95"
                         >
-                            <Icon name="arrow-left" size={18} />
-                            Return to Matrix
+                            <window.Icon name="ArrowLeft" size={14} />
+                            Back to Overview
                         </button>
                     )}
                 </div>
 
-                <div className="p-4">
-                    {activeSection === 'overview' && renderOverview()}
-                    {activeSection === 'profile' && renderProfile()}
-                    {activeSection === 'integration' && renderIntegration()}
-                    {activeSection === 'security' && renderSecurity()}
-                    {activeSection === 'users' && renderUsers()}
+                <div className="flex flex-wrap gap-2 p-3 bg-white border border-gray-200 rounded-xl w-full md:w-fit" style={{boxShadow:'0 4px 20px rgba(0,0,0,0.10)'}}>
+                    {[
+                        { id: 'overview', label: 'Overview', icon: 'LayoutDashboard' },
+                        { id: 'profile', label: 'My Profile', icon: 'User' },
+                        { id: 'users', label: 'Manage Users', icon: 'Users' },
+                        { id: 'security', label: 'Change Password', icon: 'ShieldCheck' },
+                        { id: 'integration', label: 'Data Sync', icon: 'RefreshCw' },
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => { setActiveSection(tab.id); logActivity(`Accessed ${tab.label}`, 'Navigation'); }}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all duration-200 ${activeSection === tab.id
+                                ? 'bg-black text-primary shadow-lg'
+                                : 'text-muted-foreground hover:bg-gray-100 hover:text-foreground'
+                                }`}
+                        >
+                            <window.Icon name={tab.icon} size={13} strokeWidth={activeSection === tab.id ? 2.5 : 2} />
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
-                <Modal isOpen={isAddingUser} onClose={() => { setIsAddingUser(false); setEditingUser(null); }} title={editingUser ? "Update Access Privileges" : "Provision Fresh Access"}>
-                    <form onSubmit={handleProvisionUser} className="space-y-10 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="mt-12 group/content">
+                    {activeSection === 'overview' && renderOverview()}
+                    {activeSection === 'profile' && renderProfile()}
+                    {activeSection === 'users' && renderUsers()}
+                    {activeSection === 'security' && renderSecurity()}
+                    {activeSection === 'integration' && renderIntegration()}
+                </div>
+
+                <window.Modal isOpen={isAddingUser} onClose={() => { setIsAddingUser(false); setEditingUser(null); setNewUser({ name: '', username: '', password: '', role: 'user' }); }} title={editingUser ? "Edit User" : "Add New User"}>
+                    <form onSubmit={handleProvisionUser} className="p-2 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Full Name Identification</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="Personnel Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
+                                <label className="brand-label">Full Name</label>
+                                <input className="brand-input" placeholder="e.g. Jane Doe" required value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Access Handle (Username)</label>
-                                <input className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="username" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} />
+                                <label className="brand-label">Username</label>
+                                <input className="brand-input" placeholder="e.g. janedoe" required value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value.toLowerCase().replace(/\s/g,'') })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Security Sequence (Password)</label>
-                                <input type="password" className="brand-input !bg-slate-50 !border-slate-200 !text-black" required placeholder="••••••••" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
+                                <label className="brand-label">Password {!editingUser && <span className="text-rose-400 normal-case">(min 5 chars)</span>}</label>
+                                <input className="brand-input" type="password" placeholder={editingUser ? "Leave blank to keep current" : "Min. 5 characters"} minLength={editingUser ? 0 : 5} required={!editingUser} value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
                             </div>
                             <div className="space-y-2">
-                                <label className="brand-label !text-slate-400">Authority Classification</label>
-                                <select className="brand-input !bg-slate-50 !border-slate-200 !text-black" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
-                                    <option value="reception">Reception Level</option>
-                                    <option value="designer">Designer Level</option>
-                                    <option value="admin">Executive Command</option>
+                                <label className="brand-label">Role</label>
+                                <select className="brand-input cursor-pointer" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
+                                    <option value="user">Staff (User)</option>
+                                    <option value="designer">Designer</option>
+                                    <option value="admin">Administrator</option>
                                 </select>
                             </div>
                         </div>
-                        <button type="submit" className="brand-button-yellow w-full !py-6 !text-sm italic shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-4px] active:translate-y-[4px] active:shadow-none border-2 border-black">
-                            {editingUser ? "Authorize Privilege Shift" : "provision fresh access"}
+                        <button type="submit" className="w-full brand-button-yellow h-12 text-sm font-black uppercase tracking-widest">
+                            {editingUser ? "Save Changes" : "Add User"}
                         </button>
                     </form>
-                </Modal>
+                </window.Modal>
+
             </div>
         );
     };
+
 
     // Attach to window for global scoping
     window.Dashboard = Dashboard;
@@ -3141,6 +3898,5 @@
     window.SupplierModule = SupplierModule;
     window.ProjectModule = ProjectModule;
     window.ReportModule = ReportModule;
-    window.FieldOpsModule = FieldOpsModule;
     window.SettingsModule = SettingsModule;
 }

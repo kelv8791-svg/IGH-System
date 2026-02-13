@@ -8,9 +8,15 @@
         const [isDarkModeState, setIsDarkModeState] = useState(false);
         const [activeTab, setActiveTab] = useState('dashboard');
         const [isLoading, setIsLoading] = useState(true);
+        const [invoiceDraft, setInvoiceDraft] = useState(null);
+
+        const seedInvoice = (draftData) => {
+            setInvoiceDraft(draftData);
+            setActiveTab('sales');
+        };
 
         const [data, setData] = useState({
-            config: { nextInvoiceId: 1001, taxRate: 16, currency: 'KSh' },
+            config: { next_invoice_id: 1001, tax_rate: 16, currency: 'KSh' },
             sales: [], expenses: [], projects: [], clients: [], suppliers: [],
             inventory: [], stockMovements: [], interactions: [], activities: [], users: []
         });
@@ -171,6 +177,7 @@
         };
 
         const changePassword = async (currentPassword, newPassword) => {
+            if (!user || !user.id) return false;
             // Verify current password first
             const { data: check } = await window.supabaseClient
                 .from('users').select('id').eq('id', user.id).eq('password', currentPassword);
@@ -194,36 +201,36 @@
                     return false;
                 }
 
-                // E3 Fix: Robust multi-column lookup
+                // Username-only lookup
                 const { data: foundUsers, error } = await window.supabaseClient
                     .from('users')
                     .select('*')
-                    .eq('password', password)
-                    .or(`username.eq."${handle}",email.eq."${handle}"`);
+                    .eq('username', handle)
+                    .eq('password', password);
 
                 if (error) {
                     console.error('IGH Auth: Matrix rejection:', error);
                 }
 
                 // Emergency Fallback for System Initialization
+                let userToSet = null;
                 if ((!foundUsers || foundUsers.length === 0) && handle === 'admin' && password === 'admin') {
                     console.warn('IGH Auth: Emergency protocol engaged. Overriding with development handle.');
-                    const masterUser = { id: 0, name: 'System Admin', username: 'admin', role: 'admin', email: 'admin@ighouzz.com' };
-                    setUser(masterUser);
-                    localStorage.setItem('expense_system_user', JSON.stringify(masterUser));
-                    return true;
+                    userToSet = { id: 0, display_name: 'System Admin', username: 'admin', role: 'admin', email: 'admin@ighouzz.com' };
+                } else if (foundUsers && foundUsers.length > 0) {
+                    const foundUser = foundUsers[0];
+                    console.log('IGH Auth: Credentials verified. Access granted to:', foundUser.display_name);
+                    userToSet = foundUser;
                 }
 
-                if (foundUsers && foundUsers.length > 0) {
-                    const foundUser = foundUsers[0];
-                    console.log('IGH Auth: Credentials verified. Access granted to:', foundUser.name);
-                    setUser(foundUser);
-
-                    try {
-                        const { password: _, ...safeUser } = foundUser;
-                        localStorage.setItem('expense_system_user', JSON.stringify(safeUser));
-                    } catch (e) { console.warn('IGH Auth: Storage failure:', e); }
-
+                if (userToSet) {
+                    const { password: _, ...safeUser } = userToSet;
+                    const sessionData = {
+                        user: safeUser,
+                        timestamp: Date.now()
+                    };
+                    setUser(safeUser);
+                    localStorage.setItem('igh_session', JSON.stringify(sessionData));
                     return true;
                 }
 
@@ -235,31 +242,28 @@
             }
         };
 
-        // Attach helpers to window for console debugging
-        window.authHelp = { login, setUser, fetchAllData };
-
         const logout = () => {
             setUser(null);
-            localStorage.removeItem('expense_system_user');
-        };
-
-        const [invoiceDraft, setInvoiceDraft] = useState(null);
-
-        const seedInvoice = (draft) => {
-            setInvoiceDraft(draft);
-            setActiveTab('sales');
+            localStorage.removeItem('igh_session');
         };
 
         useEffect(() => {
             try {
-                const savedUser = localStorage.getItem('expense_system_user');
-                if (savedUser) {
-                    const parsed = JSON.parse(savedUser);
-                    if (parsed && parsed.id) setUser(parsed);
+                const sessionStr = localStorage.getItem('igh_session');
+                if (sessionStr) {
+                    const session = JSON.parse(sessionStr);
+                    const eightHours = 8 * 60 * 60 * 1000;
+
+                    if (Date.now() - session.timestamp > eightHours) {
+                        console.warn('IGH Auth: Session expired. Revoking access.');
+                        logout();
+                    } else if (session && session.user && (session.user.id !== undefined || session.user.username)) {
+                        setUser(session.user);
+                    }
                 }
             } catch (e) {
                 console.error('Core Engine: Restore failure, clearing corrupted node:', e);
-                localStorage.removeItem('expense_system_user');
+                localStorage.removeItem('igh_session');
             }
 
             try {
@@ -273,15 +277,65 @@
         }, []);
 
         useEffect(() => {
-            if (user) {
-                fetchAllData();
+            if (!user) return;
+
+            // Initial load
+            fetchAllData();
+
+            // Real-time subscription — listens to ALL table changes and re-fetches
+            let realtimeChannel = null;
+            let debounceTimer = null;
+
+            const triggerRefresh = () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    fetchAllData();
+                }, 800); // debounce rapid bursts into a single refresh
+            };
+
+            try {
+                realtimeChannel = window.supabaseClient
+                    .channel('igh-realtime-sync')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' },       triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' },    triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' },    triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' },     triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' },   triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' },   triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'interactions' }, triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' },  triggerRefresh)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'users' },       triggerRefresh)
+                    .subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                            console.log('IGH Realtime: Live sync active — all tables monitored.');
+                        } else if (status === 'CHANNEL_ERROR') {
+                            console.warn('IGH Realtime: Channel error, falling back to 60s polling.');
+                        }
+                    });
+            } catch (err) {
+                console.warn('IGH Realtime: Subscription failed, falling back to 60s polling.', err);
             }
+
+            // Fallback polling every 60 seconds (covers cases where realtime is unavailable)
+            const pollingInterval = setInterval(() => {
+                fetchAllData();
+            }, 60 * 1000);
+
+            return () => {
+                clearTimeout(debounceTimer);
+                clearInterval(pollingInterval);
+                if (realtimeChannel) {
+                    window.supabaseClient.removeChannel(realtimeChannel);
+                    console.log('IGH Realtime: Channel closed.');
+                }
+            };
         }, [user]);
 
         const contextValue = useMemo(() => ({
             user, setUser, login, logout, changePassword,
             data, setData, updateData, updateItem, deleteItem, clearTable, getNextInvoiceNumber,
-            logActivity,
+            logActivity, fetchAllData,
             isDarkMode: isDarkModeState,
             setIsDarkMode: (val) => {
                 setIsDarkModeState(val);
